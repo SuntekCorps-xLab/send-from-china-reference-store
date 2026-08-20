@@ -21,6 +21,9 @@ jobs:
       - name: Install locked dependencies
         working-directory: shopify-customer-account
         run: npm ci
+      - name: Audit locked dependencies
+        working-directory: shopify-customer-account
+        run: npm audit --audit-level=high
       - name: Create non-deployable test config
         working-directory: shopify-customer-account
         run: cp shopify.app.toml.example shopify.app.toml
@@ -64,7 +67,10 @@ jobs:
         run: node scripts/scan-public.mjs .
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # GitHub's dependency-review API requires Advanced Security for private
+    # repositories. Dependabot alerts and npm audit cover the private RC; this
+    # job activates automatically when the repository is made public.
+    if: github.event_name == 'pull_request' && github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
