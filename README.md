@@ -104,14 +104,16 @@ server.
 
 ## Project status
 
-Current version: `0.1.0-rc.1`.
+Current version: `0.2.0-rc.1`.
 
 This is an open-source release candidate and integration reference, not a
 turnkey copy of the hosted Send From China service. The paired
 [`send-from-china-agent-core`](https://github.com/Peter-Fu-Collab/send-from-china-agent-core)
-repository provides a small synthetic read-only API/MCP example. Production
-sourcing, customer isolation, catalog writes, checkout completion, and payment
-are deliberately outside that starter's capability.
+repository provides the matching synthetic catalog and guarded preview-sourcing
+MCP contract. Its sourcing lifecycle is authenticated but ephemeral,
+non-billable, and non-purchasable. Production sourcing, customer isolation,
+catalog writes, checkout completion, and payment remain outside that starter's
+capability.
 
 ## Documentation
 

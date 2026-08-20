@@ -43,6 +43,19 @@ test("the agent drawer requires configuration and keeps sourcing explicit", () =
   assert.doesNotMatch(drawer + snippet, /wp-governance\.htfu\.workers\.dev/i);
 });
 
+test("the workspace preserves the authenticated sourcing lifecycle contract", () => {
+  const workspace = read("shopify-theme/assets/wp-workspace.js");
+  assert.match(workspace, /queueDynamicRequest\(/);
+  assert.match(workspace, /idempotency_key:\s*taskKey\(/);
+  assert.match(workspace, /method:\s*"POST"/);
+  assert.match(workspace, /"QUEUED"|QUEUED:/);
+  assert.match(workspace, /SOURCING:/);
+  assert.match(workspace, /GOVERNING:/);
+  assert.match(workspace, /RESULTS_READY:/);
+  assert.match(workspace, /\["NO_MATCH", "FAILED", "CANCELLED"\]/);
+  assert.doesNotMatch(workspace, /DEMO_AGENT_TOKEN|Authorization:\s*["'`]Bearer/i);
+});
+
 test("search and collection avoid fixed catalog-total claims", () => {
   const search = read("shopify-theme/sections/lm-search-chat.liquid");
   const collection = read("shopify-theme/sections/lm-collection.liquid");

@@ -22,3 +22,8 @@ When changing a state transition, add assertions for success, empty, invalid,
 unauthorized, unavailable-service, retry, and repeated-request behavior as
 applicable.
 
+For sourcing integration tests, pair this release with Agent Core
+`0.2.0-rc.1`. Verify terminal catalog miss, explicit confirmation, stable
+idempotency on retry, the documented task lifecycle, paginated results, and the
+absence of cart, checkout, order, and payment permission. Use synthetic data and
+a controlled local profile only.
