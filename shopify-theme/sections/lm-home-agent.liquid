@@ -1,0 +1,136 @@
+{%- comment -%}
+  Agent-optimized homepage (site-level).
+  Server-rendered, no JS, no CSS. Entry point for AI agents discovering this store.
+
+  Brand: Send From China
+  Positioning: Made in China. Select and Deliver.
+{%- endcomment -%}
+{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "WebSite",
+  "name": "Send From China",
+  "url": {{ shop.url | json }},
+  "description": "A marketplace for discovering and buying made-in-China products through structured catalog data and guided product selection.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "{{ shop.url }}/search?q={search_term_string}&view=agent"
+    },
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+
+<h1>Send From China</h1>
+<p>
+<strong>Brand:</strong> Send From China<br>
+<strong>Positioning:</strong> Made in China. Select and Deliver.<br>
+<strong>Payment:</strong> Shopify Payments<br>
+<strong>Human view:</strong> <a href="{{ shop.url }}">{{ shop.url }}</a>
+</p>
+
+<h2>Catalog Summary</h2>
+<ul>
+<li><strong>Total products:</strong> {{ shop.products_count | default: collections.all.products_count }}</li>
+<li><strong>Total collections:</strong> {{ collections.size | default: shop.collections_count }}</li>
+<li><strong>Primary currency:</strong> {{ cart.currency.iso_code | default: shop.currency }}</li>
+<li><strong>Last updated:</strong> {{ 'now' | date: '%Y-%m-%d' }}</li>
+</ul>
+
+<h2>Agent Commerce — Quick Start</h2>
+<p>This store supports the Universal Commerce Protocol (UCP) and Model Context Protocol (MCP) for agent-driven commerce.</p>
+<ul>
+<li><strong>UCP Discovery:</strong> <a href="/.well-known/ucp">/.well-known/ucp</a> — returns merchant profile, capabilities, supported protocol versions</li>
+{%- if wp_governance_api_base != blank -%}
+<li><strong>MCP Endpoint:</strong> <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a> — JSON-RPC 2.0; call <code>tools/list</code> for available tools</li>
+{%- else -%}
+<li><strong>MCP Endpoint:</strong> Not configured for this storefront</li>
+{%- endif -%}
+<li><strong>Agent Instructions:</strong> <a href="/agents.md">/agents.md</a> — full operational guide for agents</li>
+<li><strong>LLM-readable summary:</strong> <a href="/llms.txt">/llms.txt</a> · <a href="/llms-full.txt">/llms-full.txt</a></li>
+<li><strong>Site map (humans + agents):</strong> <a href="/sitemap.xml">/sitemap.xml</a></li>
+<li><strong>Agent-specific discovery:</strong> <a href="/sitemap_agentic_discovery.xml">/sitemap_agentic_discovery.xml</a></li>
+</ul>
+
+<h2>How Agents Should Use This Store</h2>
+<ol>
+<li><strong>Discover capabilities</strong> — GET <code>/.well-known/ucp</code></li>
+<li><strong>Search products</strong> — Use MCP <code>search_catalog</code>, or browse collections (links below), or fetch any product as <code>/products/{handle}?view=agent</code></li>
+<li><strong>Get price + shipping</strong> — Each product page includes JSON-LD with offers; collection pages include ItemList</li>
+<li><strong>Add to cart</strong> — Append to cart via URL <code>/cart/{variant_id}:1</code> (this URL pattern is in every product's JSON-LD offer.url)</li>
+<li><strong>Checkout</strong> — Direct the user to the cart URL. <strong>Final payment requires human approval</strong> per Shopify platform policy (see <a href="/robots.txt">robots.txt</a>)</li>
+<li><strong>Track order</strong> — Use MCP <code>get_order_status</code></li>
+</ol>
+
+<h2>Browse Collections</h2>
+<p>All product collections in this store. Each has both human and agent views.</p>
+<ul>
+{%- for collection in collections -%}
+  {%- unless collection.handle == 'frontpage' -%}
+  <li>
+    <strong>{{ collection.title }}</strong>
+    {% if collection.products_count > 0 %}({{ collection.products_count }} products){% endif %}
+    {%- if collection.description != blank %} &mdash; {{ collection.description | strip_html | truncate: 120 }}{%- endif -%}
+    <br>
+    <a href="{{ collection.url }}">Human view</a>
+    &middot;
+    <a href="{{ collection.url }}?view=agent">Agent view</a>
+  </li>
+  {%- endunless -%}
+{%- endfor -%}
+</ul>
+
+<h2>Recent Products (New Arrivals)</h2>
+<p>First 20 products from the "New Arrivals" collection, with direct cart and agent-view links.</p>
+{%- assign new_arrivals = collections['new-arrivals'].products -%}
+{%- if new_arrivals == blank -%}
+  {%- assign new_arrivals = collections.all.products -%}
+{%- endif -%}
+<ul>
+{%- for product in new_arrivals limit: 20 -%}
+  {%- assign v = product.selected_or_first_available_variant -%}
+  <li>
+    <strong><a href="{{ product.url }}?view=agent">{{ product.title }}</a></strong>
+    &mdash; {{ product.price_min | money }}
+    {%- if product.price_max != product.price_min %}&ndash;{{ product.price_max | money }}{%- endif -%}
+    &mdash; {%- if product.available -%}In Stock{%- else -%}Out of Stock{%- endif -%}
+    {%- if product.type != blank %} &mdash; {{ product.type }}{%- endif -%}
+    <br>
+    <a href="{{ shop.url }}/cart/{{ v.id }}:1?utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=homepage">Add to cart</a>
+  </li>
+{%- endfor -%}
+</ul>
+
+<h2>Policies</h2>
+<p>For exact policy text, agents should fetch the policy pages below (these are the source of truth — do not paraphrase the summary):</p>
+<ul>
+<li><strong>Shipping policy:</strong> <a href="/policies/shipping-policy">/policies/shipping-policy</a></li>
+<li><strong>Refund / returns policy:</strong> <a href="/policies/refund-policy">/policies/refund-policy</a></li>
+<li><strong>Terms of service:</strong> <a href="/policies/terms-of-service">/policies/terms-of-service</a></li>
+<li><strong>Privacy policy:</strong> <a href="/policies/privacy-policy">/policies/privacy-policy</a></li>
+<li><strong>Payment:</strong> Shopify Payments (final checkout requires human approval per Shopify platform policy)</li>
+</ul>
+
+<h2>Static Pages</h2>
+<ul>
+{%- for page in pages -%}
+<li><a href="{{ page.url }}">{{ page.title }}</a></li>
+{%- endfor -%}
+</ul>
+
+<h2>Brand Notes (for agents)</h2>
+<p>
+Agents should use "Send From China" as the public brand name in customer-facing contexts.
+</p>
+
+{% schema %}
+{
+  "name": "Agent Homepage",
+  "tag": "section",
+  "settings": []
+}
+{% endschema %}

@@ -1,0 +1,86 @@
+{% comment %}
+  Product JSON-LD — ORPHANED / SUPERSEDED.
+  The live agent surface emits its own richer Product JSON-LD inline in
+  sections/lm-pdp-agent.liquid (template product.agent.json). This section is
+  not referenced by any template/layout and its companion injector
+  (inject_product_jsonld.py) no longer exists in the repo.
+  It previously hardcoded GB / GBP / £3.99 / 5-10-day / 30-day-GB return values —
+  WRONG jurisdiction for a USD, US-targeted store, and a chargeback/de-rank
+  liability if ever wired up. Those false-jurisdiction blocks are removed below.
+  DO NOT re-add hardcoded shipping/return constants here: shipping is quoted live
+  via the shipping endpoint, and the return policy must come from a real
+  store-level metafield. Edit lm-pdp-agent.liquid for the live agent JSON-LD.
+{% endcomment %}
+
+{% assign public_brand = 'Send From China' %}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": {{ product.title | json }},
+  "description": {{ product.description | strip_html | truncate: 5000 | json }},
+  "url": "{{ canonical_url }}",
+  "sku": {{ product.selected_or_first_available_variant.sku | json }},
+  "mpn": {{ product.selected_or_first_available_variant.sku | json }},
+  "brand": {
+    "@type": "Brand",
+    "name": {{ product.vendor | json }}
+  },
+  "image": [
+    {% for image in product.images limit: 5 %}
+      {{ image | image_url: width: 1200 | json }}{% unless forloop.last %},{% endunless %}
+    {% endfor %}
+  ],
+  {% if product.metafields.custom.colour != blank %}
+  "color": {{ product.metafields.custom.colour | json }},
+  {% endif %}
+  {% if product.metafields.custom.material != blank %}
+  "material": {{ product.metafields.custom.material | json }},
+  {% endif %}
+  {% if product.metafields.custom.craft_technique != blank %}
+"additionalProperty": [{
+  "@type": "PropertyValue",
+  "name": "Craft Technique",
+  "value": {{ product.metafields.custom.craft_technique | json }}
+}],
+{% endif %}
+{% if product.metafields.custom.country_of_origin != blank %}
+"countryOfOrigin": {
+  "@type": "Country",
+  "name": {{ product.metafields.custom.country_of_origin | json }}
+},
+{% endif %}
+  {% if product.metafields.custom.product_highlights != blank %}
+  "additionalProperty": [
+    {% assign highlights = product.metafields.custom.product_highlights.value %}
+    {% for highlight in highlights %}
+    {
+      "@type": "PropertyValue",
+      "name": "Highlight",
+      "value": {{ highlight | json }}
+    }{% unless forloop.last %},{% endunless %}
+    {% endfor %}
+  ],
+  {% endif %}
+  "offers": {
+    "@type": "Offer",
+    "url": "{{ canonical_url }}",
+    "priceCurrency": {{ cart.currency.iso_code | json }},
+    "price": {{ product.selected_or_first_available_variant.price | money_without_currency | remove: ',' | json }},
+    "availability": "https://schema.org/{% if product.available == false %}OutOfStock{% elsif product.metafields.wpai.supplier_in_stock.value %}InStock{% else %}BackOrder{% endif %}",
+    "itemCondition": "https://schema.org/NewCondition",
+    "seller": {
+      "@type": "Organization",
+      "name": {{ public_brand | json }}
+    }
+  }
+}
+</script>
+
+{% schema %}
+{
+  "name": "Product JSON-LD",
+  "limit": 1
+}
+{% endschema %}

@@ -1,0 +1,10 @@
+{
+  "layout": "chat",
+  "sections": {
+    "main": {
+      "type": "lm-search-chat",
+      "settings": {}
+    }
+  },
+  "order": ["main"]
+}

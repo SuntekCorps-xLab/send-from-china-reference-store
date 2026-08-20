@@ -1,0 +1,178 @@
+{%- comment -%}
+  Shared Send From China storefront shell. The palette follows the product
+  family while keeping the commerce catalog and account surfaces deliberately
+  quieter than a marketing site.
+{%- endcomment -%}
+<style>
+  :root{
+    --wp-signal:#c64b1a;
+    --wp-signal-dark:#9f3913;
+    --wp-signal-soft:#f7e7df;
+    --wp-ink:#142b2f;
+    --wp-ink-soft:#344b4e;
+    --wp-slate:#667572;
+    --wp-mist:#f4f3ee;
+    --wp-line:#d8deda;
+    --wp-white:#ffffff;
+    --wp-sand:#f1e4d8;
+    --wp-success:#1e6f55;
+    --wp-warning:#a85c00;
+    --wp-danger:#b83a32;
+    --wph-bg:var(--wp-mist);
+    --wph-ink:var(--wp-ink);
+    --wph-ink-2:var(--wp-ink-soft);
+    --wph-muted:var(--wp-slate);
+    --wph-line:var(--wp-line);
+    --wph-card:var(--wp-white);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--wp-mist) !important;
+    color:var(--wp-ink) !important;
+    font-family:Inter,"Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif !important;
+    letter-spacing:0 !important;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+  main#MainContent{display:block;min-height:100vh}
+  button,input,textarea,select{font:inherit;letter-spacing:0}
+  .wp-shell{position:relative}
+
+  .wp-topbar-shell{
+    position:sticky;
+    top:0;
+    z-index:40;
+    isolation:isolate;
+    overflow:clip;
+    background:var(--wp-white);
+    border-bottom:1px solid var(--wp-line);
+    box-shadow:0 1px 0 rgba(20,43,47,.03);
+  }
+  .wp-topbar{
+    position:relative;
+    z-index:1;
+    display:grid;
+    grid-template-columns:minmax(250px,auto) minmax(260px,620px) auto;
+    align-items:center;
+    gap:24px;
+    width:min(100%,1480px);
+    min-height:76px;
+    margin:0 auto;
+    padding:12px 28px;
+    background:var(--wp-white);
+  }
+  .wp-topbar-brand{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    min-width:0;
+    color:var(--wp-ink);
+    text-decoration:none;
+  }
+  .wp-topbar-logo{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
+    border-radius:6px;
+    background:var(--wp-ink);
+    color:var(--wp-white);
+    font-size:13px;
+    font-weight:800;
+  }
+  .wp-topbar-brand-copy{display:grid;gap:1px;min-width:0}
+  .wp-topbar-mark{color:var(--wp-ink);font-size:15px;font-weight:760;line-height:1.2;text-decoration:none}
+  .wp-topbar-tagline{color:var(--wp-slate);font-size:10px;line-height:1.3;white-space:nowrap}
+  .wp-topbar-search{
+    display:flex;
+    align-items:center;
+    width:100%;
+    min-width:0;
+    height:44px;
+    border:1px solid #cbd3d0;
+    border-radius:6px;
+    background:var(--wp-white);
+    transition:border-color .16s,box-shadow .16s;
+  }
+  .wp-topbar-search:focus-within{border-color:var(--wp-signal);box-shadow:0 0 0 3px var(--wp-signal-soft)}
+  .wp-topbar-search input{
+    flex:1;
+    min-width:0;
+    height:100%;
+    padding:0 14px;
+    border:0;
+    outline:0;
+    background:transparent;
+    color:var(--wp-ink);
+    font-size:13px;
+  }
+  .wp-topbar-search input::placeholder{color:#8a969a}
+  .wp-topbar-search button{
+    display:grid;
+    place-items:center;
+    width:44px;
+    height:42px;
+    flex:0 0 44px;
+    border:0;
+    border-left:1px solid var(--wp-line);
+    border-radius:0 5px 5px 0;
+    background:var(--wp-ink);
+    color:var(--wp-white);
+    cursor:pointer;
+  }
+  .wp-topbar-search button:hover{background:var(--wp-ink-soft)}
+  .wp-topbar-search button svg{width:16px;height:16px}
+  .wp-topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;white-space:nowrap}
+  .wp-topbar-shop,.wp-topbar-agent,.wp-topbar-track,.wp-topbar-for-agents,.wp-topbar-account,.wp-topbar-cart{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:38px;
+    padding:0 11px;
+    border:1px solid transparent;
+    border-radius:5px;
+    color:var(--wp-ink-soft);
+    background:transparent;
+    font-family:inherit;
+    font-size:12px;
+    font-weight:650;
+    text-decoration:none;
+  }
+  .wp-topbar-shop:hover,.wp-topbar-agent:hover,.wp-topbar-track:hover,.wp-topbar-for-agents:hover,.wp-topbar-account:hover,.wp-topbar-cart:hover{background:var(--wp-mist);color:var(--wp-ink)}
+  .wp-topbar-agent{gap:6px;color:var(--wp-ink)}
+  .wp-topbar-agent svg{width:16px;height:16px}
+  .wp-topbar-account{border-color:var(--wp-line)}
+  .wp-topbar-cart,.wp-topbar-cart:visited{border-color:var(--wp-ink);background:var(--wp-ink);color:var(--wp-white)!important}
+  .wp-topbar-cart:hover{background:var(--wp-ink-soft);color:var(--wp-white)!important}
+
+  .wp-pagefoot{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:13px;
+    padding:40px 24px 28px;
+    color:var(--wp-slate);
+    font-size:11px;
+  }
+  .wp-pagefoot a{color:inherit;text-decoration:none}
+  .wp-pagefoot a:hover{color:var(--wp-signal-dark)}
+  .wp-pagefoot .sep{color:#aab3b0}
+
+  @media(max-width:1080px){
+    .wp-topbar{grid-template-columns:minmax(220px,auto) minmax(240px,1fr);gap:14px}
+    .wp-topbar-actions{grid-column:1/-1;justify-content:flex-start;border-top:1px solid var(--wp-line);padding-top:8px}
+  }
+  @media(max-width:700px){
+    .wp-topbar{grid-template-columns:1fr auto;min-height:auto;padding:10px 14px;gap:10px}
+    .wp-topbar-brand{grid-column:1}
+    .wp-topbar-search{grid-column:1/-1;grid-row:2}
+    .wp-topbar-actions{grid-column:1/-1;grid-row:3;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding-top:8px;gap:4px}
+    .wp-topbar-shop,.wp-topbar-for-agents{display:none}
+    .wp-topbar-agent,.wp-topbar-track,.wp-topbar-account,.wp-topbar-cart{min-width:0;padding:0 6px;font-size:10px;white-space:normal;text-align:center}
+    .wp-topbar-agent svg{display:none}
+    .wp-topbar-tagline{font-size:9px}
+  }
+</style>

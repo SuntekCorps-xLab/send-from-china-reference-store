@@ -1,0 +1,140 @@
+{%- comment -%}
+  Agent-optimized Collection page.
+  Server-rendered, no JS, no CSS. Optimized for LLM crawlers and agent commerce.
+  Brand: Send From China.
+{%- endcomment -%}
+
+{%- comment -%}
+  UTM scheme for AI-agent traffic attribution from collection-list surface.
+{%- endcomment -%}
+{%- assign utm_collection = 'utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=collection_list' -%}
+
+{%- paginate collection.products by 100 -%}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "ItemList",
+  "name": {{ collection.title | json }},
+  "description": {{ collection.description | strip_html | json }},
+  "url": {{ canonical_url | json }},
+  "numberOfItems": {{ collection.products_count }},
+  "itemListElement": [
+  {%- for product in collection.products -%}
+    {%- assign v = product.selected_or_first_available_variant -%}
+    {
+      "@type": "ListItem",
+      "position": {{ forloop.index | plus: paginate.current_offset }},
+      "item": {
+        "@type": "Product",
+        "name": {{ product.title | json }},
+        "url": "{{ shop.url }}{{ product.url }}",
+        "sku": {{ v.sku | json }},
+        "image": {
+          "@type": "ImageObject",
+          "url": {{ product.featured_image | image_url: width: 1200 | json }},
+          "thumbnailUrl": {{ product.featured_image | image_url: width: 400 | json }},
+          "name": {{ product.featured_image.alt | default: product.title | json }},
+          "caption": {{ product.featured_image.alt | default: product.title | json }}
+        },
+        "brand": {
+          "@type": "Brand",
+          "name": "Send From China"
+        },
+        "offers": {
+          "@type": "Offer",
+          "url": "{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_collection }}",
+          "price": "{{ product.price_min | divided_by: 100.0 }}",
+          "priceCurrency": {{ cart.currency.iso_code | json }},
+          "availability": "https://schema.org/{%- if product.available -%}InStock{%- else -%}OutOfStock{%- endif -%}"
+        }
+      }
+    }{%- unless forloop.last -%},{%- endunless -%}
+  {%- endfor -%}
+  ]
+}
+</script>
+
+<h1>{{ collection.title }}</h1>
+
+{%- if collection.description != blank -%}
+<p>{{ collection.description | strip_html }}</p>
+{%- endif -%}
+
+<p>
+<strong>Brand:</strong> Send From China<br>
+<strong>Collection:</strong> {{ collection.handle }}<br>
+<strong>Total products:</strong> {{ collection.products_count }}<br>
+<strong>Showing on this page:</strong> {{ collection.products.size }} (page {{ paginate.current_page }} of {{ paginate.pages }})<br>
+<strong>Human view:</strong> <a href="{{ canonical_url }}">{{ canonical_url }}</a><br>
+<strong>JSON data:</strong> <a href="{{ canonical_url }}.json">{{ canonical_url }}.json</a>
+</p>
+
+<h2>Products</h2>
+<ul>
+{%- for product in collection.products -%}
+  {%- assign v = product.selected_or_first_available_variant -%}
+  <li>
+    <strong><a href="{{ product.url }}?view=agent">{{ product.title }}</a></strong>
+    {%- if v.sku != blank %} &mdash; SKU: {{ v.sku }}{%- endif -%}
+    &mdash; Price: {{ product.price_min | money }}
+    {%- if product.price_max != product.price_min %}&ndash;{{ product.price_max | money }}{%- endif -%}
+    &mdash; {%- if product.available -%}In Stock{%- else -%}Out of Stock{%- endif -%}
+    {%- if product.type != blank %} &mdash; Type: {{ product.type }}{%- endif -%}
+    <br>
+    {%- if product.featured_image -%}
+    Image: <a href="{{ product.featured_image | image_url: width: 1200 }}">{{ product.featured_image | image_url: width: 400 }}</a>
+    {%- if product.featured_image.alt != blank %} (alt: {{ product.featured_image.alt }}){%- endif -%}
+    <br>
+    {%- endif -%}
+    Cart URL: <a href="{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_collection }}">{{ shop.url }}/cart/{{ v.id }}:1</a>
+    {%- if product.metafields.custom.country_of_origin != blank %} &middot; Origin: {{ product.metafields.custom.country_of_origin }}{%- endif -%}
+    {%- if product.metafields.custom.material != blank %} &middot; Material: {{ product.metafields.custom.material }}{%- endif -%}
+  </li>
+{%- endfor -%}
+</ul>
+
+{%- if paginate.pages > 1 -%}
+<h2>Pagination</h2>
+<ul>
+{%- if paginate.previous -%}
+<li><a href="{{ paginate.previous.url | append: '&view=agent' | replace: '?&', '?' }}">Previous page</a></li>
+{%- endif -%}
+{%- if paginate.next -%}
+<li><a href="{{ paginate.next.url | append: '&view=agent' | replace: '?&', '?' }}">Next page</a></li>
+{%- endif -%}
+</ul>
+<p>Page {{ paginate.current_page }} of {{ paginate.pages }}.</p>
+{%- endif -%}
+
+{%- endpaginate -%}
+
+<h2>Related Collections</h2>
+<p>Browse other collections in the catalog:</p>
+<ul>
+{%- for col in collections limit: 20 -%}
+  {%- unless col.handle == collection.handle -%}
+  <li><a href="{{ col.url }}?view=agent">{{ col.title }}</a> ({{ col.products_count }} products)</li>
+  {%- endunless -%}
+{%- endfor -%}
+</ul>
+
+{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+<h2>For Agents</h2>
+<p>
+This site supports the Universal Commerce Protocol (UCP). Discovery: <a href="/.well-known/ucp">/.well-known/ucp</a>.
+{%- if wp_governance_api_base != blank -%}
+MCP endpoint: <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a>.
+{%- else -%}
+MCP endpoint: not configured.
+{%- endif -%}
+Agent instructions: <a href="/agents.md">/agents.md</a>.
+</p>
+
+{% schema %}
+{
+  "name": "Agent Collection Page",
+  "tag": "section",
+  "settings": []
+}
+{% endschema %}

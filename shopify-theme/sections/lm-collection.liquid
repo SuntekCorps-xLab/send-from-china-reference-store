@@ -1,0 +1,266 @@
+{%- unless collection -%}{%- assign collection = collections.all -%}{%- endunless -%}
+{% render 'wp-shell' %}
+{%- assign wp_agent_url = settings.wp_shopping_agent_url | strip -%}
+{%- assign current_sort = collection.sort_by | default: collection.default_sort_by -%}
+{%- assign is_all_catalog = false -%}
+{%- if collection.handle == 'all' -%}{%- assign is_all_catalog = true -%}{%- endif -%}
+
+<style>
+  .wp-service-launchers,.wp-account-entry,.wp-agent-view-switcher{display:none!important}
+  .sfc-collection{width:min(100%,1280px);margin:0 auto;padding:48px 28px 72px}
+  .sfc-collection-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:32px;padding-bottom:28px;border-bottom:1px solid var(--wp-line)}
+  .sfc-collection-kicker{margin:0 0 10px;color:var(--wp-signal-dark);font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+  .sfc-collection h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(40px,6vw,68px);font-weight:500;letter-spacing:-.04em;line-height:.96}
+  .sfc-collection-description{max-width:680px;margin:15px 0 0;color:var(--wp-slate);font-size:13px;line-height:1.65}
+  .sfc-collection-agent{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:1px solid var(--wp-ink);border-radius:5px;color:var(--wp-ink);font-size:11px;font-weight:780;text-decoration:none;white-space:nowrap}
+  .sfc-collection-agent:hover{background:var(--wp-ink);color:#fff}
+  .sfc-collection-tools{display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:72px}
+  .sfc-collection-count{color:var(--wp-slate);font-size:11px}.sfc-collection-count strong{color:var(--wp-ink)}
+  .sfc-collection-sort{display:flex;align-items:center;gap:9px;color:var(--wp-slate);font-size:10px;font-weight:760;text-transform:uppercase}
+  .sfc-collection-sort select{min-height:40px;padding:0 34px 0 11px;border:1px solid var(--wp-line);border-radius:5px;background:#fff;color:var(--wp-ink);font:inherit;font-size:11px;text-transform:none}
+  .sfc-collection-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .sfc-collection-card{display:grid;grid-template-rows:auto 1fr;min-width:0;overflow:hidden;border:1px solid var(--wp-line);border-radius:8px;background:#fff;color:var(--wp-ink);text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .sfc-collection-card:hover{transform:translateY(-3px);border-color:#b4c1bc;box-shadow:0 14px 32px rgba(22,41,47,.09)}
+  .sfc-collection-media{position:relative;display:grid;place-items:center;aspect-ratio:1/1;background:#fff}
+  .sfc-collection-media img{width:100%;height:100%;padding:12px;object-fit:contain}
+  .sfc-collection-media-empty{color:var(--wp-slate);font-size:10px;text-transform:uppercase}
+  .sfc-collection-stock{position:absolute;top:10px;left:10px;padding:5px 7px;border:1px solid var(--wp-line);border-radius:4px;background:rgba(255,255,255,.94);color:var(--wp-success);font-size:8px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+  .sfc-collection-stock.is-unavailable{color:var(--wp-slate)}
+  .sfc-collection-copy{display:flex;flex-direction:column;padding:15px;border-top:1px solid var(--wp-line)}
+  .sfc-collection-type{margin-bottom:7px;color:var(--wp-slate);font-size:8px;font-weight:820;letter-spacing:.08em;text-transform:uppercase}
+  .sfc-collection-name{display:-webkit-box;min-height:42px;overflow:hidden;font-size:13px;font-weight:680;line-height:1.45;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .sfc-collection-price{margin-top:auto;padding-top:13px;font-size:14px;font-weight:820}
+  .sfc-collection-empty{padding:70px 24px;border:1px solid var(--wp-line);border-radius:8px;background:#fff;text-align:center}
+  .sfc-collection-empty h2{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:32px;font-weight:500}.sfc-collection-empty p{margin:13px 0 0;color:var(--wp-slate);font-size:13px}
+  .sfc-pagination{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin-top:38px}
+  .sfc-pagination a,.sfc-pagination span{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;padding:0 11px;border:1px solid transparent;border-radius:5px;color:var(--wp-ink);font-size:11px;text-decoration:none}
+  .sfc-pagination a:hover{border-color:var(--wp-line);background:#fff}.sfc-pagination .is-current{background:var(--wp-ink);color:#fff}.sfc-pagination .is-disabled{color:var(--wp-slate)}
+  .sfc-catalog-load{display:flex;justify-content:center;margin-top:32px}.sfc-catalog-load button{min-width:190px;min-height:44px;padding:0 18px;border:1px solid var(--wp-ink);border-radius:5px;background:#fff;color:var(--wp-ink);font:inherit;font-size:11px;font-weight:780;cursor:pointer}.sfc-catalog-load button:hover{background:var(--wp-ink);color:#fff}.sfc-catalog-load button:disabled{opacity:.55;cursor:wait}
+  .sfc-catalog-state{grid-column:1/-1;display:grid;place-items:center;min-height:260px;padding:32px;border:1px solid var(--wp-line);border-radius:8px;background:#fff;color:var(--wp-slate);font-size:12px;text-align:center}
+  @media(max-width:980px){.sfc-collection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:700px){.sfc-collection{padding:34px 16px 54px}.sfc-collection-head{display:block}.sfc-collection-agent{margin-top:20px}.sfc-collection-tools{align-items:flex-start;flex-direction:column;justify-content:center;padding-block:14px}.sfc-collection-sort{width:100%;justify-content:space-between}.sfc-collection-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sfc-collection-copy{padding:11px}}
+  @media(max-width:390px){.sfc-collection-grid{grid-template-columns:1fr}}
+  @media(prefers-reduced-motion:reduce){.sfc-collection-card{transition:none}}
+</style>
+
+<div class="wp-shell">
+  {% render 'wp-shell-topbar' %}
+
+  <div class="sfc-collection"{% if is_all_catalog %} data-live-catalog data-api-base="{{ settings.wp_governance_api_base | escape }}" data-store="{{ request.host | escape }}"{% endif %}>
+    <header class="sfc-collection-head">
+      <div>
+        <p class="sfc-collection-kicker">Catalog collection</p>
+        <h1>{{ collection.title | escape }}</h1>
+        {%- if collection.description != blank -%}<div class="sfc-collection-description">{{ collection.description | strip_html | escape }}</div>{%- endif -%}
+      </div>
+      {%- if wp_agent_url != blank -%}
+        <a class="sfc-collection-agent" href="{{ wp_agent_url }}?q={{ 'Help me choose from ' | append: collection.title | url_encode }}&amp;auto=1">Ask Agent about this collection</a>
+      {%- else -%}
+        <button class="sfc-collection-agent" type="button" data-open-agent-drawer data-agent-brief="Help me choose from {{ collection.title | escape }}">Ask Agent about this collection</button>
+      {%- endif -%}
+    </header>
+
+    <div class="sfc-collection-tools">
+      {%- if is_all_catalog -%}
+        <span class="sfc-collection-count" data-live-catalog-count>Loading the current governed catalog…</span>
+      {%- else -%}
+        <span class="sfc-collection-count"><strong>{{ collection.products_count }}</strong> product{% if collection.products_count != 1 %}s{% endif %}</span>
+      {%- endif -%}
+      {%- unless is_all_catalog -%}<form class="sfc-collection-sort" method="get">
+        <label for="SfcCollectionSort">Sort by</label>
+        <select id="SfcCollectionSort" name="sort_by" onchange="this.form.submit()">
+          {%- for option in collection.sort_options -%}
+            <option value="{{ option.value | escape }}"{% if option.value == current_sort %} selected{% endif %}>{{ option.name | escape }}</option>
+          {%- endfor -%}
+        </select>
+      </form>{%- endunless -%}
+    </div>
+
+    {%- if is_all_catalog -%}
+      <div class="sfc-collection-grid" data-live-catalog-grid aria-live="polite" aria-busy="true">
+        <div class="sfc-catalog-state">Loading live governed products…</div>
+      </div>
+      <div class="sfc-catalog-load" data-live-catalog-load hidden><button type="button">Load more products</button></div>
+    {%- else -%}
+      {%- paginate collection.products by 24 -%}
+      {%- if collection.products.size > 0 -%}
+        <div class="sfc-collection-grid">
+          {%- for product in collection.products -%}
+            {%- assign external_image_url = product.metafields.wpai.external_image_url.value | default: product.metafields.wpai.external_image_url -%}
+            {%- assign external_image_alt = product.metafields.wpai.external_image_alt.value | default: product.title -%}
+            <a class="sfc-collection-card" href="{{ product.url }}">
+              <span class="sfc-collection-media">
+                {%- if product.featured_image -%}
+                  {{ product.featured_image | image_url: width: 720 | image_tag: loading: 'lazy', widths: '240, 360, 480, 720', alt: '' }}
+                {%- elsif external_image_url != blank -%}
+                  <img src="{{ external_image_url | escape }}" alt="{{ external_image_alt | escape }}" width="720" height="720" loading="lazy" referrerpolicy="no-referrer">
+                {%- else -%}
+                  <span class="sfc-collection-media-empty">Image unavailable</span>
+                {%- endif -%}
+                <span class="sfc-collection-stock{% unless product.available %} is-unavailable{% endunless %}">{% if product.available %}Available{% else %}Unavailable{% endif %}</span>
+              </span>
+              <span class="sfc-collection-copy">
+                {%- if product.type != blank -%}<span class="sfc-collection-type">{{ product.type | escape }}</span>{%- endif -%}
+                <span class="sfc-collection-name">{{ product.title | escape }}</span>
+                <span class="sfc-collection-price">{{ product.price_min | money }}{% if product.price_varies %} and up{% endif %}</span>
+              </span>
+            </a>
+          {%- endfor -%}
+        </div>
+      {%- else -%}
+        <div class="sfc-collection-empty"><h2>No products in this collection</h2><p>Try another collection or ask the Agent to help with a product brief.</p></div>
+      {%- endif -%}
+
+      {%- if paginate.pages > 1 -%}
+        <nav class="sfc-pagination" aria-label="Collection pages">
+          {%- if paginate.previous -%}<a href="{{ paginate.previous.url }}">Previous</a>{%- else -%}<span class="is-disabled">Previous</span>{%- endif -%}
+          {%- for part in paginate.parts -%}
+            {%- if part.is_link -%}<a href="{{ part.url }}">{{ part.title }}</a>{%- elsif part.title == paginate.current_page -%}<span class="is-current" aria-current="page">{{ part.title }}</span>{%- else -%}<span>{{ part.title }}</span>{%- endif -%}
+          {%- endfor -%}
+          {%- if paginate.next -%}<a href="{{ paginate.next.url }}">Next</a>{%- else -%}<span class="is-disabled">Next</span>{%- endif -%}
+        </nav>
+      {%- endif -%}
+      {%- endpaginate -%}
+    {%- endif -%}
+  </div>
+
+  {% render 'wp-shell-footer' %}
+</div>
+
+{%- if is_all_catalog -%}
+<script>
+(() => {
+  const root = document.querySelector("[data-live-catalog]");
+  if (!root) return;
+  const grid = root.querySelector("[data-live-catalog-grid]");
+  const status = root.querySelector("[data-live-catalog-count]");
+  const loadShell = root.querySelector("[data-live-catalog-load]");
+  const loadButton = loadShell.querySelector("button");
+  const apiBase = root.dataset.apiBase.trim().replace(/\/+$/, "");
+  const store = root.dataset.store.trim();
+  let cursor = "";
+  let loaded = 0;
+  let busy = false;
+
+  const safeUrl = (value) => {
+    try {
+      const url = new URL(String(value || ""), window.location.origin);
+      return url.protocol === "https:" ? url.href : "";
+    } catch (_error) { return ""; }
+  };
+
+  const cardFor = (product) => {
+    const href = safeUrl(product?.url);
+    const title = String(product?.title || "").trim();
+    if (!href || !title || product?.available !== true) return null;
+    const card = document.createElement("a");
+    card.className = "sfc-collection-card";
+    card.href = href;
+    const media = document.createElement("span");
+    media.className = "sfc-collection-media";
+    const imageUrl = safeUrl(product?.image);
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.src = imageUrl;
+      image.alt = "";
+      image.loading = "lazy";
+      image.width = 720;
+      image.height = 720;
+      media.append(image);
+    } else {
+      const missing = document.createElement("span");
+      missing.className = "sfc-collection-media-empty";
+      missing.textContent = "Image unavailable";
+      media.append(missing);
+    }
+    const badge = document.createElement("span");
+    badge.className = "sfc-collection-stock";
+    badge.textContent = "Available";
+    media.append(badge);
+    const copy = document.createElement("span");
+    copy.className = "sfc-collection-copy";
+    if (product?.type) {
+      const type = document.createElement("span");
+      type.className = "sfc-collection-type";
+      type.textContent = String(product.type).slice(0, 80);
+      copy.append(type);
+    }
+    const name = document.createElement("span");
+    name.className = "sfc-collection-name";
+    name.textContent = title.slice(0, 180);
+    copy.append(name);
+    const price = document.createElement("span");
+    price.className = "sfc-collection-price";
+    const amount = Number(product?.price);
+    const currency = String(product?.currency || "").toUpperCase();
+    price.textContent = Number.isFinite(amount) && amount > 0 && /^[A-Z]{3}$/.test(currency)
+      ? `From ${new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount)}`
+      : "View current price";
+    copy.append(price);
+    card.append(media, copy);
+    return card;
+  };
+
+  const showState = (message, keepLoad = false) => {
+    grid.replaceChildren();
+    const state = document.createElement("div");
+    state.className = "sfc-catalog-state";
+    state.textContent = message;
+    grid.append(state);
+    grid.setAttribute("aria-busy", "false");
+    loadShell.hidden = !keepLoad;
+  };
+
+  async function loadPage() {
+    if (busy) return;
+    if (!apiBase) {
+      showState("The live catalog service is not configured for this storefront.");
+      return;
+    }
+    busy = true;
+    loadButton.disabled = true;
+    loadButton.textContent = "Loading…";
+    try {
+      const response = await fetch(`${apiBase}/api/catalog`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ q: "", store, cursor, limit: 24 }),
+      });
+      if (!response.ok) throw new Error(`catalog_${response.status}`);
+      const payload = await response.json();
+      const cards = (Array.isArray(payload?.products) ? payload.products : []).map(cardFor).filter(Boolean);
+      if (!cursor) grid.replaceChildren();
+      grid.append(...cards);
+      loaded += cards.length;
+      cursor = String(payload?.nextCursor || "");
+      grid.setAttribute("aria-busy", "false");
+      status.textContent = loaded
+        ? `Showing ${loaded.toLocaleString()} live governed product${loaded === 1 ? "" : "s"}. Newest first.`
+        : "No live governed products are currently available.";
+      loadShell.hidden = !cursor;
+      if (!loaded) showState("No governed products were found in this catalog window.", Boolean(cursor));
+    } catch (error) {
+      if (!loaded) showState("The live catalog is temporarily unavailable. Please try again.");
+      status.textContent = "The live catalog could not be loaded.";
+      console.warn("live catalog error", error);
+    } finally {
+      busy = false;
+      loadButton.disabled = false;
+      loadButton.textContent = "Load more products";
+    }
+  }
+
+  loadButton.addEventListener("click", loadPage);
+  loadPage();
+})();
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Catalog collection",
+  "tag": "section",
+  "class": "sfc-collection-section",
+  "settings": []
+}
+{% endschema %}

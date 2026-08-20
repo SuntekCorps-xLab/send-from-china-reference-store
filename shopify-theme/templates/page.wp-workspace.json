@@ -1,0 +1,10 @@
+{
+  "layout": "chat",
+  "sections": {
+    "main": {
+      "type": "wp-workspace",
+      "settings": {}
+    }
+  },
+  "order": ["main"]
+}

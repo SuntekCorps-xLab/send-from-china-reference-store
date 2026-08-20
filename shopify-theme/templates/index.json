@@ -1,0 +1,10 @@
+{
+  "layout": "chat",
+  "sections": {
+    "product_discovery_v2": {
+      "type": "lm-home-chat",
+      "settings": {}
+    }
+  },
+  "order": ["product_discovery_v2"]
+}

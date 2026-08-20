@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code | default: 'en' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<title>{{ page_title | escape }}</title>
+{%- if page_description != blank -%}
+<meta name="description" content="{{ page_description | escape }}">
+{%- endif -%}
+<link rel="canonical" href="{{ canonical_url }}">
+<link rel="alternate" type="text/html" href="{{ canonical_url }}" title="Human view">
+
+{%- comment -%}
+==============================================================
+  Send From China - Agent View
+  An AI-agent-optimized rendering of this page.
+  Brand: Send From China
+  Positioning: Made in China. Select and Deliver. Structured for agent commerce.
+  For human browsing, follow the canonical URL above.
+  This site supports UCP/MCP protocols — see /agents.md and /.well-known/ucp
+==============================================================
+{%- endcomment -%}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Organization",
+  "name": "Send From China",
+  "url": {{ shop.url | json }},
+  "description": "Send From China helps humans and agents select and purchase products from China with structured catalog data and cross-border delivery."
+}
+</script>
+
+{{ content_for_header }}
+</head>
+<body>
+
+{{ content_for_layout }}
+
+<hr>
+<footer>
+<p>
+<strong>Send From China</strong><br>
+Made in China. Select and Deliver. Site: <a href="{{ shop.url }}">{{ shop.url }}</a><br>
+Agent resources:
+<a href="/llms.txt">/llms.txt</a> &middot;
+<a href="/llms-full.txt">/llms-full.txt</a> &middot;
+<a href="/agents.md">/agents.md</a> &middot;
+<a href="/.well-known/ucp">/.well-known/ucp</a>
+</p>
+</footer>
+
+</body>
+</html>

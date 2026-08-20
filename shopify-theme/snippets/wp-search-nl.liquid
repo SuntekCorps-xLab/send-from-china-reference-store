@@ -1,0 +1,19 @@
+{%- comment -%}
+  DEPRECATED — intentionally a no-op.
+
+  This snippet used to intercept form[action="/search"] submits, call the
+  worker /search-nl endpoint to translate the query into Shopify literal-search
+  keywords, show a blocking overlay, then redirect. That whole path is obsolete:
+
+  Search is now SEMANTIC. The search form submits the RAW user query to
+  /search?q=<query>; the search results section (lm-search-chat.liquid) reads
+  ?q= and POSTs it to the worker /api/search, which embeds the raw query with
+  multilingual BGE-M3 (Chinese works directly — no keyword translation needed)
+  and ranks against the Vectorize index.
+
+  Keeping the old interceptor caused a double round-trip (translate+redirect,
+  then embed) and rewrote the query before semantic search saw it. Removed.
+
+  Left as an empty render target so existing {% render 'wp-search-nl' %} calls
+  across the theme stay valid without re-pushing every section.
+{%- endcomment -%}

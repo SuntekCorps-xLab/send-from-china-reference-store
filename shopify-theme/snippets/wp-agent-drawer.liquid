@@ -1,0 +1,102 @@
+{%- liquid
+  assign wp_public_agent_api = settings.wp_governance_api_base | strip
+  assign wp_workspace_url = settings.wp_workspace_url | strip
+  if wp_workspace_url == blank
+    assign wp_workspace_url = '/apps/wp-account/workspace'
+  endif
+  capture wp_agent_login_url
+    echo '/customer_authentication/login?return_to='
+    echo wp_workspace_url | url_encode
+  endcapture
+-%}
+
+{{ 'wp-agent-drawer.css' | asset_url | stylesheet_tag }}
+
+<div
+  class="wp-agent-layer"
+  data-wp-agent-drawer
+  data-signed-in="{% if customer %}true{% else %}false{% endif %}"
+  data-account-api="/apps/wp-account"
+  data-public-api="{{ wp_public_agent_api | escape }}"
+  data-workspace-url="{{ wp_workspace_url | escape }}"
+  data-login-url="{{ wp_agent_login_url | strip | escape }}"
+  {% if product %}
+    data-product-title="{{ product.title | escape }}"
+    data-product-url="{{ shop.url }}{{ product.url }}"
+    data-product-price="{{ product.price_min | money | escape }}"
+  {% endif %}
+>
+  <button class="wp-agent-backdrop" type="button" data-agent-close aria-label="Close shopping agent" hidden></button>
+  <aside class="wp-agent-drawer" role="dialog" aria-modal="true" aria-labelledby="WPAgentDrawerTitle" hidden>
+    <header class="wp-agent-drawer-head">
+      <button class="wp-agent-head-action" type="button" data-agent-history aria-controls="WPAgentHistory" aria-expanded="false">
+        <span aria-hidden="true">&#9776;</span><span>History</span>
+      </button>
+      <div class="wp-agent-title">
+        <span>Product concierge</span>
+        <strong id="WPAgentDrawerTitle">Shopping Agent</strong>
+      </div>
+      <div class="wp-agent-head-actions">
+        <a class="wp-agent-head-icon" href="{{ wp_workspace_url }}" data-agent-expand aria-label="Open full Agent view" title="Open full Agent view">&#8599;</a>
+        <button class="wp-agent-head-icon" type="button" data-agent-close aria-label="Close shopping agent">&times;</button>
+      </div>
+    </header>
+
+    <section class="wp-agent-history" id="WPAgentHistory" data-agent-history-view hidden>
+      <div class="wp-agent-view-head">
+        <div><span>Saved conversations</span><h2>Pick up where you left off.</h2></div>
+        <button type="button" data-agent-new>New conversation</button>
+      </div>
+      <div class="wp-agent-history-list" data-agent-history-list></div>
+      <p class="wp-agent-history-note" data-agent-history-note></p>
+    </section>
+
+    <section class="wp-agent-conversation" data-agent-conversation-view>
+      <div class="wp-agent-context" data-agent-context hidden>
+        <span>Current product</span>
+        <strong data-agent-context-title></strong>
+        <small data-agent-context-price></small>
+      </div>
+
+      <div class="wp-agent-transcript" data-agent-transcript aria-live="polite" aria-busy="false">
+        <div class="wp-agent-welcome" data-agent-welcome>
+          <span>Shopping guidance</span>
+          <h2>What would you like help finding?</h2>
+          <p>Describe the use case, budget, material, recipient, or destination. I will search the live catalog first and keep custom sourcing as a separate choice.</p>
+          <div class="wp-agent-starters" aria-label="Example requests">
+            <button type="button" data-agent-starter="Find a practical gift under $30">A practical gift under $30</button>
+            <button type="button" data-agent-starter="Compare the best options for a small apartment">Options for a small apartment</button>
+            <button type="button" data-agent-starter="Help me choose by material and delivery destination">Choose by material and destination</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="wp-agent-brief" data-agent-brief hidden aria-labelledby="WPAgentBriefTitle">
+        <div><span>Current brief</span><strong id="WPAgentBriefTitle" data-agent-brief-summary></strong></div>
+        <button type="button" data-agent-edit-brief>Edit</button>
+      </section>
+
+      <section class="wp-agent-sourcing-confirm" data-agent-sourcing-confirm hidden aria-labelledby="WPAgentSourcingTitle">
+        <span>Catalog search complete</span>
+        <h2 id="WPAgentSourcingTitle">Search beyond the catalog?</h2>
+        <p>The current catalog did not produce a confident match. A free sourcing preview can prepare up to three closely matched products and save progress to your account.</p>
+        <dl data-agent-sourcing-facts></dl>
+        <div class="wp-agent-confirm-actions">
+          <button class="is-primary" type="button" data-agent-start-sourcing>Start free sourcing preview</button>
+          <button type="button" data-agent-keep-chatting>Keep refining the brief</button>
+        </div>
+        <small>No sourcing task or credit use starts until you choose the button above.</small>
+      </section>
+
+      <p class="wp-agent-status" data-agent-status role="status" hidden></p>
+      <form class="wp-agent-composer" data-agent-form>
+        <label class="visually-hidden" for="WPAgentMessage">Message the Shopping Agent</label>
+        <textarea id="WPAgentMessage" data-agent-input rows="1" maxlength="1000" placeholder="Describe what you need" required></textarea>
+        <button type="submit" data-agent-send aria-label="Send message">&#8593;</button>
+        <small>Enter to send &middot; Shift + Enter for a new line</small>
+      </form>
+    </section>
+  </aside>
+</div>
+
+<script src="{{ 'wp-agent-drawer.js' | asset_url }}" defer></script>

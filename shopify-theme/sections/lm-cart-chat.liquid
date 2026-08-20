@@ -1,0 +1,486 @@
+{%- comment -%}
+  Cart page on the WP shared shell. Same Liquid logic (line items, qty change,
+  remove, checkout) restyled to match the rest of the storefront.
+{%- endcomment -%}
+{% render 'wp-shell' %}
+{%- assign wp_shipping_api_base = settings.wp_shipping_api_base | strip -%}
+
+<style>
+  .wp-service-launchers,.wp-account-entry,.wp-agent-view-switcher{display:none!important}
+  .wp-ct{max-width:1200px;margin:0 auto;padding:8px 32px 60px}
+  @media (max-width:680px){ .wp-ct{padding:0 18px 48px} }
+
+  .wp-ct-title{
+    font-family:"Playfair Display","Cormorant Garamond",Georgia,serif;
+    font-weight:500;font-size:clamp(32px,4vw,48px);letter-spacing:-0.02em;line-height:1.05;
+    color:var(--wph-ink);margin:8px 0 6px;
+  }
+  .wp-ct-subtitle{
+    font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.04em;
+    color:var(--wph-muted);margin:0 0 32px;
+  }
+
+  .wp-ct-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:48px;align-items:start}
+  @media (max-width:880px){ .wp-ct-grid{grid-template-columns:1fr;gap:28px} }
+
+  /* line items */
+  .wp-ct-items{display:flex;flex-direction:column;gap:14px}
+  .wp-ct-item{
+    display:grid;grid-template-columns:104px 1fr auto;gap:18px;align-items:center;
+    background:var(--wph-card);border:1px solid rgba(26,24,20,0.08);border-radius:8px;
+    padding:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -20px rgba(26,24,20,0.35);
+  }
+  .wp-ct-item-img{width:104px;height:104px;border-radius:10px;overflow:hidden;background:#EEE6D4}
+  .wp-ct-item-img img{width:100%;height:100%;padding:6px;object-fit:contain;display:block}
+  .wp-ct-item-name{font-size:15px;font-weight:500;color:var(--wph-ink);text-decoration:none;line-height:1.35;display:block;margin-bottom:4px}
+  .wp-ct-item-copy{min-width:0}.wp-ct-item-name,.wp-ct-item-variant{overflow-wrap:anywhere}
+  .wp-ct-item-name:hover{text-decoration:underline;text-decoration-color:rgba(26,24,20,0.25)}
+  .wp-ct-item-variant{font-size:12px;color:var(--wph-muted);margin-bottom:6px}
+  .wp-ct-item-unit{font-size:12.5px;color:var(--wph-ink-2);font-family:"JetBrains Mono",ui-monospace,monospace;letter-spacing:.02em}
+  .wp-ct-item-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:130px}
+  .wp-ct-item-line-total{font-size:16px;font-weight:600;color:var(--wph-ink);letter-spacing:-.01em}
+  .wp-ct-qty-form{display:inline-flex;align-items:center;gap:0;border:1px solid rgba(26,24,20,0.18);border-radius:6px;background:rgba(255,253,247,0.78);overflow:hidden}
+  .wp-ct-qty-btn{
+    width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;
+    color:var(--wph-ink);text-decoration:none;font-size:16px;line-height:1;
+    transition:background .15s;
+  }
+  .wp-ct-qty-btn:hover{background:rgba(26,24,20,0.06)}
+  .wp-ct-qty-num{padding:0 12px;font-size:13px;min-width:18px;text-align:center;color:var(--wph-ink)}
+  .wp-ct-remove{font-size:11px;color:var(--wph-muted);text-decoration:none;letter-spacing:.04em;font-family:"JetBrains Mono",ui-monospace,monospace;text-transform:uppercase;transition:color .15s}
+  .wp-ct-remove:hover{color:var(--wph-ink)}
+
+  /* summary card */
+  .wp-ct-summary{
+    background:var(--wph-card);border:1px solid rgba(26,24,20,0.08);border-radius:8px;
+    padding:24px 24px 22px;position:sticky;top:96px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -22px rgba(26,24,20,0.35);
+  }
+  @media (max-width:1080px){ .wp-ct-summary{position:static} }
+  .wp-ct-summary-title{
+    font-family:"Playfair Display",Georgia,serif;
+    font-weight:500;font-size:20px;margin:0 0 18px;color:var(--wph-ink);
+  }
+  .wp-ct-summary-row{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;font-size:13.5px;color:var(--wph-ink-2)}
+  .wp-ct-summary-row + .wp-ct-summary-row{border-top:1px solid rgba(26,24,20,0.06)}
+  .wp-ct-summary-row .muted{color:var(--wph-muted);font-size:12px;font-family:"JetBrains Mono",ui-monospace,monospace}
+  .wp-ct-summary-total{font-size:16px;font-weight:500;color:var(--wph-ink);padding-top:14px;margin-top:8px;border-top:1px solid rgba(26,24,20,0.20) !important}
+  .wp-ct-summary-total span:last-child{font-family:"Playfair Display",Georgia,serif;font-size:22px;letter-spacing:-.01em}
+  .wp-ct-checkout{
+    display:block;width:100%;margin-top:18px;
+    padding:15px 24px;background:var(--wph-ink);color:var(--wph-bg);border:0;
+    border-radius:6px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    text-align:center;cursor:pointer;font-family:inherit;text-decoration:none;
+    transition:background .15s,transform .15s,box-shadow .15s;
+    box-shadow:0 4px 14px -6px rgba(26,24,20,0.45);
+  }
+  .wp-ct-checkout:hover{background:#2d2a23;transform:translateY(-1px);box-shadow:0 6px 18px -6px rgba(26,24,20,0.55)}
+  .wp-ct-note{font-size:11px;color:var(--wph-muted);margin-top:14px;line-height:1.6;text-align:center;font-family:"JetBrains Mono",ui-monospace,monospace;letter-spacing:.02em}
+  .wp-ct-shipper{margin:6px 0 6px;padding:12px 0 2px;border-top:1px solid rgba(26,24,20,0.06)}
+  .wp-ct-ship-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:10px}
+  .wp-ct-ship-controls select,.wp-ct-ship-controls input{
+    width:100%;min-width:0;border:1px solid rgba(26,24,20,0.16);border-radius:8px;
+    background:rgba(255,255,255,0.55);color:var(--wph-ink);padding:10px 11px;
+    font:inherit;font-size:12px;
+  }
+  .wp-ct-ship-controls button{
+    border:0;border-radius:8px;background:var(--wph-ink);color:var(--wph-bg);
+    padding:10px 13px;font:inherit;font-size:11px;font-weight:600;
+    letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap;
+  }
+  .wp-ct-ship-controls button:disabled{opacity:.55;cursor:wait}
+  .wp-ct-ship-status{font-size:11.5px;color:var(--wph-muted);line-height:1.45;margin-bottom:8px}
+  .wp-ct-ship-rates{display:grid;gap:7px}
+  .wp-ct-ship-rate{
+    width:100%;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+    border:1px solid rgba(26,24,20,0.10);border-radius:10px;background:rgba(255,253,247,0.58);
+    padding:9px 10px;text-align:left;cursor:pointer;color:inherit;font:inherit;
+  }
+  .wp-ct-ship-rate:hover{border-color:rgba(26,24,20,0.24)}
+  .wp-ct-ship-rate.is-active{border-color:var(--wph-ink);box-shadow:0 0 0 1px var(--wph-ink) inset;background:rgba(255,253,247,0.92)}
+  .wp-ct-ship-rate-name{font-size:12.5px;font-weight:600;color:var(--wph-ink)}
+  .wp-ct-ship-rate-window{font-size:11.5px;color:var(--wph-muted);margin-top:2px}
+  .wp-ct-ship-rate-price{font-size:13px;font-weight:700;color:var(--wph-ink);white-space:nowrap}
+  @media (max-width:520px){.wp-ct-ship-controls{grid-template-columns:1fr}.wp-ct-ship-controls button{width:100%}}
+  @media (max-width:620px){
+    .wp-ct-item{grid-template-columns:72px minmax(0,1fr);gap:12px;align-items:start;padding:12px}
+    .wp-ct-item-img{width:72px;height:72px;border-radius:7px}
+    .wp-ct-item-side{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;min-width:0;padding-top:12px;border-top:1px solid rgba(26,24,20,.08)}
+    .wp-ct-item-line-total{font-size:14px}.wp-ct-qty-btn{width:44px;height:44px}.wp-ct-remove{min-height:44px;display:inline-flex;align-items:center}
+    .wp-ct-summary{padding:20px}
+  }
+
+  /* empty */
+  .wp-ct-empty{text-align:center;padding:80px 24px;max-width:520px;margin:0 auto}
+  .wp-ct-empty h2{
+    font-family:"Playfair Display",Georgia,serif;font-weight:500;font-size:32px;letter-spacing:-0.02em;
+    margin:0 0 14px;color:var(--wph-ink);
+  }
+  .wp-ct-empty p{color:var(--wph-ink-2);margin:0 0 28px;font-size:15px;line-height:1.6}
+  .wp-ct-empty a{
+    display:inline-block;padding:14px 28px;background:var(--wph-ink);color:var(--wph-bg);
+    border-radius:6px;font-size:13px;font-weight:600;letter-spacing:.04em;text-decoration:none;
+    transition:background .15s;
+  }
+  .wp-ct-empty a:hover{background:#2d2a23}
+</style>
+
+<div class="wp-shell">
+
+  {% render 'wp-shell-topbar' %}
+
+  <div class="wp-ct">
+
+    {%- if cart.item_count == 0 -%}
+
+      <div class="wp-ct-empty">
+        <h2>Your cart is empty</h2>
+        <p>Find something good in the catalog and it&rsquo;ll show up here.</p>
+        <a href="{{ routes.root_url }}">Start searching →</a>
+      </div>
+
+    {%- else -%}
+
+      <h1 class="wp-ct-title">Your cart</h1>
+      <p class="wp-ct-subtitle">{{ cart.item_count }} item{% if cart.item_count != 1 %}s{% endif %} · ready when you are</p>
+
+      <div class="wp-ct-grid">
+
+        <div class="wp-ct-items">
+          {%- for item in cart.items -%}
+            <div class="wp-ct-item">
+              <div class="wp-ct-item-img">
+                <a href="{{ item.url }}">
+                  {%- if item.image -%}
+                    <img src="{{ item.image | image_url: width: 300 }}" alt="{{ item.title | escape }}" width="300" height="300" loading="lazy">
+                  {%- endif -%}
+                </a>
+              </div>
+
+              <div class="wp-ct-item-copy">
+                <a href="{{ item.url }}" class="wp-ct-item-name">{{ item.product.title }}</a>
+                {%- unless item.variant.title contains 'Default' -%}
+                  <div class="wp-ct-item-variant">{{ item.variant.title }}</div>
+                {%- endunless -%}
+                <div class="wp-ct-item-unit">{{ item.original_price | money }} each</div>
+              </div>
+
+              <div class="wp-ct-item-side">
+                <div class="wp-ct-item-line-total">{{ item.original_line_price | money }}</div>
+                <div class="wp-ct-qty-form">
+                  {%- assign minus_qty = item.quantity | minus: 1 -%}
+                  <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity={{ minus_qty }}" class="wp-ct-qty-btn" aria-label="Decrease quantity">−</a>
+                  <span class="wp-ct-qty-num">{{ item.quantity }}</span>
+                  {%- assign plus_qty = item.quantity | plus: 1 -%}
+                  <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity={{ plus_qty }}" class="wp-ct-qty-btn" aria-label="Increase quantity">+</a>
+                </div>
+                <a href="{{ routes.cart_change_url }}?line={{ forloop.index }}&quantity=0" class="wp-ct-remove">Remove</a>
+              </div>
+            </div>
+          {%- endfor -%}
+        </div>
+
+        <div class="wp-ct-summary">
+          <h3 class="wp-ct-summary-title">Order summary</h3>
+          <div class="wp-ct-summary-row">
+            <span>Subtotal</span>
+            <span>{{ cart.original_total_price | money }}</span>
+          </div>
+          <div class="wp-ct-summary-row" data-cart-shipping-row>
+            <span>Shipping</span>
+            <span class="muted" data-cart-shipping-price>Estimate below</span>
+          </div>
+          <div class="wp-ct-shipper"
+               data-cart-shipping-estimator
+               data-endpoint="{% if wp_shipping_api_base != blank %}{{ wp_shipping_api_base }}/estimate{% endif %}"
+               data-subtotal-cents="{{ cart.total_price }}"
+               data-currency="{{ cart.currency.iso_code | default: shop.currency | escape }}">
+            <div class="wp-ct-ship-controls">
+              <select data-cart-shipping-country aria-label="Ship to country">
+                <option value="US" data-postal="90001" data-province="CA" data-city="Los Angeles" selected>United States</option>
+                <option value="AU" data-postal="2000" data-province="NSW" data-city="Sydney">Australia</option>
+                <option value="CA" data-postal="M5V" data-province="ON" data-city="Toronto">Canada</option>
+                <option value="GB" data-postal="SW1A 1AA" data-province="" data-city="London">United Kingdom</option>
+                <option value="DE" data-postal="10115" data-province="" data-city="Berlin">Germany</option>
+              </select>
+              <input type="text" data-cart-shipping-postal value="90001" aria-label="Postal code">
+              <button type="button" data-cart-shipping-button>Estimate</button>
+            </div>
+            <div id="CartShippingStatus" class="wp-ct-ship-status" data-cart-shipping-status role="status" aria-live="polite" aria-atomic="true">Checking cross-border shipping...</div>
+            <div class="wp-ct-ship-rates" data-cart-shipping-rates></div>
+          </div>
+          {%- if cart.total_discount > 0 -%}
+            <div class="wp-ct-summary-row">
+              <span>Discount</span>
+              <span>−{{ cart.total_discount | money }}</span>
+            </div>
+          {%- endif -%}
+          <div class="wp-ct-summary-row wp-ct-summary-total">
+            <span>Estimated total</span>
+            <span data-cart-estimated-total>{{ cart.total_price | money }}</span>
+          </div>
+
+          <form action="{{ routes.cart_url }}" method="post" novalidate>
+            <button type="submit" name="checkout" class="wp-ct-checkout" data-cart-checkout aria-describedby="CartShippingStatus">Checkout →</button>
+          </form>
+
+          <p class="wp-ct-note">
+            Secure checkout · 30-day returns · Ships to 30+ countries
+          </p>
+        </div>
+
+      </div>
+
+    {%- endif -%}
+
+  </div>
+
+  {% render 'wp-shell-footer' %}
+
+</div>
+
+{%- if cart.item_count > 0 -%}
+  <script type="application/json" data-cart-shipping-items>
+  [
+    {%- for item in cart.items -%}
+      {%- assign wp_length_cm = item.product.metafields.custom.length_cm.value | default: item.product.metafields.custom.length_cm | default: item.properties.shipping_length_cm -%}
+      {%- assign wp_width_cm = item.product.metafields.custom.width_cm.value | default: item.product.metafields.custom.width_cm | default: item.properties.shipping_width_cm -%}
+      {%- assign wp_height_cm = item.product.metafields.custom.height_cm.value | default: item.product.metafields.custom.height_cm | default: item.properties.shipping_height_cm -%}
+      {%- assign wp_logistics_status = item.product.metafields.wpai.logistics_classification_status.value | default: 'unknown' -%}
+      {%- assign wp_logistics_label_nos = item.product.metafields.wpai.logistics_label_nos.value -%}
+      {
+        "name": {{ item.product.title | json }},
+        "product_id": "{{ item.product.id }}",
+        "variant_id": "{{ item.variant.id }}",
+        "quantity": {{ item.quantity | json }},
+        "grams": {{ item.variant.weight | default: item.grams | default: 500 | json }},
+        "length_cm": {{ wp_length_cm | default: 0 | json }},
+        "width_cm": {{ wp_width_cm | default: 0 | json }},
+        "height_cm": {{ wp_height_cm | default: 0 | json }},
+        "logistics_classification_status": {{ wp_logistics_status | json }},
+        "logistics_label_nos": {% if wp_logistics_label_nos != blank %}{{ wp_logistics_label_nos | json }}{% else %}[]{% endif %}
+      }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+  </script>
+  <script>
+  (function(){
+    var box = document.querySelector('[data-cart-shipping-estimator]');
+    var itemsScript = document.querySelector('[data-cart-shipping-items]');
+    if (!box || !itemsScript) return;
+
+    var endpoint = box.dataset.endpoint;
+    var subtotalCents = parseInt(box.dataset.subtotalCents || '0', 10) || 0;
+    var cartCurrency = /^[A-Z]{3}$/.test(box.dataset.currency || '') ? box.dataset.currency : 'USD';
+    var country = box.querySelector('[data-cart-shipping-country]');
+    var postal = box.querySelector('[data-cart-shipping-postal]');
+    var button = box.querySelector('[data-cart-shipping-button]');
+    var status = box.querySelector('[data-cart-shipping-status]');
+    var ratesBox = box.querySelector('[data-cart-shipping-rates]');
+    var shippingPrice = document.querySelector('[data-cart-shipping-price]');
+    var estimatedTotal = document.querySelector('[data-cart-estimated-total]');
+    var checkoutButton = document.querySelector('[data-cart-checkout]');
+    var storageKey = 'wp_shipping_destination';
+    var items = [];
+    var activeRequest = null;
+
+    try { items = JSON.parse(itemsScript.textContent || '[]'); } catch (e) { items = []; }
+
+    function num(v, fallback) {
+      var n = parseFloat(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function money(cents, currency) {
+      var amount = num(cents, 0) / 100;
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(amount);
+    }
+
+    function dateLabel(v) {
+      if (!v) return '';
+      var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) return String(v).slice(0, 10);
+      var d = new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
+      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function selectedDestination() {
+      var opt = country.options[country.selectedIndex];
+      return {
+        country: country.value,
+        postal_code: postal.value || opt.dataset.postal || '',
+        province: opt.dataset.province || '',
+        city: opt.dataset.city || ''
+      };
+    }
+
+    function saveDestination() {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(selectedDestination()));
+      } catch (e) {}
+    }
+
+    function loadDestination() {
+      try {
+        var saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
+        if (!saved || !saved.country) return;
+        for (var i = 0; i < country.options.length; i += 1) {
+          if (country.options[i].value === saved.country) {
+            country.selectedIndex = i;
+            break;
+          }
+        }
+        if (saved.postal_code) postal.value = saved.postal_code;
+      } catch (e) {}
+    }
+
+    function cartPayloadItems() {
+      return items.map(function(item) {
+        return {
+          name: item.name || 'Product',
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          quantity: Math.max(1, Math.round(num(item.quantity, 1))),
+          grams: Math.max(1, Math.round(num(item.grams, 500))),
+          length_cm: num(item.length_cm, 0),
+          width_cm: num(item.width_cm, 0),
+          height_cm: num(item.height_cm, 0),
+          logistics_classification_status: item.logistics_classification_status || 'unknown',
+          logistics_label_nos: Array.isArray(item.logistics_label_nos) ? item.logistics_label_nos : []
+        };
+      });
+    }
+
+    function canEstimate(payloadItems) {
+      return payloadItems.length && payloadItems.every(function(item) {
+        return item.grams > 0 && item.length_cm > 0 && item.width_cm > 0 && item.height_cm > 0;
+      });
+    }
+
+    function setCheckoutBlocked(blocked, reason) {
+      if (!checkoutButton) return;
+      checkoutButton.disabled = Boolean(blocked);
+      checkoutButton.setAttribute('aria-disabled', String(Boolean(blocked)));
+      if (reason) status.textContent = reason;
+    }
+
+    function showShippingFallback(message) {
+      status.textContent = checkoutButton && checkoutButton.disabled
+        ? 'Checkout remains paused until shipping eligibility can be verified.'
+        : message;
+      shippingPrice.textContent = 'Checkout final';
+      estimatedTotal.textContent = money(subtotalCents, cartCurrency);
+    }
+
+    function selectRate(rate, row) {
+      ratesBox.querySelectorAll('.wp-ct-ship-rate').forEach(function(node){ node.classList.remove('is-active'); node.setAttribute('aria-pressed', 'false'); });
+      row.classList.add('is-active');
+      row.setAttribute('aria-pressed', 'true');
+      var cents = parseInt(rate.total_price || '0', 10) || 0;
+      var rateCurrency = /^[A-Z]{3}$/.test(rate.currency || '') ? rate.currency : cartCurrency;
+      shippingPrice.textContent = money(cents, rateCurrency);
+      estimatedTotal.textContent = rateCurrency === cartCurrency ? money(subtotalCents + cents, cartCurrency) : 'Final total at checkout';
+    }
+
+    function renderRates(rates) {
+      ratesBox.innerHTML = '';
+      if (!rates || !rates.length) {
+        status.textContent = 'Shipping will be confirmed at checkout.';
+        shippingPrice.textContent = 'Checkout final';
+        estimatedTotal.textContent = money(subtotalCents, cartCurrency);
+        return;
+      }
+      var sorted = rates.slice(0, 3).sort(function(a, b) {
+        return (parseInt(a.total_price || '0', 10) || 0) - (parseInt(b.total_price || '0', 10) || 0);
+      });
+      status.textContent = 'Shipping estimate for ' + country.options[country.selectedIndex].text + '. Checkout confirms the final route.';
+      sorted.forEach(function(rate, idx) {
+        var row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'wp-ct-ship-rate';
+        row.setAttribute('aria-pressed', 'false');
+        var min = dateLabel(rate.min_delivery_date);
+        var max = dateLabel(rate.max_delivery_date);
+        row.innerHTML =
+          '<div><div class="wp-ct-ship-rate-name"></div><div class="wp-ct-ship-rate-window"></div></div><div class="wp-ct-ship-rate-price"></div>';
+        row.querySelector('.wp-ct-ship-rate-name').textContent = rate.service_name || 'Cross-border shipping';
+        row.querySelector('.wp-ct-ship-rate-window').textContent = min && max ? min + ' - ' + max : (rate.description || '');
+        row.querySelector('.wp-ct-ship-rate-price').textContent = money(rate.total_price, rate.currency);
+        row.addEventListener('click', function(){ selectRate(rate, row); });
+        ratesBox.appendChild(row);
+        if (idx === 0) selectRate(rate, row);
+      });
+    }
+
+    async function estimate() {
+      if (activeRequest) {
+        activeRequest.abort();
+        activeRequest = null;
+      }
+      button.disabled = false;
+      var payloadItems = cartPayloadItems();
+      if (!canEstimate(payloadItems)) {
+        showShippingFallback('Shipping estimate needs product dimensions; checkout will confirm the final rate.');
+        return;
+      }
+      var controller = new AbortController();
+      activeRequest = controller;
+      button.disabled = true;
+      status.textContent = 'Checking cross-border shipping...';
+      saveDestination();
+      try {
+        var resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rate: {
+              destination: selectedDestination(),
+              items: payloadItems,
+              currency: cartCurrency
+            }
+          }),
+          signal: controller.signal
+        });
+        var data = await resp.json();
+        renderRates(data.rates || []);
+        if (data.error === 'cargo_classification_missing') {
+          setCheckoutBlocked(true, 'Checkout is paused until every item has a confirmed cargo classification.');
+        } else if (data.error === 'special_cargo_policy_missing' || data.error === 'no_compatible_special_cargo_route') {
+          setCheckoutBlocked(true, 'Checkout is paused because this cart requires a compatible special-cargo route.');
+        } else {
+          setCheckoutBlocked(false);
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        showShippingFallback('Shipping will be confirmed at checkout.');
+      } finally {
+        if (activeRequest === controller) {
+          activeRequest = null;
+          button.disabled = false;
+        }
+      }
+    }
+
+    loadDestination();
+    country.addEventListener('change', function() {
+      var opt = country.options[country.selectedIndex];
+      postal.value = opt.dataset.postal || '';
+      estimate();
+    });
+    postal.addEventListener('change', estimate);
+    button.addEventListener('click', estimate);
+    estimate();
+  })();
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Cart — chat",
+  "tag": "section",
+  "class": "wp-ct-section",
+  "settings": []
+}
+{% endschema %}

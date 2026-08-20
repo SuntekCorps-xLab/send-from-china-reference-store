@@ -1,0 +1,10 @@
+{
+  "layout": "agent",
+  "sections": {
+    "main": {
+      "type": "lm-collection-agent",
+      "settings": {}
+    }
+  },
+  "order": ["main"]
+}

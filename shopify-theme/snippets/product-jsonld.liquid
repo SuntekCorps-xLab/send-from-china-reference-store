@@ -1,0 +1,14 @@
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": {{ product.title | json }},
+  "brand": { "@type": "Brand", "name": {{ product.vendor | json }} },
+  "offers": {
+    "@type": "Offer",
+    "price": {{ product.price | divided_by: 100.0 | json }},
+    "priceCurrency": {{ shop.currency | json }},
+    "availability": "https://schema.org/{% if product.available == false %}OutOfStock{% elsif product.metafields.wpai.supplier_in_stock.value %}InStock{% else %}BackOrder{% endif %}"
+  }
+}
+</script>

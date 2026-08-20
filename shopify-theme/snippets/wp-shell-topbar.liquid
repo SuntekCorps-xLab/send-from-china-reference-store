@@ -1,0 +1,53 @@
+{%- assign wp_tracking_url = routes.account_url | append: '/orders' -%}
+{%- assign wp_workspace_url = settings.wp_workspace_url | strip -%}
+{%- if wp_workspace_url == blank -%}{%- assign wp_workspace_url = '/apps/wp-account/workspace' -%}{%- endif -%}
+{%- capture wp_account_login_url -%}/customer_authentication/login?return_to={{ wp_workspace_url | url_encode }}{%- endcapture -%}
+{%- assign wp_account_entry_url = wp_workspace_url -%}
+{%- unless customer -%}
+  {%- assign wp_account_entry_url = wp_account_login_url | strip -%}
+{%- endunless -%}
+
+<div class="wp-topbar-shell">
+  <header class="wp-topbar">
+    <a class="wp-topbar-brand" href="{{ routes.root_url }}" aria-label="Send From China home">
+      <span class="wp-topbar-logo" aria-hidden="true">CN</span>
+      <span class="wp-topbar-brand-copy">
+        <strong class="wp-topbar-mark">Send From China</strong>
+        <small class="wp-topbar-tagline">Made in China. Select and Deliver.</small>
+      </span>
+    </a>
+
+    <form action="{{ routes.search_url }}" method="get" class="wp-topbar-search" role="search">
+      <input type="hidden" name="type" value="product">
+      <input
+        type="text"
+        name="q"
+        placeholder="Search the catalog"
+        aria-label="Search products"
+        autocomplete="off"
+        value="{{ query | default: '' | escape }}"
+      >
+      <button type="submit" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </form>
+
+    <nav class="wp-topbar-actions" aria-label="Store navigation">
+      <a class="wp-topbar-shop" href="{{ routes.all_products_collection_url | default: '/collections/all' }}">Shop</a>
+      <button class="wp-topbar-agent" type="button" data-open-agent-drawer{% if query != blank %} data-agent-brief="{{ query | escape }}"{% endif %}>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M5 5.5h14v10H9l-4 3v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          <path d="M9 10.5h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span>Ask Agent</span>
+      </button>
+      <a class="wp-topbar-track" href="{{ wp_tracking_url }}">Orders</a>
+      <a class="wp-topbar-for-agents" href="/.well-known/ucp">For agents</a>
+      <a class="wp-topbar-account" href="{{ wp_account_entry_url }}">{% if customer %}Account{% else %}Sign in{% endif %}</a>
+      <a class="wp-topbar-cart" href="{{ routes.cart_url }}">Cart ({{ cart.item_count | default: 0 }})</a>
+    </nav>
+  </header>
+</div>
+{% render 'wp-search-nl' %}

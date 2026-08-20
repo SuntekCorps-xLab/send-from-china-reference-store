@@ -1,0 +1,110 @@
+{% comment %}Category-aware specification template, version 2.{% endcomment %}
+
+{% assign col_handles = product.collections | map: 'handle' %}
+
+{% if col_handles contains 'edo-kiriko-glassware' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> K9 Crystal Glass, Lead-Free</li>
+    <li><strong>Technique:</strong> Hand-cut using diamond wheel, 4-8 hours per piece</li>
+    <li><strong>Style:</strong> Kiriko-inspired — crafted in Chinese crystal workshops using traditional diamond-wheel techniques, not certified Edo Kiriko</li>
+    <li><strong>Origin:</strong> Crafted in established crystal cutting workshops, Shandong / Zhejiang Province, China</li>
+    <li><strong>Glass Clarity:</strong> High transparency, strong light refraction through cut facets</li>
+    <li><strong>Care:</strong> Hand wash only, store upright, avoid extreme temperature changes</li>
+    <li><strong>Suitable for:</strong> Whiskey, sake, wine, cocktails, water — designed for daily use</li>
+    {% if product.metafields.custom.material != blank %}
+    <li><strong>Specific Material:</strong> {{ product.metafields.custom.material }}</li>
+    {% endif %}
+  </ul>
+</div>
+
+{% elsif col_handles contains 'wabi-sabi-ceramics' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> High-fired stoneware, food-safe glaze</li>
+    <li><strong>Technique:</strong> Handmade with natural glaze variation — each piece is unique</li>
+    <li><strong>Style:</strong> Wabi-sabi aesthetic, embracing natural imperfections</li>
+    <li><strong>Production:</strong> Handmade in small-batch workshop production, not mass-manufactured</li>
+    <li><strong>Origin:</strong> Crafted in traditional ceramic workshops, China</li>
+    <li><strong>Durability:</strong> High-fired for daily use durability</li>
+    <li><strong>Care:</strong> Dishwasher safe, microwave safe</li>
+    <li><strong>Suitable for:</strong> Daily dining, serving, display, gifting</li>
+  </ul>
+</div>
+
+{% elsif col_handles contains 'japanese-tea-sets' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> Ceramic / Porcelain, food-safe glaze</li>
+    <li><strong>Technique:</strong> Hand-thrown or mold-formed, hand-finished</li>
+    <li><strong>Heat Resistance:</strong> Safe for boiling water (100°C / 212°F)</li>
+    <li><strong>Production:</strong> Workshop-made with hand-finishing, not fully automated</li>
+    <li><strong>Origin:</strong> Crafted in Jingdezhen (Jiangxi) or Dehua (Fujian), China — both UNESCO-recognized porcelain production regions</li>
+    <li><strong>Care:</strong> Hand wash recommended for hand-painted pieces, plain pieces are dishwasher safe</li>
+    <li><strong>Best suited for:</strong> Gongfu tea (oolong, pu-erh), green tea, black tea, matcha</li>
+    <li><strong>Brewing tip:</strong> Smaller cups (50-80ml) are ideal for gongfu style; larger cups (150-200ml) suit casual brewing</li>
+  </ul>
+</div>
+
+{% elsif col_handles contains 'sake-sets-barware' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> Ceramic / Porcelain, food-safe glaze</li>
+    <li><strong>Technique:</strong> Handmade with traditional glazing techniques</li>
+    <li><strong>Heat Resistance:</strong> Safe for warm sake serving (up to 55°C / 131°F)</li>
+    <li><strong>Production:</strong> Workshop-made, hand-finished</li>
+    <li><strong>Origin:</strong> Crafted in Chinese ceramic workshops</li>
+    <li><strong>Care:</strong> Hand wash recommended</li>
+    <li><strong>Suitable for:</strong> Sake (warm or cold), soju, plum wine, baijiu, shochu</li>
+    <li><strong>Serving tip:</strong> Warm sake is traditionally served at 40-55°C; cold sake at 5-10°C</li>
+  </ul>
+</div>
+
+{% elsif col_handles contains 'hammered-glass' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> Borosilicate glass, heat-resistant, lead-free</li>
+    <li><strong>Technique:</strong> Hand-hammered tsuchime (hammer-tone) texture</li>
+    <li><strong>Heat Resistance:</strong> Safe for hot beverages up to 150°C / 302°F</li>
+    <li><strong>Production:</strong> Hand-formed and hand-textured</li>
+    <li><strong>Origin:</strong> Crafted in Chinese glass workshops</li>
+    <li><strong>Care:</strong> Hand wash recommended, thermal shock resistant</li>
+    <li><strong>Suitable for:</strong> Hot and cold beverages — tea, coffee, water, juice</li>
+  </ul>
+</div>
+
+{% elsif col_handles contains 'home-decor' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> Ceramic / Porcelain</li>
+    <li><strong>Production:</strong> Workshop-made with hand-finishing details</li>
+    <li><strong>Origin:</strong> Crafted in Dehua (Fujian) or Jingdezhen (Jiangxi), China</li>
+    <li><strong>Vase watertightness:</strong> All vases are fully watertight, suitable for fresh flowers and water</li>
+    <li><strong>Vase stability:</strong> Weighted base for stable display on flat surfaces</li>
+    <li><strong>Care:</strong> Wipe clean with damp cloth, avoid abrasive cleaners</li>
+    <li><strong>Display:</strong> Suitable for tabletop, shelf, mantel, or entryway display</li>
+  </ul>
+</div>
+
+{% elsif col_handles contains 'aromatherapy' %}
+<div class="product-specs" style="margin-top:24px;padding:20px;background:#f9f7f4;border-radius:8px;">
+  <h3 style="margin-bottom:12px;">Specifications</h3>
+  <ul style="list-style:none;padding:0;line-height:2;">
+    <li><strong>Material:</strong> Heat-resistant ceramic</li>
+    <li><strong>Production:</strong> Workshop-made, hand-finished</li>
+    <li><strong>Origin:</strong> Crafted in Dehua, Fujian Province, China</li>
+    <li><strong>Heat Safety:</strong> Ceramic base is heat-safe for burning incense</li>
+    <li><strong>Incense Compatibility:</strong> Compatible with stick incense, coil incense, and cone incense</li>
+    <li><strong>Ash Control:</strong> Designed with ash-catching tray or channel</li>
+    <li><strong>Care:</strong> Wipe clean with damp cloth after use, rinse ash tray periodically</li>
+    <li><strong>Suitable for:</strong> Daily incense burning, meditation spaces, tea rooms, living rooms</li>
+  </ul>
+</div>
+
+{% endif %}

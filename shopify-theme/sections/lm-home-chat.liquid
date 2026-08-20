@@ -1,0 +1,157 @@
+{% comment %}Hybrid store UX release 2026-08-20{% endcomment %}
+{% render 'wp-shell' %}
+{%- assign wp_workspace_url = settings.wp_workspace_url | strip -%}
+{%- if wp_workspace_url == blank -%}{%- assign wp_workspace_url = '/apps/wp-account/workspace' -%}{%- endif -%}
+{%- capture wp_account_login_url -%}/customer_authentication/login?return_to={{ wp_workspace_url | url_encode }}{%- endcapture -%}
+{%- assign wp_account_entry_url = wp_workspace_url -%}
+{%- unless customer -%}{%- assign wp_account_entry_url = wp_account_login_url | strip -%}{%- endunless -%}
+{%- assign wp_live_products = collections.all.products -%}
+
+<style>
+  .sfc-home,.sfc-home *{box-sizing:border-box}
+  .sfc-home{min-height:100vh;overflow-x:hidden;background:var(--wp-white);color:var(--wp-ink)}
+  .sfc-home a{color:inherit}
+  .wp-service-launchers,.wp-account-entry,.wp-global-track-link,.wp-agent-view-switcher{display:none!important}
+  .sfc-wrap{width:min(100%,1240px);margin:0 auto;padding-inline:28px}
+
+  .sfc-hero{border-bottom:1px solid var(--wp-line);background:#f3f2ed}
+  .sfc-hero-inner{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(420px,.92fr);align-items:center;gap:clamp(40px,6vw,82px);min-height:clamp(520px,68svh,640px);padding-top:64px;padding-bottom:68px}
+  .sfc-kicker{margin:0 0 17px;color:var(--wp-signal-dark);font-size:10px;font-weight:850;letter-spacing:.11em;text-transform:uppercase}
+  .sfc-hero h1{max-width:690px;margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(46px,5.6vw,72px);font-weight:500;letter-spacing:-.04em;line-height:1}
+  .sfc-hero-copy>p:last-child{max-width:610px;margin:24px 0 0;color:var(--wp-ink-soft);font-size:15px;line-height:1.7}
+  .sfc-finder{border:1px solid #c4cfca;border-radius:10px;background:#fff;box-shadow:0 16px 38px rgba(22,41,47,.08)}
+  .sfc-finder-modes{display:grid;grid-template-columns:1fr 1fr;padding:6px;border-bottom:1px solid var(--wp-line);background:var(--wp-mist)}
+  .sfc-finder-mode{min-height:44px;border:0;border-radius:6px;background:transparent;color:var(--wp-slate);font:inherit;font-size:12px;font-weight:780;cursor:pointer}
+  .sfc-finder-mode[aria-pressed="true"]{background:#fff;color:var(--wp-ink);box-shadow:0 1px 5px rgba(22,41,47,.09)}
+  .sfc-finder-body{padding:24px}
+  .sfc-finder-label{display:block;margin-bottom:10px;font-size:12px;font-weight:780}
+  .sfc-finder-form{display:grid;grid-template-columns:minmax(0,1fr) auto;overflow:hidden;border:1px solid #aebdb7;border-radius:7px;background:#fff}
+  .sfc-finder-form:focus-within{border-color:var(--wp-signal);box-shadow:0 0 0 3px var(--wp-signal-soft)}
+  .sfc-finder-form input{min-width:0;min-height:58px;padding:0 17px;border:0;outline:0;background:transparent;color:var(--wp-ink);font:inherit;font-size:14px}
+  .sfc-finder-form input::placeholder{color:#75827d}
+  .sfc-finder-form button{min-width:116px;border:0;border-left:1px solid rgba(255,255,255,.22);background:var(--wp-signal);color:#fff;font:inherit;font-size:11px;font-weight:820;cursor:pointer}
+  .sfc-finder-form button:hover{background:var(--wp-signal-dark)}
+  .sfc-finder-note{min-height:38px;margin:12px 0 0;color:var(--wp-slate);font-size:11px;line-height:1.55}
+  .sfc-finder-links{display:flex;flex-wrap:wrap;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid var(--wp-line)}
+  .sfc-finder-links a{font-size:10px;font-weight:800;text-decoration:none;text-transform:uppercase}.sfc-finder-links a:hover{color:var(--wp-signal-dark)}
+
+  .sfc-section{padding-top:66px;padding-bottom:70px}
+  .sfc-section-head{display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:24px}
+  .sfc-section-head h2{max-width:700px;margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(30px,4vw,43px);font-weight:500;letter-spacing:-.025em;line-height:1.05}
+  .sfc-section-head p{max-width:470px;margin:0;color:var(--wp-slate);font-size:12px;line-height:1.6}
+  .sfc-catalog{background:var(--wp-mist)}
+  .sfc-product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+  .sfc-product{display:grid;grid-template-rows:auto 1fr;min-width:0;overflow:hidden;border:1px solid var(--wp-line);border-radius:8px;background:#fff;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .sfc-product:hover{transform:translateY(-3px);border-color:#b5c1bc;box-shadow:0 14px 32px rgba(22,41,47,.09)}
+  .sfc-product:nth-child(n+9){display:none}
+  .sfc-product-media{position:relative;display:grid;place-items:center;aspect-ratio:1/1;background:#fff}
+  .sfc-product-media img{width:100%;height:100%;padding:12px;object-fit:contain}
+  .sfc-product-state{position:absolute;top:10px;left:10px;padding:5px 7px;border:1px solid var(--wp-line);border-radius:4px;background:rgba(255,255,255,.94);color:var(--wp-success);font-size:8px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+  .sfc-product-state.is-unavailable{color:var(--wp-slate)}
+  .sfc-product-copy{display:flex;flex-direction:column;padding:15px;border-top:1px solid var(--wp-line)}
+  .sfc-product-copy strong{display:-webkit-box;min-height:41px;overflow:hidden;font-size:12px;line-height:1.45;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .sfc-product-copy p{display:-webkit-box;min-height:34px;margin:8px 0 0;overflow:hidden;color:var(--wp-slate);font-size:10px;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .sfc-product-price{display:block;margin-top:auto;padding-top:12px;font-size:14px;font-weight:820}
+  .sfc-empty-catalog{padding:36px;border:1px solid var(--wp-line);background:#fff;color:var(--wp-slate);font-size:13px;text-align:center}
+  .sfc-section-foot{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:22px;color:var(--wp-slate);font-size:11px}
+  .sfc-text-link{color:var(--wp-ink)!important;font-size:10px;font-weight:850;text-decoration:none;text-transform:uppercase}.sfc-text-link:hover{color:var(--wp-signal-dark)!important}
+
+  .sfc-paths{background:#fff}
+  .sfc-path-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--wp-line);border-bottom:1px solid var(--wp-line)}
+  .sfc-path{display:grid;grid-template-columns:38px 1fr;gap:16px;min-height:180px;padding:28px 24px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;text-decoration:none;cursor:pointer}
+  .sfc-path+.sfc-path{border-left:1px solid var(--wp-line)}.sfc-path:hover{background:var(--wp-mist)}
+  .sfc-path-index{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--wp-ink);border-radius:50%;font-size:10px;font-weight:800}
+  .sfc-path:hover .sfc-path-index{border-color:var(--wp-signal);background:var(--wp-signal);color:#fff}
+  .sfc-path strong{display:block;margin:4px 0 8px;font-size:15px}.sfc-path p{margin:0;color:var(--wp-slate);font-size:12px;line-height:1.55}
+  .sfc-path em{display:block;margin-top:18px;color:var(--wp-signal-dark);font-size:9px;font-style:normal;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+
+  @media(max-width:980px){
+    .sfc-hero-inner{grid-template-columns:1fr;gap:40px;min-height:0}.sfc-hero-copy>p:last-child{max-width:720px}.sfc-finder{max-width:720px}
+    .sfc-product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media(max-width:700px){
+    .sfc-wrap{padding-inline:16px}
+    .sfc-hero-inner{gap:18px;padding-top:26px;padding-bottom:28px}.sfc-kicker{margin-bottom:11px}.sfc-hero h1{font-size:50px}.sfc-hero-copy>p:last-child{margin-top:14px;line-height:1.55}.sfc-finder-body{padding:14px}.sfc-finder-form{grid-template-columns:1fr}.sfc-finder-form input{min-height:50px}.sfc-finder-form button{min-height:44px;border-top:1px solid var(--wp-line);border-left:0}.sfc-finder-links{margin-top:12px;padding-top:12px}
+    .sfc-section{padding-top:48px;padding-bottom:52px}.sfc-section-head{display:block}.sfc-section-head p{margin-top:10px}.sfc-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sfc-product-copy{padding:11px}
+    .sfc-path-grid{grid-template-columns:1fr}.sfc-path+.sfc-path{border-top:1px solid var(--wp-line);border-left:0}.sfc-path{min-height:138px;padding:22px 8px}.sfc-section-foot{align-items:flex-start;flex-direction:column}
+  }
+  @media(max-width:410px){.sfc-hero h1{font-size:40px}.sfc-finder-modes{grid-template-columns:1fr}.sfc-product-grid{grid-template-columns:1fr 1fr}.sfc-product-copy p{display:none}}
+  @media(prefers-reduced-motion:reduce){.sfc-product{transition:none}}
+</style>
+
+<div class="wp-shell sfc-home" data-product-discovery-home>
+  {% render 'wp-shell-topbar' %}
+
+  <div>
+    <section class="sfc-hero" aria-labelledby="SfcHomeTitle">
+      <div class="sfc-wrap sfc-hero-inner">
+        <div class="sfc-hero-copy">
+          <p class="sfc-kicker">Catalog, guidance, and custom sourcing</p>
+          <h1 id="SfcHomeTitle">Find the right product from China.</h1>
+          <p>Shop products already in the catalog or ask for help turning a use case, budget, and destination into a focused brief.</p>
+        </div>
+        <section class="sfc-finder" data-home-finder aria-label="Find a product">
+          <div class="sfc-finder-modes" aria-label="Discovery mode">
+            <button class="sfc-finder-mode" type="button" data-finder-mode="search" aria-pressed="true">Search products</button>
+            <button class="sfc-finder-mode" type="button" data-finder-mode="agent" aria-pressed="false">Ask Agent</button>
+          </div>
+          <div class="sfc-finder-body">
+            <label class="sfc-finder-label" for="SfcHomeQuery" data-finder-label>What are you looking for?</label>
+            <form action="{{ routes.search_url }}" method="get" class="sfc-finder-form" role="search" data-finder-form>
+              <input type="hidden" name="type" value="product">
+              <input id="SfcHomeQuery" type="search" name="q" placeholder="Product, material, category, or use case" aria-label="Search products" autocomplete="off" required data-finder-input>
+              <button type="submit" data-finder-submit>Search</button>
+            </form>
+            <p class="sfc-finder-note" data-finder-note>Browse the closest catalog matches. Search is free and does not use sourcing credits.</p>
+            <div class="sfc-finder-links"><a href="{{ routes.search_url }}">Browse catalog &#8594;</a><a href="#SfcPathTitle">How shopping guidance works &#8595;</a></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="sfc-section sfc-catalog" aria-labelledby="SfcCatalogTitle">
+      <div class="sfc-wrap">
+        <div class="sfc-section-head"><h2 id="SfcCatalogTitle">Available from the catalog</h2><p>Open a product for variants, buying details, shipping estimates, and checkout availability.</p></div>
+        {%- if wp_live_products != blank -%}
+          <div class="sfc-product-grid">
+            {%- for product in wp_live_products limit: 32 -%}
+              <a class="sfc-product" href="{{ product.url }}">
+                <span class="sfc-product-media">
+                  {%- if product.featured_image -%}{{ product.featured_image | image_url: width: 720 | image_tag: loading: 'lazy', widths: '240, 360, 480, 720', alt: '' }}{%- endif -%}
+                  <span class="sfc-product-state{% unless product.available %} is-unavailable{% endunless %}">{% if product.available %}Available{% else %}Unavailable{% endif %}</span>
+                </span>
+                <span class="sfc-product-copy"><strong>{{ product.title | escape }}</strong><p>{{ product.description | strip_html | strip | truncate: 112 | escape }}</p><span class="sfc-product-price">{% if product.price_varies %}From {% endif %}{{ product.price_min | money }}</span></span>
+              </a>
+            {%- endfor -%}
+          </div>
+        {%- else -%}
+          <div class="sfc-empty-catalog">Catalog products are temporarily unavailable. Try search or ask the Agent for help.</div>
+        {%- endif -%}
+        <div class="sfc-section-foot"><span>Catalog availability and shipping eligibility are confirmed on the product page.</span><a class="sfc-text-link" href="{{ routes.search_url }}">Browse the catalog &#8594;</a></div>
+      </div>
+    </section>
+
+    <section class="sfc-section sfc-paths" aria-labelledby="SfcPathTitle">
+      <div class="sfc-wrap">
+        <div class="sfc-section-head"><h2 id="SfcPathTitle">Move forward without losing the brief.</h2><p>Use the lightest workflow that answers the request. Credits appear only when paid custom sourcing is explicitly selected.</p></div>
+        <div class="sfc-path-grid">
+          <a class="sfc-path" href="{{ routes.search_url }}"><span class="sfc-path-index">01</span><span><strong>Shop the catalog</strong><p>Compare products already prepared for purchase.</p><em>Open catalog</em></span></a>
+          <button class="sfc-path" type="button" data-open-agent-drawer><span class="sfc-path-index">02</span><span><strong>Ask Agent</strong><p>Clarify the use case and review live catalog matches. If the catalog is not enough, the Agent will offer custom sourcing as a separate, confirmed step.</p><em>Start free guidance</em></span></button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  {% render 'wp-shell-footer' %}
+</div>
+
+{% render 'wp-search-nl' %}
+<script src="{{ 'product-discovery-home.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Product discovery",
+  "settings": [],
+  "presets": [{ "name": "Product discovery" }]
+}
+{% endschema %}

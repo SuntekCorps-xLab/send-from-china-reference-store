@@ -1,0 +1,582 @@
+{%- comment -%}
+  Product detail page on the WP shared shell.
+  Logic preserved from previous chat-shell PDP:
+    - Hero image follows variant featured_image
+    - Thumbnail click → hero swap (with preload + fade)
+    - Variant option grid generates per-option links with cross-option preservation
+    - Hidden dimension line item properties are retained for cart visibility.
+      Shipping quotes are calculated from Shopify product_id via Admin GraphQL.
+{%- endcomment -%}
+{%- comment -%} Without this, current_variant is nil → price blank, button stuck on "Sold out", cart id empty. {%- endcomment -%}
+{%- assign current_variant = product.selected_or_first_available_variant -%}
+{%- assign wp_shipping_api_base = settings.wp_shipping_api_base | strip -%}
+{% render 'wp-shell' %}
+<style>
+  .wp-agent-view-switcher{display:none!important}
+  .wp-pdp{width:min(100%,1440px);margin:0 auto;padding:24px 32px 72px}
+  .wp-pdp-breadcrumbs{display:flex;align-items:center;gap:8px;margin:0 0 20px;color:var(--wph-muted);font-size:12px}
+  .wp-pdp-breadcrumbs a{color:inherit;text-decoration:none}
+  .wp-pdp-breadcrumbs a:hover{color:var(--wph-ink)}
+  .wp-pdp-breadcrumbs span[aria-hidden="true"]{color:#aeb7b4}
+  .wp-pdp-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(390px,.92fr);gap:64px;align-items:start}
+
+  .wp-pdp-gallery{display:flex;flex-direction:column;gap:12px;position:sticky;top:100px;min-width:0}
+  .wp-pdp-hero{position:relative;display:grid;place-items:center;aspect-ratio:1/1;overflow:hidden;border:1px solid var(--wph-line);border-radius:12px;background:var(--wph-card)}
+  .wp-pdp-hero img{width:100%;height:100%;padding:clamp(18px,4vw,54px);object-fit:contain;display:block;transition:opacity .2s ease}
+  .wp-pdp-image-empty{display:grid;place-items:center;width:100%;height:100%;color:var(--wph-muted);font-size:13px}
+  .wp-pdp-thumbs{display:flex;gap:8px;overflow-x:auto;padding:2px;scrollbar-width:thin}
+  .wp-pdp-thumb{flex:0 0 70px;width:70px;height:70px;overflow:hidden;padding:0;border:1px solid var(--wph-line);border-radius:8px;background:var(--wph-card);cursor:pointer;transition:border-color .16s,box-shadow .16s}
+  .wp-pdp-thumb:hover{border-color:#9aa7a3}
+  .wp-pdp-thumb.is-active{border-color:var(--wph-ink);box-shadow:0 0 0 1px var(--wph-ink)}
+  .wp-pdp-thumb img{width:100%;height:100%;padding:6px;object-fit:contain;display:block}
+
+  .wp-pdp-info{min-width:0;padding-top:4px}
+  .wp-pdp-heading-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+  .wp-pdp-category{color:var(--wph-muted);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.08em}
+  .wp-pdp-availability{display:inline-flex;align-items:center;gap:7px;color:var(--wp-success);font-size:12px;font-weight:650;white-space:nowrap}
+  .wp-pdp-availability::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .wp-pdp-availability.is-sold-out{color:var(--wp-danger)}
+  .wp-pdp-title{max-width:19ch;margin:0 0 18px;color:var(--wph-ink);font-family:Inter,"Segoe UI",sans-serif;font-size:clamp(28px,3vw,42px);font-weight:720;line-height:1.08;letter-spacing:-.035em;overflow-wrap:anywhere}
+  .wp-pdp-price{margin-bottom:4px;color:var(--wph-ink);font-size:28px;font-weight:720;letter-spacing:-.025em}
+  .wp-pdp-price-note{margin-bottom:22px;color:var(--wph-muted);font-size:12px;line-height:1.5}
+
+  .wp-pdp-purchase{padding:22px;border:1px solid var(--wph-line);border-radius:12px;background:var(--wph-card);box-shadow:0 14px 34px -30px rgba(20,43,47,.36)}
+  .wp-pdp-variant{margin-bottom:20px}
+  .wp-pdp-variant-label{margin-bottom:9px;color:var(--wph-ink);font-size:12px;font-weight:700}
+  .wp-pdp-variant-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .wp-pdp-variant-opt{display:inline-block;max-width:100%;padding:9px 13px;border:1px solid #c8d0cd;border-radius:6px;background:var(--wp-white);color:var(--wph-ink);font-size:13px;line-height:1.35;text-decoration:none;overflow-wrap:anywhere;transition:border-color .15s,background .15s,color .15s}
+  .wp-pdp-variant-opt:hover{border-color:var(--wph-ink)}
+  .wp-pdp-variant-opt.is-active{border-color:var(--wph-ink);background:var(--wph-ink);color:var(--wp-white)}
+  .wp-pdp-variant-opt.is-unavailable{border-style:dashed;color:var(--wph-muted);cursor:not-allowed;opacity:.58;text-decoration:line-through}
+  .wp-pdp-buy{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;margin-top:6px}
+  .wp-pdp-qty-wrap{display:grid;gap:6px}
+  .wp-pdp-qty-label{color:var(--wph-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+  .wp-pdp-qty{width:100%;min-height:50px;padding:0 10px;border:1px solid #c8d0cd;border-radius:6px;background:var(--wp-white);color:var(--wph-ink);font-family:inherit;font-size:14px;text-align:center;outline:none;-moz-appearance:textfield}
+  .wp-pdp-qty::-webkit-outer-spin-button,.wp-pdp-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .wp-pdp-qty:focus-visible{border-color:var(--wp-signal);outline:3px solid var(--wp-signal-soft);outline-offset:1px}
+  .wp-pdp-add{align-self:end;min-height:50px;padding:0 22px;border:0;border-radius:6px;background:var(--wph-ink);color:var(--wp-white);font-family:inherit;font-size:13px;font-weight:750;letter-spacing:.035em;cursor:pointer;transition:background .15s,transform .15s}
+  .wp-pdp-add:hover{background:var(--wph-ink-2);transform:translateY(-1px)}
+  .wp-pdp-add:disabled{background:#93a09d;cursor:not-allowed;transform:none}
+
+  .wp-ship-estimator{margin-top:18px;border-top:1px solid var(--wph-line)}
+  .wp-ship-estimator summary{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:17px 2px 0;cursor:pointer;list-style:none}
+  .wp-ship-estimator summary::-webkit-details-marker{display:none}
+  .wp-ship-estimator summary::after{content:"+";display:grid;place-items:center;width:24px;height:24px;flex:0 0 24px;border:1px solid var(--wph-line);border-radius:50%;color:var(--wph-muted);font-size:16px}
+  .wp-ship-estimator[open] summary::after{content:"−"}
+  .wp-ship-estimator-title{color:var(--wph-ink);font-size:13px;font-weight:700}
+  .wp-ship-estimator-status{margin-top:3px;color:var(--wph-muted);font-size:11px;line-height:1.4}
+  .wp-ship-estimator-body{padding-top:14px}
+  .wp-ship-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:12px}
+  .wp-ship-controls select,.wp-ship-controls input{width:100%;min-width:0;min-height:42px;padding:0 10px;border:1px solid #c8d0cd;border-radius:6px;background:var(--wp-white);color:var(--wph-ink);font:inherit;font-size:12px}
+  .wp-ship-controls button{min-height:42px;padding:0 13px;border:0;border-radius:6px;background:var(--wph-ink);color:var(--wp-white);font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+  .wp-ship-controls button:disabled{opacity:.55;cursor:wait}
+  .wp-ship-rates{display:grid;gap:8px}
+  .wp-ship-rate{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding-top:9px;border-top:1px solid var(--wph-line)}
+  .wp-ship-rate:first-child{border-top:0;padding-top:0}
+  .wp-ship-rate-name{color:var(--wph-ink);font-size:12px;font-weight:700}
+  .wp-ship-rate-window{margin-top:2px;color:var(--wph-muted);font-size:11px}
+  .wp-ship-rate-price{color:var(--wph-ink);font-size:13px;font-weight:750;white-space:nowrap}
+
+  .wp-pdp-assurance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+  .wp-pdp-assurance span{display:flex;align-items:center;gap:8px;color:var(--wph-muted);font-size:11px;line-height:1.4}
+  .wp-pdp-assurance span::before{content:"✓";display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px;border-radius:50%;background:#e4f1eb;color:var(--wp-success);font-size:10px;font-weight:800}
+  .wp-pdp-agent{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin-top:14px;padding:17px 18px;border:1px solid var(--wph-line);border-radius:10px;background:transparent;color:var(--wph-ink);font:inherit;text-align:left;text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s}
+  .wp-pdp-agent:hover{border-color:#9aa7a3;background:rgba(255,255,255,.5)}
+  .wp-pdp-agent strong,.wp-pdp-agent small{display:block}
+  .wp-pdp-agent strong{font-size:13px}
+  .wp-pdp-agent small{margin-top:3px;color:var(--wph-muted);font-size:11px;line-height:1.4}
+  .wp-pdp-agent-arrow{font-size:18px}
+
+  .wp-pdp-details{display:grid;grid-template-columns:1.5fr 1fr;gap:0;margin-top:54px;border-top:1px solid var(--wph-line);border-bottom:1px solid var(--wph-line)}
+  .wp-pdp-detail{padding:0 28px;border-left:1px solid var(--wph-line)}
+  .wp-pdp-detail:first-child{padding-left:0;border-left:0}
+  .wp-pdp-detail:last-child{padding-right:0}
+  .wp-pdp-detail summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:21px 0;cursor:pointer;list-style:none;color:var(--wph-ink);font-size:14px;font-weight:750}
+  .wp-pdp-detail summary::-webkit-details-marker{display:none}
+  .wp-pdp-detail summary::after{content:"+";color:var(--wph-muted);font-size:18px;font-weight:400}
+  .wp-pdp-detail[open] summary::after{content:"−"}
+  .wp-pdp-detail-content{padding:0 0 24px;color:var(--wph-ink-2);font-size:13px;line-height:1.7}
+  .wp-pdp-detail-content p{margin:0 0 12px}
+  .wp-pdp-detail-content a{color:var(--wph-ink);text-underline-offset:3px}
+  .wp-pdp-facts{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;margin:0}
+  .wp-pdp-facts dt{color:var(--wph-muted)}
+  .wp-pdp-facts dd{margin:0;color:var(--wph-ink);overflow-wrap:anywhere}
+
+  @media(max-width:1080px){
+    .wp-pdp-grid{gap:38px}
+    .wp-pdp-gallery{position:static}
+  }
+  @media(max-width:880px){
+    .wp-pdp{padding:18px 20px 56px}
+    .wp-pdp-grid{grid-template-columns:1fr;gap:28px}
+    .wp-pdp-title{max-width:none}
+    .wp-pdp-details{grid-template-columns:1fr}
+    .wp-pdp-detail,.wp-pdp-detail:first-child,.wp-pdp-detail:last-child{padding:0;border-left:0;border-top:1px solid var(--wph-line)}
+    .wp-pdp-detail:first-child{border-top:0}
+  }
+  @media(max-width:620px){
+    .wp-pdp{padding:14px 14px 44px}
+    .wp-pdp-breadcrumbs{margin-bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wp-pdp-hero img{padding:18px}
+    .wp-pdp-heading-row{align-items:flex-start}
+    .wp-pdp-title{font-size:30px}
+    .wp-pdp-purchase{padding:17px}
+    .wp-pdp-buy{grid-template-columns:78px minmax(0,1fr)}
+    .wp-ship-controls{grid-template-columns:1fr}
+    .wp-ship-controls button{width:100%}
+    .wp-pdp-assurance{grid-template-columns:1fr}
+  }
+</style>
+
+<div class="wp-shell">
+
+  {% render 'wp-shell-topbar' %}
+
+  <div class="wp-pdp">
+    <nav class="wp-pdp-breadcrumbs" aria-label="Breadcrumb">
+      <a href="{{ routes.root_url }}">Home</a>
+      <span aria-hidden="true">/</span>
+      {%- if collection != blank -%}
+        <a href="{{ collection.url }}">{{ collection.title }}</a>
+      {%- elsif product.collections.first != blank -%}
+        <a href="{{ product.collections.first.url }}">{{ product.collections.first.title }}</a>
+      {%- else -%}
+        <a href="{{ routes.all_products_collection_url }}">Products</a>
+      {%- endif -%}
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{{ product.title }}</span>
+    </nav>
+
+    <div class="wp-pdp-grid">
+
+      {%- assign hero_image = current_variant.featured_image | default: product.featured_image -%}
+      {%- assign wp_rich_media_urls = product.metafields.wpai.rich_media_urls.value -%}
+      {%- assign wp_rich_media_hero = wp_rich_media_urls | first -%}
+      {%- assign wp_external_image_url = product.metafields.wpai.external_image_url.value | default: product.metafields.wpai.external_image_url -%}
+      {%- assign wp_external_image_alt = product.metafields.wpai.external_image_alt.value | default: product.title -%}
+      <div class="wp-pdp-gallery">
+        <div class="wp-pdp-hero">
+          {%- if wp_rich_media_hero != blank -%}
+            <img id="wp-pdp-hero-img"
+                 src="{{ wp_rich_media_hero | escape }}"
+                 alt="{{ product.title | escape }}"
+                 width="1200"
+                 height="1200"
+                 loading="eager"
+                 referrerpolicy="no-referrer">
+          {%- elsif hero_image -%}
+            <img id="wp-pdp-hero-img"
+                 src="{{ hero_image | image_url: width: 1200 }}"
+                 alt="{{ hero_image.alt | default: product.title | escape }}"
+                 width="{{ hero_image.width }}"
+                 height="{{ hero_image.height }}"
+                 loading="eager">
+          {%- elsif wp_external_image_url != blank -%}
+            <img id="wp-pdp-hero-img"
+                 src="{{ wp_external_image_url | escape }}"
+                 alt="{{ wp_external_image_alt | escape }}"
+                 width="1200"
+                 height="1200"
+                 loading="eager"
+                 referrerpolicy="no-referrer">
+          {%- else -%}
+            <div class="wp-pdp-image-empty">Product image unavailable</div>
+          {%- endif -%}
+        </div>
+        {%- if wp_rich_media_urls.size > 1 -%}
+          <div class="wp-pdp-thumbs">
+            {%- for image_url in wp_rich_media_urls limit: 10 -%}
+              <button type="button"
+                      class="wp-pdp-thumb{% if forloop.first %} is-active{% endif %}"
+                      data-large="{{ image_url | escape }}"
+                      data-alt="{{ product.title | escape }}"
+                      aria-label="View enhanced image {{ forloop.index }}"
+                      aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+                <img src="{{ image_url | escape }}" alt="" width="200" height="200" loading="lazy" referrerpolicy="no-referrer">
+              </button>
+            {%- endfor -%}
+          </div>
+        {%- elsif product.images.size > 1 -%}
+          <div class="wp-pdp-thumbs">
+            {%- for image in product.images limit: 10 -%}
+              {%- assign is_current = false -%}
+              {%- if hero_image and image.id == hero_image.id -%}{%- assign is_current = true -%}{%- endif -%}
+              <button type="button"
+                      class="wp-pdp-thumb{% if is_current %} is-active{% endif %}"
+                      data-large="{{ image | image_url: width: 1200 }}"
+                      data-alt="{{ image.alt | default: product.title | escape }}"
+                      aria-label="View image {{ forloop.index }}"
+                      aria-pressed="{% if is_current %}true{% else %}false{% endif %}">
+                <img src="{{ image | image_url: width: 200 }}" alt="" width="{{ image.width }}" height="{{ image.height }}" loading="lazy">
+              </button>
+            {%- endfor -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="wp-pdp-info">
+        <div class="wp-pdp-heading-row">
+          <div class="wp-pdp-category">{{ product.type | default: 'Product' }}</div>
+          <div class="wp-pdp-availability{% unless current_variant.available %} is-sold-out{% endunless %}">
+            {%- if current_variant.available -%}Available{%- else -%}Sold out{%- endif -%}
+          </div>
+        </div>
+
+        <h1 class="wp-pdp-title">{{ product.title }}</h1>
+
+        <div class="wp-pdp-price">{{ current_variant.price | money }}</div>
+        <div class="wp-pdp-price-note">Item price. Shipping is estimated separately before checkout.</div>
+
+        {%- assign wp_ship_cache = product.metafields.wpai.shipping_cache_us.value -%}
+        {%- assign wp_ship_rates = wp_ship_cache.rates -%}
+        {%- assign wp_length_cm = product.metafields.custom.length_cm.value | default: product.metafields.custom.length_cm -%}
+        {%- assign wp_width_cm = product.metafields.custom.width_cm.value | default: product.metafields.custom.width_cm -%}
+        {%- assign wp_height_cm = product.metafields.custom.height_cm.value | default: product.metafields.custom.height_cm -%}
+        <div class="wp-pdp-purchase">
+        <form action="{{ routes.cart_add_url }}" method="post" enctype="multipart/form-data">
+
+          {%- if product.metafields.custom.length_cm != blank -%}
+            <input type="hidden" name="properties[shipping_length_cm]" value="{{ product.metafields.custom.length_cm }}">
+          {%- endif -%}
+          {%- if product.metafields.custom.width_cm != blank -%}
+            <input type="hidden" name="properties[shipping_width_cm]" value="{{ product.metafields.custom.width_cm }}">
+          {%- endif -%}
+          {%- if product.metafields.custom.height_cm != blank -%}
+            <input type="hidden" name="properties[shipping_height_cm]" value="{{ product.metafields.custom.height_cm }}">
+          {%- endif -%}
+
+          {%- if product.has_only_default_variant == false -%}
+            {%- for option in product.options_with_values -%}
+              {%- assign opt_index = forloop.index0 -%}
+              <div class="wp-pdp-variant">
+                <div class="wp-pdp-variant-label">{{ option.name }}</div>
+                <div class="wp-pdp-variant-opts">
+                  {%- for value in option.values -%}
+                    {%- assign is_active = false -%}
+                    {%- if current_variant.options[opt_index] == value -%}{%- assign is_active = true -%}{%- endif -%}
+
+                    {%- assign target_variant_id = '' -%}
+                    {%- for v in product.variants -%}
+                      {%- if v.options[opt_index] == value -%}
+                        {%- assign match = true -%}
+                        {%- for o in product.options_with_values -%}
+                          {%- assign other_idx = forloop.index0 -%}
+                          {%- if other_idx != opt_index -%}
+                            {%- if v.options[other_idx] != current_variant.options[other_idx] -%}
+                              {%- assign match = false -%}
+                            {%- endif -%}
+                          {%- endif -%}
+                        {%- endfor -%}
+                        {%- if match and target_variant_id == '' -%}
+                          {%- assign target_variant_id = v.id -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+
+                    {%- if target_variant_id != blank -%}
+                      <a href="{{ product.url }}?variant={{ target_variant_id }}"
+                         class="wp-pdp-variant-opt{% if is_active %} is-active{% endif %}">{{ value }}</a>
+                    {%- else -%}
+                      <span class="wp-pdp-variant-opt is-unavailable" aria-disabled="true">{{ value }}</span>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </div>
+              </div>
+            {%- endfor -%}
+          {%- endif -%}
+
+          <input type="hidden" name="id" value="{{ current_variant.id }}">
+
+          <div class="wp-pdp-buy">
+            <label class="wp-pdp-qty-wrap">
+              <span class="wp-pdp-qty-label">Quantity</span>
+              <input type="number" name="quantity" value="1" min="1" class="wp-pdp-qty" aria-label="Quantity" data-pdp-quantity>
+            </label>
+            <button type="submit" class="wp-pdp-add"{% unless current_variant.available %} disabled{% endunless %}>
+              {%- if current_variant.available -%}Add to cart{%- else -%}Sold out{%- endif -%}
+            </button>
+          </div>
+
+        </form>
+
+        <details class="wp-ship-estimator"
+                 data-shipping-estimator
+                 data-endpoint="{% if wp_shipping_api_base != blank %}{{ wp_shipping_api_base }}/estimate{% endif %}"
+                 data-has-cache="{% if wp_ship_rates.size > 0 %}true{% else %}false{% endif %}"
+                 data-product-title="{{ product.title | escape }}"
+                 data-product-id="{{ product.id }}"
+                 data-variant-id="{{ current_variant.id }}"
+                 data-grams="{{ current_variant.weight | default: 500 }}"
+                 data-length="{{ wp_length_cm }}"
+                 data-width="{{ wp_width_cm }}"
+                 data-height="{{ wp_height_cm }}">
+          <summary>
+            <div>
+              <div class="wp-ship-estimator-title">Estimate delivery</div>
+              <div class="wp-ship-estimator-status" data-shipping-status role="status" aria-live="polite" aria-atomic="true">
+                {%- if wp_ship_rates.size > 0 -%}
+                  Rates available for the United States.
+                {%- else -%}
+                  Enter a destination for available routes.
+                {%- endif -%}
+              </div>
+            </div>
+          </summary>
+          <div class="wp-ship-estimator-body">
+            <div class="wp-ship-controls">
+              <select data-shipping-country aria-label="Ship to country">
+                <option value="US" data-postal="90001" data-province="CA" data-city="Los Angeles" selected>United States</option>
+                <option value="AU" data-postal="2000" data-province="NSW" data-city="Sydney">Australia</option>
+                <option value="CA" data-postal="M5V" data-province="ON" data-city="Toronto">Canada</option>
+                <option value="GB" data-postal="SW1A 1AA" data-province="" data-city="London">United Kingdom</option>
+                <option value="DE" data-postal="10115" data-province="" data-city="Berlin">Germany</option>
+              </select>
+              <input type="text" data-shipping-postal value="90001" aria-label="Postal code">
+              <button type="button" data-shipping-button>Estimate</button>
+            </div>
+            <div class="wp-ship-rates" data-shipping-rates>
+              {%- for rate in wp_ship_rates limit: 3 -%}
+                {%- assign min_day = rate.min_delivery_date | slice: 0, 10 -%}
+                {%- assign max_day = rate.max_delivery_date | slice: 0, 10 -%}
+                <div class="wp-ship-rate">
+                  <div>
+                    <div class="wp-ship-rate-name">{{ rate.service_name | default: 'Cross-border shipping' }}</div>
+                    <div class="wp-ship-rate-window">
+                      {%- if min_day != blank and max_day != blank -%}
+                        {{ min_day }} - {{ max_day }}
+                      {%- else -%}
+                        {{ rate.description }}
+                      {%- endif -%}
+                    </div>
+                  </div>
+                  <div class="wp-ship-rate-price">{{ rate.total_price | plus: 0 | money }}</div>
+                </div>
+              {%- endfor -%}
+            </div>
+          </div>
+        </details>
+
+        <div class="wp-pdp-assurance" aria-label="Checkout information">
+          <span>Secure checkout by Shopify</span>
+          <span>Delivery quote before payment</span>
+        </div>
+        </div>
+
+        <button class="wp-pdp-agent" type="button" data-open-agent-drawer data-agent-brief="{{ 'Help me compare alternatives to ' | append: product.title | escape }}">
+          <span>
+            <strong>Need a different size, material or budget?</strong>
+            <small>Ask the product concierge to compare alternatives.</small>
+          </span>
+          <span class="wp-pdp-agent-arrow" aria-hidden="true">→</span>
+        </button>
+      </div>
+
+    </div>
+
+    <div class="wp-pdp-details">
+      <details class="wp-pdp-detail" open>
+        <summary>Product details</summary>
+        <div class="wp-pdp-detail-content">
+          {%- if product.description != blank -%}
+            {{ product.description }}
+          {%- else -%}
+            <p>Additional product details are not available yet.</p>
+          {%- endif -%}
+        </div>
+      </details>
+      <details class="wp-pdp-detail">
+        <summary>Product information</summary>
+        <div class="wp-pdp-detail-content">
+          <dl class="wp-pdp-facts">
+            {%- if product.type != blank -%}<dt>Type</dt><dd>{{ product.type }}</dd>{%- endif -%}
+            {%- unless product.has_only_default_variant -%}<dt>Selection</dt><dd>{{ current_variant.title }}</dd>{%- endunless -%}
+            {%- if current_variant.sku != blank -%}<dt>SKU</dt><dd>{{ current_variant.sku }}</dd>{%- endif -%}
+            <dt>Shipping</dt><dd>Calculated for the selected destination and quantity.</dd>
+          </dl>
+          {%- if shop.refund_policy.url != blank -%}
+            <p><a href="{{ shop.refund_policy.url }}">View the store return policy</a></p>
+          {%- endif -%}
+        </div>
+      </details>
+    </div>
+
+  </div>
+
+  {% render 'wp-shell-footer' %}
+
+</div>
+
+<script>
+(function(){
+  var hero = document.getElementById('wp-pdp-hero-img');
+  if (!hero) return;
+  var thumbs = document.querySelectorAll('.wp-pdp-thumb');
+  thumbs.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var large = btn.dataset.large;
+      var alt = btn.dataset.alt;
+      if (!large) return;
+      hero.style.opacity = '0';
+      var pre = new Image();
+      pre.onload = function(){
+        hero.src = large;
+        if (alt) hero.alt = alt;
+        hero.style.opacity = '1';
+        thumbs.forEach(function(t){ t.classList.remove('is-active'); t.setAttribute('aria-pressed', 'false'); });
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-pressed', 'true');
+      };
+      pre.onerror = function(){ hero.style.opacity = '1'; };
+      pre.src = large;
+    });
+  });
+})();
+</script>
+<script>
+(function(){
+  var box = document.querySelector('[data-shipping-estimator]');
+  if (!box) return;
+  var endpoint = box.dataset.endpoint;
+  var country = box.querySelector('[data-shipping-country]');
+  var postal = box.querySelector('[data-shipping-postal]');
+  var button = box.querySelector('[data-shipping-button]');
+  var status = box.querySelector('[data-shipping-status]');
+  var ratesBox = box.querySelector('[data-shipping-rates]');
+  var quantity = document.querySelector('[data-pdp-quantity]');
+  var hasCache = box.dataset.hasCache === 'true';
+  var activeRequest = null;
+
+  function num(v, fallback) {
+    var n = parseFloat(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function dateLabel(v) {
+    if (!v) return '';
+    var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return String(v).slice(0, 10);
+    var d = new Date(Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)));
+    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function money(cents, currency) {
+    var amount = num(cents, 0) / 100;
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(amount);
+  }
+
+  function selectedDestination() {
+    var opt = country.options[country.selectedIndex];
+    return {
+      country: country.value,
+      postal_code: postal.value || opt.dataset.postal || '',
+      province: opt.dataset.province || '',
+      city: opt.dataset.city || ''
+    };
+  }
+
+  function renderRates(rates) {
+    ratesBox.innerHTML = '';
+    if (!rates || !rates.length) {
+      status.textContent = 'Shipping estimate will be confirmed at checkout.';
+      return;
+    }
+    status.textContent = 'Live shipping options for ' + country.options[country.selectedIndex].text + '.';
+    rates.slice(0, 3).forEach(function(rate) {
+      var row = document.createElement('div');
+      row.className = 'wp-ship-rate';
+      var min = dateLabel(rate.min_delivery_date);
+      var max = dateLabel(rate.max_delivery_date);
+      row.innerHTML =
+        '<div><div class="wp-ship-rate-name"></div><div class="wp-ship-rate-window"></div></div><div class="wp-ship-rate-price"></div>';
+      row.querySelector('.wp-ship-rate-name').textContent = rate.service_name || 'Cross-border shipping';
+      row.querySelector('.wp-ship-rate-window').textContent = min && max ? min + ' - ' + max : (rate.description || '');
+      row.querySelector('.wp-ship-rate-price').textContent = money(rate.total_price, rate.currency);
+      ratesBox.appendChild(row);
+    });
+  }
+
+  async function estimate() {
+    if (activeRequest) {
+      activeRequest.abort();
+      activeRequest = null;
+    }
+    button.disabled = false;
+    if (!endpoint) {
+      status.textContent = 'Shipping estimate will be confirmed at checkout.';
+      return;
+    }
+    var grams = num(box.dataset.grams, 500);
+    var length = num(box.dataset.length, 0);
+    var width = num(box.dataset.width, 0);
+    var height = num(box.dataset.height, 0);
+    if (!length || !width || !height) {
+      status.textContent = 'Shipping estimate will be confirmed at checkout.';
+      return;
+    }
+    var controller = new AbortController();
+    activeRequest = controller;
+    box.dataset.estimated = 'true';
+    button.disabled = true;
+    status.textContent = 'Checking shipping rates...';
+    try {
+      var resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rate: {
+            destination: selectedDestination(),
+            items: [{
+              name: box.dataset.productTitle || 'Product',
+              product_id: box.dataset.productId,
+              variant_id: box.dataset.variantId,
+              quantity: Math.max(1, Math.round(num(quantity && quantity.value, 1))),
+              grams: grams > 0 ? grams : 500,
+              length_cm: length,
+              width_cm: width,
+              height_cm: height
+            }],
+            currency: 'USD'
+          }
+        }),
+        signal: controller.signal
+      });
+      if (!resp.ok) throw new Error('Shipping estimate failed with HTTP ' + resp.status);
+      var data = await resp.json();
+      renderRates(data.rates || []);
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      status.textContent = 'Shipping estimate will be confirmed at checkout.';
+    } finally {
+      if (activeRequest === controller) {
+        activeRequest = null;
+        button.disabled = false;
+      }
+    }
+  }
+
+  country.addEventListener('change', function() {
+    var opt = country.options[country.selectedIndex];
+    postal.value = opt.dataset.postal || '';
+    if (box.open) estimate();
+  });
+  button.addEventListener('click', estimate);
+  if (quantity) {
+    quantity.addEventListener('change', function() {
+      if (box.open && box.dataset.estimated === 'true') estimate();
+    });
+  }
+  box.addEventListener('toggle', function() {
+    if (box.open && !hasCache && box.dataset.estimated !== 'true') estimate();
+  });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "PDP — chat",
+  "tag": "section",
+  "class": "wp-pdp-section",
+  "settings": []
+}
+{% endschema %}

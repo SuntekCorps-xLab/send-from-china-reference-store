@@ -1,0 +1,31 @@
+# Run `shopify app config link` to create the local shopify.app.toml. Do not
+# paste an app secret into this file or commit the generated local config.
+client_id = "LINK_WITH_SHOPIFY_CLI"
+name = "WP Customer Account"
+application_url = "https://example.invalid"
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+
+[access_scopes]
+scopes = "read_customers,read_orders"
+
+[auth]
+redirect_urls = ["https://example.invalid/auth/callback"]
+
+[webhooks]
+api_version = "2026-04"
+
+[[webhooks.subscriptions]]
+topics = ["orders/paid"]
+uri = "/webhooks/shopify/orders-paid"
+
+[[webhooks.subscriptions]]
+topics = ["refunds/create"]
+uri = "/webhooks/shopify/refunds-create"
+
+[app_proxy]
+url = "https://example.invalid/shopify/proxy"
+subpath = "wp-account"
+prefix = "apps"

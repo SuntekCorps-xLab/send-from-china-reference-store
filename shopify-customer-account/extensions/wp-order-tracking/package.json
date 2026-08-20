@@ -1,0 +1,11 @@
+{
+  "name": "wp-order-tracking-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@preact/signals": "^2.7.0",
+    "@shopify/ui-extensions": "2026.4.x",
+    "preact": "^10.27.0"
+  }
+}

@@ -1,0 +1,127 @@
+{%- comment -%}
+  Agent-optimized search results page.
+  Server-rendered, no JS, no CSS. Returns structured product list matching query.
+{%- endcomment -%}
+
+{%- assign utm_search = 'utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=search' -%}
+
+{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- if search.performed -%}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "SearchResultsPage",
+  "name": "Search results for: {{ search.terms | escape | truncate: 60 }}",
+  "url": "{{ canonical_url }}",
+  "mainEntity": {
+    "@type": "ItemList",
+    "numberOfItems": {{ search.results_count }},
+    "itemListElement": [
+    {%- assign rendered = 0 -%}
+    {%- for item in search.results limit: 50 -%}
+      {%- if item.object_type == 'product' -%}
+        {%- assign v = item.selected_or_first_available_variant -%}
+        {%- unless rendered == 0 -%},{%- endunless -%}
+        {
+          "@type": "ListItem",
+          "position": {{ forloop.index }},
+          "item": {
+            "@type": "Product",
+            "name": {{ item.title | json }},
+            "url": "{{ shop.url }}{{ item.url }}",
+            "sku": {{ v.sku | json }},
+            "image": {{ item.featured_image | image_url: width: 1200 | json }},
+            "brand": {"@type": "Brand", "name": "Send From China"},
+            "offers": {
+              "@type": "Offer",
+              "url": "{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_search }}",
+              "price": "{{ item.price_min | divided_by: 100.0 }}",
+              "priceCurrency": {{ cart.currency.iso_code | json }},
+              "availability": "https://schema.org/{%- if item.available -%}InStock{%- else -%}OutOfStock{%- endif -%}"
+            }
+          }
+        }
+        {%- assign rendered = rendered | plus: 1 -%}
+      {%- endif -%}
+    {%- endfor -%}
+    ]
+  }
+}
+</script>
+
+<h1>Search results</h1>
+
+<p>
+<strong>Query:</strong> "{{ search.terms | escape }}"<br>
+<strong>Results found:</strong> {{ search.results_count }}<br>
+<strong>Human view:</strong> <a href="{{ canonical_url }}">{{ canonical_url }}</a>
+</p>
+
+{%- if search.results_count == 0 -%}
+<p>No products matched the query "{{ search.terms | escape }}". Agents may try:</p>
+<ul>
+<li>Broader keywords (e.g. "bowl" instead of "ceramic noodle bowl with handles")</li>
+<li>Browse <a href="/collections?view=agent">all collections</a> for category-driven discovery</li>
+{%- if wp_governance_api_base != blank -%}
+<li>Use the MCP <code>search_catalog</code> tool via <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a> for advanced filtering</li>
+{%- endif -%}
+</ul>
+
+{%- else -%}
+
+<h2>Products ({{ search.results_count }} total)</h2>
+<ul>
+{%- for item in search.results limit: 50 -%}
+  {%- if item.object_type == 'product' -%}
+    {%- assign v = item.selected_or_first_available_variant -%}
+    <li>
+      <strong><a href="{{ item.url }}?view=agent">{{ item.title }}</a></strong>
+      {%- if v.sku != blank %} &mdash; SKU: {{ v.sku }}{%- endif -%}
+      &mdash; {{ item.price_min | money }}
+      {%- if item.price_max != item.price_min %}&ndash;{{ item.price_max | money }}{%- endif -%}
+      &mdash; {%- if item.available -%}In Stock{%- else -%}Out of Stock{%- endif -%}
+      {%- if item.type != blank %} &mdash; {{ item.type }}{%- endif -%}
+      <br>
+      {%- if item.featured_image -%}
+      Image: <a href="{{ item.featured_image | image_url: width: 1200 }}">{{ item.featured_image | image_url: width: 400 }}</a><br>
+      {%- endif -%}
+      Cart URL: <a href="{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_search }}">{{ shop.url }}/cart/{{ v.id }}:1</a>
+    </li>
+  {%- endif -%}
+{%- endfor -%}
+</ul>
+
+{%- if search.results_count > 50 -%}
+<p><em>Showing first 50 of {{ search.results_count }} results. For paginated access, use <code>/search?q={{ search.terms | url_encode }}&view=agent&page=N</code>.</em></p>
+{%- endif -%}
+
+{%- endif -%}
+
+{%- else -%}
+
+<h1>Search</h1>
+<p>Submit a query via <code>?q={search_term}&view=agent</code> to get structured product results.</p>
+<p>Example: <a href="?q=ceramic+bowl&view=agent">/search?q=ceramic+bowl&view=agent</a></p>
+{%- if wp_governance_api_base != blank -%}
+<p>For advanced agent search, use the MCP <code>search_catalog</code> tool via <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a>.</p>
+{%- endif -%}
+
+{%- endif -%}
+
+<h2>For Agents</h2>
+<p>
+This is a structured search results page. Browse other entry points:
+<a href="/?view=agent">site home</a> &middot;
+<a href="/collections?view=agent">all collections</a> &middot;
+<a href="/.well-known/ucp">UCP discovery</a> &middot;
+<a href="/agents.md">agent instructions</a>
+</p>
+
+{% schema %}
+{
+  "name": "Agent Search Page",
+  "tag": "section",
+  "settings": []
+}
+{% endschema %}

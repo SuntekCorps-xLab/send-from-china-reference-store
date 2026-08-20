@@ -1,0 +1,123 @@
+{% render 'wp-shell' %}
+{{ 'wp-workspace.css' | asset_url | stylesheet_tag }}
+
+{%- assign wp_workspace_path = '/apps/wp-account/workspace' -%}
+{%- capture wp_login_url -%}/customer_authentication/login?return_to={{ wp_workspace_path | url_encode }}{%- endcapture -%}
+{%- assign wp_logout_url = '/customer_authentication/logout' -%}
+
+<div class="wp-shell wp-workspace-page" data-wp-workspace data-api-base="/apps/wp-account" data-customer-logged-in="{% if customer %}true{% else %}false{% endif %}" data-login-url="{{ wp_login_url | strip | escape }}" data-poll-interval="15000">
+  {%- if customer -%}
+    <header class="wp-request-global-head">
+      <a class="wp-request-back" href="{{ routes.root_url }}">Send From China</a>
+      <nav aria-label="Account navigation">
+        <button type="button" data-open-request-list>Requests</button>
+        <a href="{{ routes.account_url | default: '/account' }}">Orders</a>
+        <button type="button" data-open-account>Account</button>
+      </nav>
+    </header>
+
+    <main class="wp-request-detail">
+      <p class="wp-workspace-notice" data-workspace-notice hidden></p>
+      <div class="wp-request-toolbar">
+        <button class="wp-request-back-link" type="button" data-open-request-list>&larr; Sourcing requests</button>
+        <span class="wp-request-save-state" data-save-state>Saved</span>
+      </div>
+      <header class="wp-request-title-row">
+        <div>
+          <p class="wp-request-kicker">Custom sourcing request</p>
+          <h1 data-conversation-title>New product request</h1>
+          <p data-conversation-subtitle>Tell us what you need, then review prepared product matches.</p>
+        </div>
+        <span class="wp-request-status-badge" data-request-status>Draft</span>
+      </header>
+
+      <div class="wp-request-layout">
+      <div class="wp-request-main">
+      <section class="wp-request-concierge" data-concierge-stage aria-labelledby="WPConciergeHeading">
+        <div class="wp-request-section-head">
+          <div>
+            <p class="wp-request-kicker">Product concierge</p>
+            <h2 id="WPConciergeHeading">Tell us what you are looking for</h2>
+          </div>
+          <span class="wp-concierge-state" data-concierge-state>Listening</span>
+        </div>
+        <div class="wp-concierge-thread" data-concierge-messages aria-live="polite"></div>
+        <form class="wp-concierge-composer" data-chat-form>
+          <label class="visually-hidden" for="WPWorkspaceMessage">Message Send From China</label>
+          <textarea id="WPWorkspaceMessage" data-chat-input maxlength="1000" placeholder="Describe the product, recipient, budget, destination, or use case" required></textarea>
+          <button type="submit" data-chat-send aria-label="Send message">&uarr;</button>
+          <p class="wp-concierge-composer-hint">Enter to send &middot; Shift + Enter for a new line</p>
+        </form>
+      </section>
+
+      <section class="wp-request-results" data-results-section hidden aria-labelledby="WPResultsHeading">
+        <div class="wp-request-section-head"><div><p class="wp-request-kicker">Prepared products</p><h2 id="WPResultsHeading">Products selected for this brief</h2><p data-results-summary></p></div></div>
+        <div data-results></div>
+      </section>
+
+      <section class="wp-request-deeper" data-deeper-search hidden aria-labelledby="WPDeeperHeading">
+        <div><p class="wp-request-kicker">Continue the search</p><h2 id="WPDeeperHeading">Prepare more matched products</h2><p>See how many verified matches remain, choose any quantity, and review the exact credit cost before preparation starts.</p></div>
+        <div class="wp-credit-plans" data-credit-plans></div>
+      </section>
+      </div>
+
+      <aside class="wp-request-aside" aria-label="Request summary">
+
+      <section class="wp-request-brief" data-request-structured hidden aria-labelledby="WPBriefHeading">
+        <div class="wp-request-section-head">
+          <div><p class="wp-request-kicker">Your brief</p><h2 id="WPBriefHeading">What we are looking for</h2></div>
+        </div>
+        <dl class="wp-brief-facts" data-brief><div><dt>Request</dt><dd>Start by describing the product or problem to solve.</dd></div></dl>
+        <button class="wp-request-secondary-action" type="button" data-edit-requirements>Edit requirements</button>
+        <p class="wp-request-working" data-request-working hidden role="status">Updating your brief...</p>
+      </section>
+
+      <section class="wp-request-status" data-request-structured hidden aria-labelledby="WPStatusHeading">
+        <div class="wp-request-section-head"><div><p class="wp-request-kicker">Status</p><h2 id="WPStatusHeading">Sourcing progress</h2></div></div>
+        <div class="wp-request-progress" data-request-progress><p class="wp-workspace-empty">No sourcing request has started.</p></div>
+      </section>
+
+      <details class="wp-request-activity" data-request-structured hidden>
+        <summary>Request activity</summary>
+        <div class="wp-request-activity-body">
+          <div class="wp-request-activity-list" data-messages><p class="wp-workspace-empty">No activity yet.</p></div>
+          <div class="wp-request-list-compact" data-task-list></div>
+        </div>
+      </details>
+      </aside>
+      </div>
+    </main>
+
+    <div class="wp-request-drawer-backdrop" data-drawer-backdrop hidden></div>
+    <aside class="wp-request-drawer" data-request-list-drawer hidden aria-labelledby="WPRequestsDrawerHeading">
+      <div class="wp-request-drawer-head"><div><p class="wp-request-kicker">Account</p><h2 id="WPRequestsDrawerHeading">Sourcing requests</h2></div><button type="button" data-close-drawer aria-label="Close requests">&times;</button></div>
+      <button class="wp-request-primary-action" type="button" data-new-conversation>New request</button>
+      <div class="wp-workspace-conversations" data-conversations><p class="wp-workspace-empty">Loading requests...</p></div>
+    </aside>
+
+    <aside class="wp-request-drawer" data-account-drawer hidden aria-labelledby="WPAccountDrawerHeading">
+      <div class="wp-request-drawer-head"><div><p class="wp-request-kicker">Your account</p><h2 id="WPAccountDrawerHeading">{{ customer.first_name | default: 'Send From China customer' | escape }}</h2></div><button type="button" data-close-drawer aria-label="Close account">&times;</button></div>
+      <p data-account-id>Connecting your account...</p>
+      <div class="wp-account-drawer-actions"><a href="{{ routes.root_url }}">Back to store</a><a class="is-strong" href="{{ wp_logout_url }}">Sign out</a></div>
+      <details class="wp-account-developer-tools">
+        <summary>Agent access</summary><p>Create a revocable key for private requests and results.</p><button type="button" data-create-agent-key>Create Agent key</button>
+        <div class="wp-agent-token" data-agent-token hidden><strong>Copy this key now</strong><code data-agent-token-value></code><button type="button" data-copy-agent-key>Copy key</button><small>The full key will not be shown again.</small></div>
+        <div class="wp-agent-keys" data-agent-keys></div>
+      </details>
+    </aside>
+
+    <aside class="wp-request-drawer wp-requirements-drawer" data-requirements-drawer hidden aria-labelledby="WPRequirementsHeading">
+      <div class="wp-request-drawer-head"><div><p class="wp-request-kicker">Requirements</p><h2 id="WPRequirementsHeading">Edit your brief</h2></div><button type="button" data-close-drawer aria-label="Close requirements">&times;</button></div>
+      <p>Describe the product, recipient, budget, destination, quantity, or constraints. Your saved brief will update when you send it.</p>
+      <div data-dynamic-intake-host></div>
+    </aside>
+  {%- else -%}
+    <section class="wp-workspace-login"><p class="wp-workspace-eyebrow">Custom sourcing</p><h1>Save your brief and prepared products.</h1><p>Sign in with your email to keep sourcing requests, review initial matches, and continue a deeper search when you need it.</p><a href="{{ wp_login_url | strip }}">Sign in or create account</a></section>
+  {%- endif -%}
+</div>
+
+{%- if customer -%}<script src="{{ 'wp-workspace.js' | asset_url }}" defer></script>{%- endif -%}
+
+{% schema %}
+{"name":"Sourcing request","settings":[],"presets":[{"name":"Sourcing request"}]}
+{% endschema %}

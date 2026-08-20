@@ -1,0 +1,245 @@
+{% render 'wp-shell' %}
+<style>
+  .wp-service-launchers,.wp-account-entry,.wp-agent-view-switcher{display:none!important}
+  .sfc-search-page{width:min(100%,1280px);margin:0 auto;padding:48px 28px 72px}
+  .sfc-search-intro{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:28px;padding-bottom:28px;border-bottom:1px solid var(--wp-line)}
+  .sfc-search-kicker{margin:0 0 10px;color:var(--wp-signal-dark);font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+  .sfc-search-intro h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(36px,5vw,58px);font-weight:500;letter-spacing:-.035em;line-height:1}
+  .sfc-search-summary{max-width:600px;margin:14px 0 0;color:var(--wp-slate);font-size:13px;line-height:1.6}
+  .sfc-search-agent{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:1px solid var(--wp-ink);border-radius:5px;background:transparent;color:var(--wp-ink);font:inherit;font-size:11px;font-weight:780;text-decoration:none;white-space:nowrap;cursor:pointer}
+  .sfc-search-agent:hover{background:var(--wp-ink);color:#fff}
+  .sfc-search-status{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:62px;color:var(--wp-slate);font-size:11px}
+  .sfc-search-status strong{color:var(--wp-ink)}
+  .sfc-search-status-note{font-size:10px;text-align:right}
+  .sfc-search-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .sfc-search-card{display:grid;grid-template-rows:auto 1fr;min-width:0;overflow:hidden;border:1px solid var(--wp-line);border-radius:8px;background:#fff;color:var(--wp-ink);text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .sfc-search-card:hover{transform:translateY(-3px);border-color:#b4c1bc;box-shadow:0 14px 32px rgba(22,41,47,.09)}
+  .sfc-search-media{display:grid;place-items:center;aspect-ratio:1/1;background:#fff}
+  .sfc-search-media img{width:100%;height:100%;padding:12px;object-fit:contain}
+  .sfc-search-media span{color:var(--wp-slate);font-size:10px;text-transform:uppercase}
+  .sfc-search-copy{display:flex;flex-direction:column;padding:15px;border-top:1px solid var(--wp-line)}
+  .sfc-search-type{margin-bottom:7px;color:var(--wp-slate);font-size:8px;font-weight:820;letter-spacing:.08em;text-transform:uppercase}
+  .sfc-search-name{display:-webkit-box;min-height:42px;overflow:hidden;color:var(--wp-ink);font-size:13px;font-weight:680;line-height:1.45;text-decoration:none;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .sfc-search-name:hover{text-decoration:underline;text-decoration-color:#aebbb6}
+  .sfc-search-price{margin-top:auto;padding-top:13px;font-size:14px;font-weight:820}
+  .sfc-search-product-action{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin-top:13px;border:1px solid var(--wp-ink);border-radius:5px;background:var(--wp-ink);color:#fff;font-size:10px;font-weight:780;text-decoration:none}
+  .sfc-search-product-action:hover{background:#214047}
+  .sfc-search-state{grid-column:1/-1;display:grid;place-items:center;min-height:320px;padding:54px 24px;border:1px solid var(--wp-line);border-radius:8px;background:#fff;text-align:center}
+  .sfc-search-state-inner{max-width:560px}.sfc-search-state h2{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:32px;font-weight:500}.sfc-search-state p{margin:13px 0 0;color:var(--wp-slate);font-size:13px;line-height:1.65}
+  .sfc-search-state-actions{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:22px}
+  .sfc-search-state-actions a,.sfc-search-state-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 15px;border:1px solid var(--wp-ink);border-radius:5px;background:#fff;color:var(--wp-ink);font:inherit;font-size:11px;font-weight:780;text-decoration:none;cursor:pointer}
+  .sfc-search-state-actions .is-primary{background:var(--wp-ink);color:#fff}
+  .sfc-search-loading{display:inline-flex;align-items:center;gap:9px;color:var(--wp-slate);font-size:11px}
+  .sfc-search-loading::before{width:14px;height:14px;border:2px solid var(--wp-line);border-top-color:var(--wp-signal);border-radius:50%;content:"";animation:sfc-search-spin .8s linear infinite}
+  @keyframes sfc-search-spin{to{transform:rotate(360deg)}}
+  @media(max-width:980px){.sfc-search-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:700px){.sfc-search-page{padding:34px 16px 54px}.sfc-search-intro{display:block}.sfc-search-agent{margin-top:20px}.sfc-search-status{align-items:flex-start;flex-direction:column;justify-content:center;gap:4px}.sfc-search-status-note{text-align:left}.sfc-search-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sfc-search-copy{padding:11px}}
+  @media(max-width:390px){.sfc-search-grid{grid-template-columns:1fr}}
+  @media(prefers-reduced-motion:reduce){.sfc-search-card{transition:none}.sfc-search-loading::before{animation:none}}
+</style>
+
+<div class="wp-shell">
+  {% render 'wp-shell-topbar', query: search.terms %}
+
+  <div
+    class="sfc-search-page"
+    data-catalog-search
+    data-api-base="{{ settings.wp_governance_api_base | escape }}"
+    data-query="{{ search.terms | escape }}"
+    data-currency="{{ shop.currency | escape }}"
+  >
+    <header class="sfc-search-intro">
+      <div>
+        <p class="sfc-search-kicker">Catalog search</p>
+        {%- if search.performed -%}
+          <h1>Products for “{{ search.terms | escape }}”</h1>
+          <p class="sfc-search-summary">Browse the strongest live catalog results, then open a product to choose its options and buy.</p>
+        {%- else -%}
+          <h1>Search the catalog</h1>
+          <p class="sfc-search-summary">Search by product, material, category, or use case. Ask Agent when the request needs clarification.</p>
+        {%- endif -%}
+      </div>
+      <button class="sfc-search-agent" type="button" data-open-agent-drawer{% if search.terms != blank %} data-agent-brief="{{ search.terms | escape }}"{% endif %}>Ask Agent</button>
+    </header>
+
+    <div class="sfc-search-status" aria-live="polite">
+      <span data-search-count>{% if search.performed %}Searching the catalog…{% else %}Enter a query in the search field above.{% endif %}</span>
+      <span class="sfc-search-status-note">Live, governed, available products only.</span>
+    </div>
+
+    <section class="sfc-search-grid" data-search-results aria-label="Catalog search results" aria-busy="{% if search.performed %}true{% else %}false{% endif %}">
+      {%- if search.performed -%}
+        <div class="sfc-search-state" data-search-loading><span class="sfc-search-loading">Searching the catalog</span></div>
+      {%- else -%}
+        <div class="sfc-search-state"><div class="sfc-search-state-inner"><h2>Start with a product need</h2><p>The catalog works best with a clear product, material, category, or use case.</p></div></div>
+      {%- endif -%}
+    </section>
+  </div>
+
+  {% render 'wp-shell-footer' %}
+</div>
+
+{%- if search.performed -%}
+<script>
+(() => {
+  const root = document.querySelector("[data-catalog-search]");
+  if (!root) return;
+  const grid = root.querySelector("[data-search-results]");
+  const count = root.querySelector("[data-search-count]");
+  const query = new URLSearchParams(window.location.search).get("q")?.trim() || root.dataset.query.trim();
+  const apiBase = root.dataset.apiBase.trim().replace(/\/+$/, "");
+  const currency = /^[A-Z]{3}$/.test(root.dataset.currency) ? root.dataset.currency : "USD";
+
+  const state = (title, message, retry = false) => {
+    grid.replaceChildren();
+    grid.setAttribute("aria-busy", "false");
+    const shell = document.createElement("div");
+    shell.className = "sfc-search-state";
+    const inner = document.createElement("div");
+    inner.className = "sfc-search-state-inner";
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    const copy = document.createElement("p");
+    copy.textContent = message;
+    const actions = document.createElement("div");
+    actions.className = "sfc-search-state-actions";
+    const ask = document.createElement("button");
+    ask.className = "is-primary";
+    ask.type = "button";
+    ask.textContent = "Ask Agent";
+    ask.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wp:open-agent", { detail: { brief: query } })));
+    actions.append(ask);
+    if (retry) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Try again";
+      button.addEventListener("click", runSearch, { once: true });
+      actions.append(button);
+    }
+    inner.append(heading, copy, actions);
+    shell.append(inner);
+    grid.append(shell);
+  };
+
+  const safeHttpsUrl = (value) => {
+    try {
+      const url = new URL(String(value || ""), window.location.origin);
+      return url.protocol === "https:" ? url.href : "";
+    } catch (_error) {
+      return "";
+    }
+  };
+
+  const createCard = (product) => {
+    const href = safeHttpsUrl(product?.url) || (product?.handle ? `/products/${encodeURIComponent(product.handle)}` : "");
+    const title = String(product?.title || "").trim();
+    if (!href || !title) return null;
+    const card = document.createElement("article");
+    card.className = "sfc-search-card";
+    const media = document.createElement("span");
+    media.className = "sfc-search-media";
+    const imageUrl = safeHttpsUrl(product?.image);
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.src = imageUrl;
+      image.alt = "";
+      image.loading = "lazy";
+      image.addEventListener("error", () => image.replaceWith(Object.assign(document.createElement("span"), { textContent: "Image unavailable" })), { once: true });
+      media.append(image);
+    } else {
+      const missing = document.createElement("span");
+      missing.textContent = "Image unavailable";
+      media.append(missing);
+    }
+    const copy = document.createElement("div");
+    copy.className = "sfc-search-copy";
+    if (product?.type) {
+      const type = document.createElement("span");
+      type.className = "sfc-search-type";
+      type.textContent = String(product.type).slice(0, 80);
+      copy.append(type);
+    }
+    const name = document.createElement("a");
+    name.className = "sfc-search-name";
+    name.href = href;
+    name.textContent = title.slice(0, 180);
+    copy.append(name);
+    const price = Number(product?.price);
+    const responseCurrency = String(product?.currency || "").toUpperCase();
+    let productOrigin = "";
+    try { productOrigin = new URL(href, window.location.origin).origin; } catch (_error) {}
+    const priceCurrency = /^[A-Z]{3}$/.test(responseCurrency) ? responseCurrency : (productOrigin === window.location.origin ? currency : "");
+    const priceNode = document.createElement("span");
+    priceNode.className = "sfc-search-price";
+    if (Number.isFinite(price) && price > 0 && priceCurrency) {
+      priceNode.textContent = `From ${new Intl.NumberFormat(undefined, { style: "currency", currency: priceCurrency }).format(price)}`;
+    } else {
+      priceNode.textContent = "View current price";
+    }
+    copy.append(priceNode);
+    const productAction = document.createElement("a");
+    productAction.className = "sfc-search-product-action";
+    productAction.href = href;
+    productAction.textContent = product?.available === true ? "Choose options" : "View product";
+    productAction.setAttribute("aria-label", `Open ${title.slice(0, 120)}`);
+    copy.append(productAction);
+    card.append(media, copy);
+    return card;
+  };
+
+  async function runSearch() {
+    if (!query) {
+      count.textContent = "No search query was provided.";
+      state("What are you looking for?", "Enter a product, material, category, or use case in the search field above.");
+      return;
+    }
+    if (!apiBase) {
+      count.textContent = "Catalog search is unavailable.";
+      state("Search is not configured", "The catalog search service is not available for this storefront.");
+      return;
+    }
+    grid.setAttribute("aria-busy", "true");
+    grid.innerHTML = '<div class="sfc-search-state"><span class="sfc-search-loading">Searching the catalog</span></div>';
+    count.textContent = "Searching the catalog…";
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(`${apiBase}/api/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ q: query, topK: 24 }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`search_${response.status}`);
+      const payload = await response.json();
+      const cards = (Array.isArray(payload?.results) ? payload.results : []).map(createCard).filter(Boolean);
+      if (!cards.length) {
+        count.textContent = `No catalog matches returned for “${query}”.`;
+        state("No close matches yet", "Ask Agent to clarify the brief or continue to Custom Sourcing when the catalog is not enough.");
+        return;
+      }
+      grid.replaceChildren(...cards);
+      grid.setAttribute("aria-busy", "false");
+      count.textContent = `Showing the strongest live catalog results for “${query}”.`;
+    } catch (error) {
+      count.textContent = "Catalog search could not be completed.";
+      state("Search is temporarily unavailable", "Your query was not lost. Try again or ask the Agent to continue with the same need.", true);
+      console.warn("catalog search error", error);
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  runSearch();
+})();
+</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Catalog search",
+  "tag": "section",
+  "class": "sfc-search-section",
+  "settings": []
+}
+{% endschema %}

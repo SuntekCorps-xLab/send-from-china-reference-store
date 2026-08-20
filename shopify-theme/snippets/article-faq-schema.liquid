@@ -1,0 +1,37 @@
+{% comment %}
+  FAQ Schema for blog articles
+  Automatically extracts Q&A from article content where H3/strong tags contain questions
+{% endcomment %}
+
+{% assign faq_content = article.content %}
+{% if faq_content contains 'Frequently Asked Questions' or faq_content contains '?' %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {% assign faq_started = false %}
+    {% assign faq_blocks = article.content | split: '<strong>' %}
+    {% for block in faq_blocks %}
+      {% if block contains '?' %}
+        {% assign question = block | split: '</strong>' | first | strip_html | strip %}
+        {% assign answer_raw = block | split: '</strong>' | last %}
+        {% assign answer = answer_raw | split: '<strong>' | first | strip_html | strip | truncate: 500 %}
+        {% if question != blank and answer != blank and question contains '?' %}
+          {% if faq_started %},{% endif %}
+          {
+            "@type": "Question",
+            "name": {{ question | json }},
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": {{ answer | json }}
+            }
+          }
+          {% assign faq_started = true %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endif %}

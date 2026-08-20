@@ -1,0 +1,23 @@
+# Compatibility source only. The production WP account workspace is rendered
+# by the Online Store theme at /apps/wp-account/workspace and authenticated through
+# the AI Vision Pipeline App Proxy. Keeping this manifest disabled prevents
+# Shopify from issuing another customer-account development page UUID.
+api_version = "2026-04"
+
+[[extensions]]
+uid = "a6670e42-15ee-4db1-b2b2-1280cb91f8b2"
+type = "ui_extension"
+name = "WP Workspace (disabled compatibility surface)"
+handle = "wp-workspace"
+
+[[extensions.targeting]]
+module = "./src/AccountPage.jsx"
+target = "customer-account.page.render"
+
+[extensions.targeting.capabilities]
+allow_direct_linking = false
+
+[extensions.capabilities]
+api_access = true
+network_access = true
+api_version = "2026-04"

@@ -1,0 +1,485 @@
+{%- comment -%}
+  Agent-optimized Product Detail Page.
+  Server-rendered, no JS, no CSS. Optimized for LLM crawlers and agent commerce.
+  Brand: Send From China
+  Conditional rendering: editorial content only shown when metafields exist.
+{%- endcomment -%}
+
+{%- assign current_variant = product.selected_or_first_available_variant -%}
+
+{%- comment -%}
+  Honest availability signal.
+  Every SKU is oversell (CONTINUE, no real-time stock truth) and fulfilment is
+  cross-border made-to-order. Asserting schema.org/InStock by default is a FALSE
+  signal: agents that hit MERCHANDISE_NOT_AVAILABLE at checkout de-rank/ban the
+  merchant (the #1 trust failure). So:
+    - Shopify marks the variant unavailable  -> OutOfStock
+    - real supplier-stock signal present      -> InStock   (wpai.supplier_in_stock = true)
+    - otherwise (purchasable via oversell)    -> BackOrder (ships after cross-border lead time)
+  Flip a SKU to InStock by setting the boolean metafield once real stock tracking
+  exists. Absent metafield = falsy = BackOrder, which is the honest default today.
+{%- endcomment -%}
+{%- assign wp_supplier_in_stock = product.metafields.wpai.supplier_in_stock.value -%}
+
+{%- comment -%}
+  UTM scheme for AI-agent traffic attribution.
+  Lets Shopify Analytics + GA4 + Google Search Console distinguish:
+    - what came from agent_view (AI surface) vs to-C (human surface)
+    - which template surface (pdp vs variant vs collection_list)
+  When we know the agent (Custom GPT / Claude / Perplexity), populate utm_campaign accordingly.
+{%- endcomment -%}
+{%- assign utm_pdp      = 'utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=pdp' -%}
+{%- assign utm_variant  = 'utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=pdp_variant' -%}
+
+{%- assign cart_url = shop.url | append: '/cart/' | append: current_variant.id | append: ':1?' | append: utm_pdp -%}
+
+{%- comment -%} Enhanced Product JSON-LD {%- endcomment -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": {{ product.title | json }},
+  "description": {{ product.description | strip_html | truncate: 5000 | json }},
+  "url": {{ canonical_url | json }},
+  "sku": {{ current_variant.sku | json }},
+  "mpn": {{ current_variant.sku | json }},
+  "brand": {
+    "@type": "Brand",
+    "name": "Send From China"
+  },
+  "image": [
+    {%- for image in product.images limit: 20 -%}
+      {
+        "@type": "ImageObject",
+        "url": {{ image | image_url: width: 1200 | json }},
+        "thumbnailUrl": {{ image | image_url: width: 400 | json }},
+        "width": {{ image.width | default: 1200 }},
+        "height": {{ image.height | default: 1200 }},
+        "name": {{ image.alt | default: product.metafields.wpai.alt_caption.value | default: product.title | json }},
+        "caption": {{ image.alt | default: product.metafields.wpai.alt_caption.value | default: product.title | json }},
+        "position": {{ forloop.index }}
+      }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+  {%- if product.metafields.custom.colour != blank -%},
+  "color": {{ product.metafields.custom.colour | json }}
+  {%- endif -%}
+  {%- if product.metafields.custom.material != blank -%},
+  "material": {{ product.metafields.custom.material | json }}
+  {%- endif -%}
+  {%- if product.metafields.custom.country_of_origin != blank -%},
+  "countryOfOrigin": {
+    "@type": "Country",
+    "name": {{ product.metafields.custom.country_of_origin | json }}
+  }
+  {%- endif -%}
+  {%- if current_variant.weight > 0 -%},
+  "weight": {
+    "@type": "QuantitativeValue",
+    "value": {{ current_variant.weight | json }},
+    "unitCode": "{%- case current_variant.weight_unit -%}{%- when 'g' -%}GRM{%- when 'kg' -%}KGM{%- when 'oz' -%}ONZ{%- when 'lb' -%}LBR{%- else -%}GRM{%- endcase -%}"
+  }
+  {%- endif -%}
+  ,
+  {%- if product.variants.size > 1 -%}
+  "offers": [
+    {%- for v in product.variants -%}
+    {
+      "@type": "Offer",
+      "sku": {{ v.sku | json }},
+      "name": {{ v.title | json }},
+      "url": "{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_variant }}",
+      "price": "{{ v.price | divided_by: 100.0 }}",
+      "priceCurrency": {{ cart.currency.iso_code | json }},
+      "availability": "https://schema.org/{%- if v.available == false -%}OutOfStock{%- elsif wp_supplier_in_stock -%}InStock{%- else -%}BackOrder{%- endif -%}",
+      "itemCondition": "https://schema.org/NewCondition"
+    }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+  {%- else -%}
+  "offers": {
+    "@type": "Offer",
+    "url": {{ cart_url | json }},
+    "price": "{{ current_variant.price | divided_by: 100.0 }}",
+    "priceCurrency": {{ cart.currency.iso_code | json }},
+    "availability": "https://schema.org/{%- if current_variant.available == false -%}OutOfStock{%- elsif wp_supplier_in_stock -%}InStock{%- else -%}BackOrder{%- endif -%}",
+    "itemCondition": "https://schema.org/NewCondition",
+    "seller": {
+      "@type": "Organization",
+      "name": "Send From China"
+    }
+  }
+  {%- endif -%}
+}
+</script>
+
+{%- comment -%}
+  FAQPage JSON-LD — machine-readable Q&A agents quote when answering buyer
+  questions and building comparisons (wpai.faq, generated text-only by the
+  governance worker). Renders only when real Q&A exists.
+{%- endcomment -%}
+{%- assign wp_faq = product.metafields.wpai.faq.value -%}
+{%- if wp_faq and wp_faq.size > 0 -%}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {%- for item in wp_faq -%}
+    {
+      "@type": "Question",
+      "name": {{ item.q | json }},
+      "acceptedAnswer": { "@type": "Answer", "text": {{ item.a | json }} }
+    }{%- unless forloop.last -%},{%- endunless -%}
+    {%- endfor -%}
+  ]
+}
+</script>
+{%- endif -%}
+
+<h1>{{ product.title }}</h1>
+
+<p>
+<strong>Brand:</strong> Send From China<br>
+{%- if product.variants.size > 1 -%}
+<strong>This product has {{ product.variants.size }} variants (SKUs).</strong> Default shown below; full list under &ldquo;Available Variants&rdquo;.<br>
+<strong>Price range:</strong> {{ product.price_min | money }}{%- unless product.price_min == product.price_max %} &ndash; {{ product.price_max | money }}{%- endunless -%}<br>
+<strong>Default variant:</strong> {{ current_variant.title }}<br>
+<strong>Default SKU:</strong> {{ current_variant.sku | default: product.id }}<br>
+<strong>Default price:</strong> {{ current_variant.price | money }}
+{%- if current_variant.compare_at_price > current_variant.price -%}&nbsp;(was {{ current_variant.compare_at_price | money }}){%- endif -%}<br>
+{%- else -%}
+<strong>SKU:</strong> {{ current_variant.sku | default: product.id }}<br>
+<strong>Price:</strong> {{ current_variant.price | money }}
+{%- if current_variant.compare_at_price > current_variant.price -%}&nbsp;(was {{ current_variant.compare_at_price | money }}){%- endif -%}<br>
+{%- endif -%}
+<strong>Availability:</strong> {% if current_variant.available == false %}Out of Stock{% elsif wp_supplier_in_stock %}In Stock{% else %}Made to order (cross-border) &mdash; ships from China; see &ldquo;Live Shipping Rates&rdquo; below for delivery estimate{% endif %}<br>
+{%- if product.type != blank -%}<strong>Product Type:</strong> {{ product.type }}<br>{%- endif -%}
+{%- if product.vendor != blank -%}<strong>Vendor:</strong> {{ product.vendor }}<br>{%- endif -%}
+{%- if current_variant.weight > 0 -%}<strong>Weight:</strong> {{ current_variant.weight }} {{ current_variant.weight_unit }}<br>{%- endif -%}
+{%- if product.metafields.custom.country_of_origin != blank -%}<strong>Country of Origin:</strong> {{ product.metafields.custom.country_of_origin }}<br>{%- endif -%}
+<strong>Cart URL (default variant):</strong> <a href="{{ cart_url }}">{{ cart_url }}</a><br>
+<strong>Human view:</strong> <a href="{{ canonical_url }}">{{ canonical_url }}</a><br>
+<strong>JSON data:</strong> <a href="{{ canonical_url }}.json">{{ canonical_url }}.json</a>
+</p>
+
+{%- comment -%} Variants moved up — placed adjacent to Price so agents reading top-down see SKU options before description. {%- endcomment -%}
+{%- unless product.has_only_default_variant -%}
+<h2>Available Variants ({{ product.variants.size }} SKUs)</h2>
+<p>This product comes in {{ product.variants.size }} variants. Each has its own SKU, price, and cart URL. Agents should present these options to the user.</p>
+<ul>
+{%- for v in product.variants -%}
+<li>
+<strong>{{ v.title }}</strong><br>
+&nbsp;&nbsp;SKU: {{ v.sku }}<br>
+&nbsp;&nbsp;Price: {{ v.price | money }}{%- if v.compare_at_price > v.price %} (was {{ v.compare_at_price | money }}){%- endif -%}<br>
+&nbsp;&nbsp;Availability: {%- if v.available == false -%}Out of Stock{%- elsif wp_supplier_in_stock -%}In Stock{%- else -%}Made to order (cross-border){%- endif -%}<br>
+{%- if v.weight > 0 -%}&nbsp;&nbsp;Weight: {{ v.weight }} {{ v.weight_unit }}<br>{%- endif -%}
+&nbsp;&nbsp;Cart URL: <a href="{{ shop.url }}/cart/{{ v.id }}:1?{{ utm_variant }}">{{ shop.url }}/cart/{{ v.id }}:1</a>
+</li>
+{%- endfor -%}
+</ul>
+{%- endunless -%}
+
+<h2>Description</h2>
+{{ product.description }}
+
+{%- comment -%} Common Questions — human-readable mirror of the FAQPage JSON-LD above. {%- endcomment -%}
+{%- if wp_faq and wp_faq.size > 0 -%}
+<h2>Common Questions</h2>
+<dl>
+{%- for item in wp_faq -%}
+<dt><strong>{{ item.q }}</strong></dt>
+<dd>{{ item.a }}</dd>
+{%- endfor -%}
+</dl>
+{%- endif -%}
+
+{%- if product.metafields.wpai.agentic_page != blank or product.metafields.wpai.agentic_summary != blank -%}
+<h2>Agentic Product Page</h2>
+{%- if product.metafields.wpai.agentic_summary != blank -%}
+<p><strong>Summary:</strong> {{ product.metafields.wpai.agentic_summary }}</p>
+{%- endif -%}
+{%- if product.metafields.wpai.agentic_model != blank -%}
+<p><strong>Generated by:</strong> {{ product.metafields.wpai.agentic_model }}</p>
+{%- endif -%}
+
+{%- if product.metafields.wpai.target_personas.value != blank -%}
+<h3>Target persona</h3>
+<ul>
+{%- for persona in product.metafields.wpai.target_personas.value -%}
+<li>{{ persona }}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{%- if product.metafields.wpai.use_cases.value != blank -%}
+<h3>Use cases</h3>
+<ul>
+{%- for use_case in product.metafields.wpai.use_cases.value -%}
+<li>{{ use_case }}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{%- if product.metafields.wpai.not_for.value != blank -%}
+<h3>When NOT to recommend</h3>
+<ul>
+{%- for anti in product.metafields.wpai.not_for.value -%}
+<li>{{ anti }}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{%- if product.metafields.wpai.buyer_intents.value != blank -%}
+<h3>Buyer intents this product satisfies</h3>
+<ul>
+{%- for intent in product.metafields.wpai.buyer_intents.value -%}
+<li>{{ intent }}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{%- if product.metafields.wpai.agentic_page != blank -%}
+<h3>Full agentic page</h3>
+<pre style="white-space:pre-wrap;font-family:inherit;margin:0">{{ product.metafields.wpai.agentic_page }}</pre>
+{%- endif -%}
+{%- endif -%}
+
+{%- comment -%}
+  Images section — only renders images that have AI-generated vision descriptions
+  (product.metafields.ai_vision.image_desc_N). Other images remain available
+  to agents via the Product JSON-LD image[] array above.
+{%- endcomment -%}
+{%- if product.images.size > 0 -%}
+
+{%- comment -%} Count how many images have AI descriptions {%- endcomment -%}
+{%- assign described_count = 0 -%}
+{%- for image in product.images -%}
+  {%- assign key = 'image_desc_' | append: forloop.index -%}
+  {%- if product.metafields.ai_vision[key] != blank -%}
+    {%- assign described_count = described_count | plus: 1 -%}
+  {%- endif -%}
+{%- endfor -%}
+
+<h2>Images</h2>
+<p>
+This product has {{ product.images.size }} image{%- if product.images.size > 1 -%}s{%- endif -%} in catalog.
+{%- if described_count > 0 -%}
+Showing {{ described_count }} with AI-generated visual description{%- if described_count > 1 -%}s{%- endif -%} below.
+All {{ product.images.size }} image URLs are included in the Product JSON-LD above, so agents that need full visual access can fetch any of them directly.
+{%- else -%}
+None have AI-generated visual descriptions yet. All image URLs are in the Product JSON-LD above.
+{%- endif -%}
+</p>
+
+{%- for image in product.images -%}
+  {%- assign ai_desc_key = 'image_desc_' | append: forloop.index -%}
+  {%- assign ai_desc = product.metafields.ai_vision[ai_desc_key] -%}
+  {%- if ai_desc == blank -%}{%- continue -%}{%- endif -%}
+
+<h3>Image {{ forloop.index }}{%- if image.alt != blank %}: {{ image.alt }}{%- endif -%}</h3>
+<ul>
+<li><strong>Alt text:</strong> {%- if image.alt != blank -%}{{ image.alt }}{%- else -%}<em>(not provided)</em>{%- endif -%}</li>
+<li><strong>Dimensions:</strong> {{ image.width | default: '?' }}&times;{{ image.height | default: '?' }} px (aspect ratio {{ image.aspect_ratio | default: 1 | times: 100.0 | divided_by: 100.0 }})</li>
+<li><strong>Position in gallery:</strong> {{ forloop.index }} of {{ product.images.size }}</li>
+<li><strong>Main URL (1200w):</strong> <a href="{{ image | image_url: width: 1200 }}">{{ image | image_url: width: 1200 }}</a></li>
+<li><strong>Medium URL (800w):</strong> <a href="{{ image | image_url: width: 800 }}">{{ image | image_url: width: 800 }}</a></li>
+<li><strong>Thumb URL (400w):</strong> <a href="{{ image | image_url: width: 400 }}">{{ image | image_url: width: 400 }}</a></li>
+<li><strong>AI-generated visual description:</strong>
+<pre style="white-space:pre-wrap;font-family:inherit;margin:0">{{ ai_desc }}</pre>
+</li>
+</ul>
+{%- endfor -%}
+{%- endif -%}
+
+{%- comment -%} Server-rendered Specifications from metafields {%- endcomment -%}
+{%- assign has_custom_specs = false -%}
+{%- if product.metafields.custom.material != blank or product.metafields.custom.colour != blank or product.metafields.custom.craft_technique != blank or product.metafields.custom.country_of_origin != blank or product.metafields.custom.product_highlights != blank -%}
+  {%- assign has_custom_specs = true -%}
+{%- endif -%}
+{%- if has_custom_specs -%}
+<h2>Specifications (from product data)</h2>
+<ul>
+{%- if product.metafields.custom.material != blank -%}<li><strong>Material:</strong> {{ product.metafields.custom.material }}</li>{%- endif -%}
+{%- if product.metafields.custom.colour != blank -%}<li><strong>Colour:</strong> {{ product.metafields.custom.colour }}</li>{%- endif -%}
+{%- if product.metafields.custom.craft_technique != blank -%}<li><strong>Craft Technique:</strong> {{ product.metafields.custom.craft_technique }}</li>{%- endif -%}
+{%- if product.metafields.custom.country_of_origin != blank -%}<li><strong>Country of Origin:</strong> {{ product.metafields.custom.country_of_origin }}</li>{%- endif -%}
+{%- if product.metafields.custom.product_highlights != blank -%}
+  {%- assign highlights = product.metafields.custom.product_highlights.value -%}
+  {%- for h in highlights -%}<li><strong>Highlight:</strong> {{ h }}</li>{%- endfor -%}
+{%- endif -%}
+</ul>
+{%- endif -%}
+
+{%- comment -%} Collection-based extended specs (reuse existing snippet) {%- endcomment -%}
+<h2>Category Specifications</h2>
+{% render 'product-specs' %}
+
+{%- comment -%}
+  Legacy editorial content — conditional render.
+  Only shown if the curated metafields exist on this product.
+  Keeps the legacy metafield namespace as a compatibility fallback for existing stores.
+{%- endcomment -%}
+
+{%- if product.metafields.landmark.subtitle != blank or product.metafields.custom.subtitle != blank -%}
+<h2>Subtitle</h2>
+<p>{{ product.metafields.landmark.subtitle | default: product.metafields.custom.subtitle }}</p>
+{%- endif -%}
+
+{%- assign story = product.metafields.landmark.story | default: product.metafields.custom.story -%}
+{%- if story != blank -%}
+<h2>One Thing Worth Knowing</h2>
+{%- if story.year -%}<p><strong>Year:</strong> {{ story.year }}</p>{%- endif -%}
+{%- if story.tag -%}<p><strong>Tag:</strong> {{ story.tag }}</p>{%- endif -%}
+{%- if story.title -%}<h3>{{ story.title }}</h3>{%- endif -%}
+{%- if story.body -%}<p>{{ story.body }}</p>{%- endif -%}
+{%- endif -%}
+
+{%- assign fit = product.metafields.landmark.fit_assessment | default: product.metafields.custom.fit_assessment -%}
+{%- if fit != blank -%}
+<h2>Right for you?</h2>
+{%- if fit.good_for.size > 0 -%}
+<h3>Good for</h3>
+<ul>
+{%- for item in fit.good_for -%}
+<li><strong>{{ item.text }}</strong>{%- if item.detail -%} &mdash; {{ item.detail }}{%- endif -%}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+{%- if fit.not_for.size > 0 -%}
+<h3>Not for</h3>
+<ul>
+{%- for item in fit.not_for -%}
+<li><strong>{{ item.text }}</strong>{%- if item.detail -%} &mdash; {{ item.detail }}{%- endif -%}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+{%- endif -%}
+
+{%- assign gift = product.metafields.landmark.gift_assessment | default: product.metafields.custom.gift_assessment -%}
+{%- if gift != blank -%}
+<h2>Gift Worthy?</h2>
+<p><strong>Verdict:</strong> {{ gift.verdict | default: 'N/A' }}</p>
+{%- if gift.reasons.size > 0 -%}
+<ul>
+{%- for r in gift.reasons -%}
+<li><strong>{{ r.title }}:</strong> {{ r.body }}</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+{%- endif -%}
+
+{%- assign reviews = product.metafields.landmark.editorial_reviews | default: product.metafields.custom.editorial_reviews -%}
+{%- if reviews.size > 0 -%}
+<h2>Editorial Reviews (Selector's Honest Thoughts)</h2>
+{%- for review in reviews -%}
+<h3>{{ review.title }}</h3>
+<p>{{ review.body }}</p>
+{%- if review.attribution -%}<p><em>&mdash; {{ review.attribution }}</em></p>{%- endif -%}
+{%- endfor -%}
+{%- endif -%}
+
+<h2>How to Purchase</h2>
+<p>
+This product can be added to cart via a single URL. Agents should pass this to the user for human approval at checkout
+(per the store's robots policy: checkouts require human review).
+</p>
+<ul>
+<li><strong>Add to cart:</strong> <a href="{{ cart_url }}">{{ cart_url }}</a></li>
+<li><strong>Full product page (human view):</strong> <a href="{{ canonical_url }}">{{ canonical_url }}</a></li>
+<li><strong>Product JSON data:</strong> <a href="{{ canonical_url }}.json">{{ canonical_url }}.json</a></li>
+<li><strong>UCP discovery:</strong> <a href="/.well-known/ucp">/.well-known/ucp</a></li>
+{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- assign wp_shipping_api_base = settings.wp_shipping_api_base | strip -%}
+{%- if wp_governance_api_base != blank -%}
+<li><strong>MCP endpoint:</strong> <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a></li>
+{%- else -%}
+<li><strong>MCP endpoint:</strong> Not configured for this storefront</li>
+{%- endif -%}
+</ul>
+
+<h2>Live Shipping Rates (for Agents)</h2>
+<p>
+Agents can query real-time cross-border shipping rates
+before recommending this product. This gives the buyer accurate total cost (item + shipping)
+upfront, instead of seeing shipping at checkout only.
+</p>
+<ul>
+{%- if wp_shipping_api_base != blank -%}
+<li><strong>Endpoint:</strong> <code>POST {{ wp_shipping_api_base }}/estimate</code></li>
+{%- else -%}
+<li><strong>Endpoint:</strong> Not configured; use checkout for the final shipping quote</li>
+{%- endif -%}
+<li><strong>Content-Type:</strong> <code>application/json</code></li>
+<li><strong>Request body (example):</strong></li>
+</ul>
+<pre style="white-space:pre-wrap;font-family:inherit;margin:0;background:#f5f5f5;padding:12px">
+{
+  "rate": {
+    "origin": {"country": "CN"},
+    "destination": {
+      "country": "US",
+      "postal_code": "95014",
+      "province": "CA",
+      "city": "Cupertino"
+    },
+    "items": [{
+      "name": {{ product.title | json }},
+      "product_id": {{ product.id | json }},
+      "variant_id": {{ current_variant.id | json }},
+      "quantity": 1,
+      "grams": {{ current_variant.weight | default: 500 }},
+      "length_cm": "{{ product.metafields.custom.length_cm.value | default: product.metafields.custom.length_cm | default: '' }}",
+      "width_cm":  "{{ product.metafields.custom.width_cm.value  | default: product.metafields.custom.width_cm  | default: '' }}",
+      "height_cm": "{{ product.metafields.custom.height_cm.value | default: product.metafields.custom.height_cm | default: '' }}"
+    }],
+    "currency": "USD"
+  }
+}
+</pre>
+<p>
+<strong>Response:</strong> JSON array of shipping options in <code>rates</code>, each with
+<code>service_name</code> (e.g. "Standard (10-14 days)"), <code>total_price</code> in USD cents,
+<code>min_delivery_date</code>, <code>max_delivery_date</code>. The estimate endpoint uses the product dimensions
+provided in the request. If dimensions are missing for the product,
+empty <code>rates: []</code> is returned (caller should treat as "shipping not yet calculable").
+</p>
+
+{%- comment -%} Related products {%- endcomment -%}
+{%- assign related_collection = product.collections.first -%}
+{%- if related_collection -%}
+{%- assign related_count = 0 -%}
+<h2>Related Products</h2>
+<ul>
+{%- for p in related_collection.products limit: 10 -%}
+  {%- if p.id != product.id and related_count < 5 -%}
+  {%- assign related_count = related_count | plus: 1 -%}
+  {%- assign p_in_stock = p.metafields.wpai.supplier_in_stock.value -%}
+  <li>
+  <a href="{{ p.url }}?view=agent">{{ p.title }}</a>
+  &mdash; {{ p.price_min | money }}
+  &mdash; {%- if p.available == false -%}Out of Stock{%- elsif p_in_stock -%}In Stock{%- else -%}Made to order{%- endif -%}
+  </li>
+  {%- endif -%}
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{%- comment -%} Collections this product belongs to {%- endcomment -%}
+{%- if product.collections.size > 0 -%}
+<h2>Categories</h2>
+<ul>
+{%- for col in product.collections -%}
+<li><a href="{{ col.url }}?view=agent">{{ col.title }}</a> ({{ col.products_count }} products)</li>
+{%- endfor -%}
+</ul>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Agent Product Page",
+  "tag": "section",
+  "settings": []
+}
+{% endschema %}

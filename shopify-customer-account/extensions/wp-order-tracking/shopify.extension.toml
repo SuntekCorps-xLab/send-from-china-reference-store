@@ -1,0 +1,22 @@
+api_version = "2026-04"
+
+[[extensions]]
+uid = "25c22d03-58d6-4e3b-996a-0f8c2607d0c8"
+type = "ui_extension"
+name = "WP Order Tracking"
+handle = "wp-order-tracking"
+
+[[extensions.targeting]]
+module = "./src/OrderIndexTracking.jsx"
+target = "customer-account.order-index.announcement.render"
+
+[[extensions.targeting]]
+module = "./src/OrderFulfillmentTracking.jsx"
+target = "customer-account.order-status.fulfillment-details.render-after"
+
+[[extensions.targeting]]
+module = "./src/OrderUnfulfilledTracking.jsx"
+target = "customer-account.order-status.unfulfilled-items.render-after"
+
+[extensions.capabilities]
+api_access = true

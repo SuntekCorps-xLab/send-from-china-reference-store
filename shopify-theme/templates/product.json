@@ -1,0 +1,10 @@
+{
+  "layout": "chat",
+  "sections": {
+    "main": {
+      "type": "lm-pdp-chat",
+      "settings": {}
+    }
+  },
+  "order": ["main"]
+}

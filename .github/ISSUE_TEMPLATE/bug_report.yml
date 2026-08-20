@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible problem without production or personal data.
+title: "[Bug]: "
+body:
+  - type: textarea
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction with synthetic data
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Verification output
+  - type: checkboxes
+    attributes:
+      label: Data safety
+      options:
+        - label: I removed credentials, customer data, merchant exports, and production responses.
+          required: true
+
