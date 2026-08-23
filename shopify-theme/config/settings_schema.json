@@ -2291,8 +2291,14 @@
       {
         "type": "text",
         "id": "wp_governance_api_base",
-        "label": "Governance API base URL",
-        "info": "Example: https://your-governance-worker.example.workers.dev"
+        "label": "Storefront agent proxy URL",
+        "info": "Browser-safe BFF for catalog, search, and chat. Never point the theme directly at credentialed Agent Core."
+      },
+      {
+        "type": "text",
+        "id": "wp_agent_core_api_base",
+        "label": "Agent Core public URL",
+        "info": "Optional agent-facing discovery URL. The MCP endpoint is /mcp."
       },
       {
         "type": "text",

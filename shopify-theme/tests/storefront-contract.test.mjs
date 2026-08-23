@@ -101,6 +101,26 @@ for (const theme of THEMES) {
     }
   });
 
+  test(`${theme}: browser traffic and agent-native discovery use separate endpoints`, () => {
+    const settings = read(theme, "config/settings_schema.json");
+    const drawer = read(theme, "assets/wp-agent-drawer.js");
+    assert.match(settings, /"id": "wp_governance_api_base"/);
+    assert.match(settings, /"id": "wp_agent_core_api_base"/);
+    assert.match(settings, /Never point the theme directly at credentialed Agent Core/);
+    assert.doesNotMatch(drawer, /authorization|bearer/i);
+    for (const relativePath of [
+      "sections/lm-home-agent.liquid",
+      "sections/lm-search-agent.liquid",
+      "sections/lm-collection-agent.liquid",
+      "sections/lm-pdp-agent.liquid",
+    ]) {
+      const source = read(theme, relativePath);
+      assert.match(source, /wp_agent_core_api_base/);
+      assert.match(source, /\/mcp/);
+      assert.doesNotMatch(source, /api\/ucp\/mcp/);
+    }
+  });
+
   test(`${theme}: completed sourcing results return directly to the active conversation`, () => {
     const source = read(theme, "assets/wp-workspace.js");
     assert.match(source, /var fallbackResults = conversationTaskResults\(messages\)/);

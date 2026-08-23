@@ -4,6 +4,10 @@ Monitor storefront response status, agent API availability, error rate,
 latency, rate limiting, cart failures, and customer-account authorization
 failures. Keep correlation identifiers free of customer content.
 
+Monitor the storefront BFF separately from Agent Core. Track rejected origins,
+invalid payloads, upstream 429s and `Retry-After`, upstream availability, and
+response latency. Never log Authorization headers or raw customer messages.
+
 If the agent API is unavailable, the catalog and Shopify cart must remain
 usable and the drawer must show a bounded retry state. If price, inventory,
 shipping, or purchasability cannot be verified, the UI must not invent it.

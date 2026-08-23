@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Send From China — Reference Store Demo</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span>CN</span><strong>Send From China<small>Reference Store Demo</small></strong></a>
+    <form class="search"><input aria-label="Search the catalog" placeholder="Search the catalog"><button aria-label="Search">→</button></form>
+    <nav><a href="#catalog">Shop</a><button data-open-agent>💬 Ask Agent</button><a href="#">Orders</a><a class="cart" href="#">Cart (0)</a></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Catalog, guidance, and custom sourcing</p>
+        <h1>Find the right product from China.</h1>
+        <p class="lede">Browse normally, then ask a contextual shopping agent when filters are not enough. The catalog stays visible and checkout stays with Shopify.</p>
+        <div class="hero-actions"><button class="primary" data-open-agent>Ask the Shopping Agent ↗</button><a href="#catalog">Browse demo products ↓</a></div>
+        <ul class="proof"><li>✓ Catalog-first</li><li>✓ Explicit sourcing consent</li><li>✓ Shopify checkout boundary</li></ul>
+      </div>
+      <div class="brief-card">
+        <div class="tabs"><strong>Search products</strong><span>Ask Agent</span></div>
+        <label>What are you looking for?</label>
+        <div class="field"><span>A practical desk gift under $40</span><button data-open-agent>Search</button></div>
+        <p>Search is free. Custom sourcing is a separate, confirmed action.</p>
+        <div class="mini-links"><span>Browse catalog →</span><span>How guidance works ↓</span></div>
+      </div>
+    </section>
+
+    <section class="catalog" id="catalog">
+      <div class="section-head"><div><p class="eyebrow">Governed catalog</p><h2>Available products</h2></div><p>Open a product for variants, buying details, shipping estimates, and checkout availability.</p></div>
+      <div class="product-grid">
+        <article><div class="product-art wood">🪵<b>Natural materials</b></div><span>AVAILABLE</span><h3>Walnut desk organizer</h3><p>Compact compartments for a calm workspace.</p><strong>$29.00</strong></article>
+        <article><div class="product-art lamp">💡<b>Small-space light</b></div><span>AVAILABLE</span><h3>Compact reading light</h3><p>Warm adjustable light with a minimal footprint.</p><strong>$34.00</strong></article>
+        <article><div class="product-art cup">☕<b>Gift ready</b></div><span>AVAILABLE</span><h3>Ceramic pour-over set</h3><p>A simple coffee ritual in a compact set.</p><strong>$42.00</strong></article>
+        <article><div class="product-art cable">🔌<b>Cable control</b></div><span>AVAILABLE</span><h3>Magnetic cable anchors</h3><p>Reusable anchors for a cleaner desk setup.</p><strong>$12.00</strong></article>
+      </div>
+    </section>
+  </main>
+
+  <div class="backdrop" hidden data-close-agent></div>
+  <aside class="drawer" hidden aria-label="Shopping Agent" aria-modal="true" role="dialog">
+    <header><button class="history">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong></div><button class="close" data-close-agent aria-label="Close">×</button></header>
+    <div class="conversation" data-conversation>
+      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. I will search the live catalog first.</p>
+        <button data-starter>A practical gift under $40</button><button data-starter>Options for a small apartment</button><button data-starter>Choose by material and destination</button>
+      </section>
+    </div>
+    <form class="composer"><label for="message">Message the Shopping Agent</label><div><textarea id="message" rows="1" placeholder="Describe what you need"></textarea><button aria-label="Send">↑</button></div><small>Enter to send · Shift + Enter for a new line</small></form>
+  </aside>
+  <script src="demo.js"></script>
+</body>
+</html>
