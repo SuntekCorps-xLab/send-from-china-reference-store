@@ -1,67 +1,149 @@
 <div align="center">
 
-# Send From China Reference Store
+# Send From China Reference Store 🛍️🤖
 
-**A hybrid Shopify storefront where catalog shopping and an agent drawer share one honest customer journey.**
+### A real Shopify storefront with an agent beside the shopping journey — not instead of it.
 
-[![Release candidate](https://img.shields.io/badge/status-release%20candidate-c64b1a)](#project-status)
-[![CI](https://github.com/Peter-Fu-Collab/send-from-china-reference-store/actions/workflows/ci.yml/badge.svg)](https://github.com/Peter-Fu-Collab/send-from-china-reference-store/actions/workflows/ci.yml)
-[![Shopify theme](https://img.shields.io/badge/Shopify-theme-142b2f)](shopify-theme)
-[![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](.github/workflows/ci.yml)
-[![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
+[![Release candidate](https://img.shields.io/badge/status-0.3.0--rc.1-c64b1a?style=for-the-badge)](#-project-status)
+[![CI](https://img.shields.io/github/actions/workflow/status/Peter-Fu-Collab/send-from-china-reference-store/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/Peter-Fu-Collab/send-from-china-reference-store/actions/workflows/ci.yml)
+[![Shopify](https://img.shields.io/badge/Shopify-theme-142b2f?style=for-the-badge&logo=shopify&logoColor=white)](shopify-theme)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
+[![License](https://img.shields.io/badge/license-Apache--2.0-6b7c70?style=for-the-badge)](LICENSE)
 
-<img src="docs/images/hybrid-storefront-hero.png" alt="Illustration of a product catalog with an attached shopping-agent drawer" width="100%">
+[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/Peter-Fu-Collab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
+
+<img src="docs/images/hybrid-storefront-hero.png" alt="Product catalog with a contextual shopping-agent drawer" width="100%">
 
 </div>
 
-## Why this exists
+## ✨ Why this project exists
 
-Shopping-agent demos often replace the store with a chat box. This repository
-shows a different pattern: customers can browse normal catalog, product, cart,
-and account surfaces, then open a contextual agent without losing the page or
-their shopping brief.
+Most shopping-agent demos make the chat box the store. Real customers still
+need to browse, compare, choose a variant, understand delivery, use a cart, and
+reach a trusted checkout.
 
-The code is a reference implementation. It contains no production credentials,
-catalog export, customer records, order data, or merchant-specific theme
-settings. Checkout remains Shopify-hosted, and customer or merchant writes must
-be authorized by a compatible server.
+This repository shows a hybrid pattern:
 
-## Experience at a glance
+- 🛒 **Shop normally** across catalog, search, product, cart, and account pages.
+- 💬 **Ask in context** without losing the product or brief you were viewing.
+- 🔎 **Search the catalog first** before offering custom sourcing.
+- ✅ **Confirm every state change** instead of turning conversation into a hidden write.
+- 🔐 **Keep credentials server-side** and payment inside Shopify.
 
-| Surface | Included behavior | Boundary |
-| --- | --- | --- |
-| Home | Catalog search and agent entry | Search is free and separate from custom sourcing |
-| Search and collections | Governed result cards, honest loading/error states | No fabricated totals, facets, price, or availability |
-| Product | Media, variants, quantity, shipping estimate, add to cart | Shopify owns variant and cart truth |
-| Cart | Quantity, removal, shipping state, checkout handoff | Payment details never enter theme JavaScript |
-| Agent drawer | Context-preserving chat, compact results, explicit sourcing confirmation | Write actions require a compatible authenticated API |
-| Customer account | Workspace and order-tracking extensions | Shopify session tokens remain the identity boundary |
+It is the storefront companion to
+[`send-from-china-agent-core`](https://github.com/Peter-Fu-Collab/send-from-china-agent-core),
+which provides the agent-native catalog, quote, governance, and sourcing
+contracts. This repository provides the customer experience built on top.
 
-## Screens
+## ⚡ See it in 60 seconds
+
+No Shopify account, API key, database, or cloud service is needed for the local
+experience demo.
+
+```bash
+git clone https://github.com/Peter-Fu-Collab/send-from-china-reference-store.git
+cd send-from-china-reference-store
+node demo/server.mjs
+```
+
+Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
+`a practical desk gift under $40`.
+
+> [!NOTE]
+> The local demo uses three synthetic responses. It demonstrates interaction
+> states only; it does not call a merchant, create a sourcing task, or perform a
+> commerce write.
+
+## 📸 Experience at a glance
 
 <table>
   <tr>
     <td width="62%"><img src="docs/images/agent-drawer-desktop.png" alt="Desktop agent drawer beside a storefront"></td>
-    <td width="38%"><img src="docs/images/agent-drawer-mobile.png" alt="Mobile agent drawer"></td>
+    <td width="38%"><img src="docs/images/agent-drawer-mobile.png" alt="Mobile full-height shopping-agent sheet"></td>
+  </tr>
+  <tr>
+    <td><strong>Desktop</strong> — the catalog remains visible while guidance appears beside it.</td>
+    <td><strong>Mobile</strong> — the same state becomes an accessible full-height sheet.</td>
   </tr>
 </table>
 
-## Repository map
+## 🧭 Choose your path
 
-```text
-shopify-theme/             Storefront sections, layouts, snippets, assets, tests
-shopify-customer-account/  Customer Account UI extensions and contract tests
-docs/                      Architecture, development, deployment, and operations
-scripts/                   Repository safety scanner
-.github/                   CI, dependency updates, and review templates
+| I want to… | Start here | What you need |
+| --- | --- | --- |
+| **Preview the UX** | `node demo/server.mjs` | Node.js 22+ |
+| **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
+| **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/Peter-Fu-Collab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
+| **Add saved requests and order views** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
+| **Understand custom files quickly** | [`docs/CUSTOMIZATION_MAP.md`](docs/CUSTOMIZATION_MAP.md) | Five minutes |
+
+## 🏗️ How the pieces fit
+
+```mermaid
+flowchart LR
+  B[Buyer] --> T[Shopify storefront]
+  T --> S[Shopify product + cart]
+  T --> D[Shopping Agent drawer]
+  D --> P[Storefront BFF]
+  P --> A[Agent Core]
+  B --> C[Customer Account]
+  C --> X[Account extensions]
+  X --> M[Authenticated merchant API]
+  S --> H[Shopify-hosted checkout]
+  A -. governed discovery .-> P
+  M -. authorized saved state .-> X
 ```
 
-## Quick start
+The BFF is deliberate. Agent Core tenant credentials belong in a server secret
+store, never in Liquid, JavaScript, theme settings, or browser requests. The
+included Worker exposes only browser-safe `/api/chat`, `/api/search`, and
+`/api/catalog` adapters.
 
-Requirements: Node.js 22+, npm, a Shopify development store, and Shopify CLI
-access for an app/theme you control.
+[Read the complete contracts →](docs/ARCHITECTURE.md)
 
-### 1. Verify the customer-account app
+## 🧩 What is included
+
+| Surface | Included behavior | Truth boundary |
+| --- | --- | --- |
+| 🏠 Home | Catalog search and agent entry | Search and custom sourcing remain distinct |
+| 🔎 Search / collection | Governed result cards, empty/error states, pagination | No fabricated totals, price, or availability |
+| 📦 Product | Media, variants, quantity, shipping estimate, cart action | Shopify owns variant and cart truth |
+| 🛒 Cart | Quantity, removal, shipping state, checkout handoff | Theme never receives payment details |
+| 💬 Agent drawer | Contextual chat, result cards, explicit sourcing confirmation | Credentialed calls pass through the BFF |
+| 👤 Customer account | Saved workspace and order-tracking extensions | Shopify session token is the identity boundary |
+| 🔌 Agent pages | Machine-readable discovery and MCP handoff | Agent Core exposes the current `/mcp` contract |
+
+## 🚀 Shopify quick start
+
+### 1. Verify the theme
+
+```bash
+npx shopify theme check --path shopify-theme --fail-level error
+node --test shopify-theme/tests/*.test.mjs
+node shopify-theme/tests/run-agent-drawer-browser-qa.mjs
+```
+
+Push only to an unpublished development theme first:
+
+```bash
+shopify theme dev --path shopify-theme --store your-development-store.myshopify.com
+```
+
+### 2. Run the browser-safe Agent Core adapter
+
+```bash
+cd storefront-bff
+cp .dev.vars.example .dev.vars
+npm ci
+npm test
+npm run dev
+```
+
+Set `AGENT_CORE_TENANT_KEY` as a Worker secret and configure the non-secret
+values in `wrangler.toml`. In the theme editor, set **Storefront agent proxy
+URL** to this Worker — never to credentialed Agent Core directly.
+
+### 3. Verify the Customer Account app
 
 ```bash
 cd shopify-customer-account
@@ -71,63 +153,80 @@ npm test
 npm run check -- --no-color
 ```
 
-The example config uses `example.invalid` and cannot deploy. Link an approved
-development app with `shopify app config link` before running `npm run dev`.
+The checked-in config uses `example.invalid` and cannot deploy accidentally.
+Link an app you control before running `npm run dev`.
 
-### 2. Verify the theme
+## 🔐 Safety by construction
 
-```bash
-npx shopify theme check --path shopify-theme --fail-level error
-node shopify-theme/tests/run-agent-drawer-browser-qa.mjs
+- No production credentials, product export, customer records, orders, or merchant settings.
+- No Agent Core tenant key in theme code or browser traffic.
+- No direct payment, checkout completion, catalog write, or management action.
+- Missing price renders **View current price** — never zero.
+- Missing endpoints fail closed with a useful customer-facing state.
+- Sourcing is a separate, explicit confirmation after bounded catalog search.
+- CI runs contract tests, browser QA, dependency audit, and a repository safety scan.
+
+## 🗺️ Repository map
+
+```text
+demo/                       Zero-account interactive experience preview
+storefront-bff/             Cloudflare Worker adapter; keeps Agent Core keys server-side
+shopify-theme/              Installable storefront theme and browser/contract tests
+shopify-customer-account/   Workspace and order-tracking UI extensions
+docs/                       Architecture, setup, deployment, and operations
+scripts/                    Public-repository credential and host scanner
+.github/                    CI, dependency updates, and review templates
 ```
 
-The browser QA uses local fixtures and does not create a cart, checkout, order,
-or payment.
+The complete Shopify theme contains upstream theme infrastructure. The product's
+own interaction layer is concentrated in `lm-*`, `wp-*`, the BFF, and the
+Customer Account extensions; use the
+[customization map](docs/CUSTOMIZATION_MAP.md) instead of reading the repository
+alphabetically.
 
-### 3. Configure a compatible agent API
+## 🧪 Project status
 
-Set the theme's public API and shipping API settings in the Shopify editor. Do
-not hard-code production hosts into the repository. A compatible service must
-implement the response shapes documented in [Architecture](docs/ARCHITECTURE.md)
-and enforce authentication, authorization, idempotency, and write policy on the
-server.
+Current version: **`0.3.0-rc.1`**.
 
-## Design principles
+This is an integration reference, not a copy of the hosted Send From China
+service. Pair it with Agent Core **`0.4.0-rc.1`** for the current local contract.
+The included local paths use synthetic data and non-billable preview behavior.
+Production customer isolation, durable sourcing, catalog publication, checkout
+completion, and payment require merchant-owned services and policy.
 
-- Commerce truth comes from Shopify or an explicitly named service response.
-- The agent supplements catalog navigation; it does not conceal the store.
-- Search, chat, sourcing, cart, and checkout are visibly distinct state changes.
-- A missing price is “View current price,” never zero.
-- A missing endpoint fails closed with a useful setup message.
-- Desktop uses a drawer; mobile uses a full-height sheet with the same state.
-- Keyboard focus, live status, reduced motion, and escape-to-close are tested.
+## 📚 Documentation
 
-## Project status
-
-Current version: `0.2.0-rc.1`.
-
-This is an open-source release candidate and integration reference, not a
-turnkey copy of the hosted Send From China service. The paired
-[`send-from-china-agent-core`](https://github.com/Peter-Fu-Collab/send-from-china-agent-core)
-repository provides the matching synthetic catalog and guarded preview-sourcing
-MCP contract. Its sourcing lifecycle is authenticated but ephemeral,
-non-billable, and non-purchasable. Production sourcing, customer isolation,
-catalog writes, checkout completion, and payment remain outside that starter's
-capability.
-
-## Documentation
-
-- [Architecture and contracts](docs/ARCHITECTURE.md)
+- [Architecture and API contracts](docs/ARCHITECTURE.md)
+- [Customization map](docs/CUSTOMIZATION_MAP.md)
 - [Development and verification](docs/DEVELOPMENT.md)
 - [Deployment and rollback](docs/DEPLOYMENT.md)
 - [Operations](docs/OPERATIONS.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Review evidence](docs/REVIEW_EVIDENCE.md)
 
-## Security and license
+## ❓FAQ
 
-Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
-Never attach credentials, customer data, production responses, or merchant
-exports to an issue.
+<details>
+<summary><strong>Is this another chat widget?</strong></summary>
+No. The agent preserves the normal catalog and commerce journey. Chat is a
+contextual decision surface, not a replacement storefront.
+</details>
 
-Licensed under the Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+<details>
+<summary><strong>Can the theme call Agent Core directly?</strong></summary>
+Not when Agent Core requires a tenant credential. Use the included BFF so the
+credential remains server-side and origins, payload size, and response shape
+are controlled.
+</details>
+
+<details>
+<summary><strong>Can the demo create carts, orders, or payments?</strong></summary>
+No. The demo is intentionally synthetic. In a Shopify development store, cart
+behavior uses Shopify; checkout and payment stay on Shopify-hosted surfaces.
+</details>
+
+## 📄 License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Report security
+issues privately using [SECURITY.md](SECURITY.md); never attach credentials,
+customer data, or production responses to an issue.

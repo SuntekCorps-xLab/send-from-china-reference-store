@@ -5,7 +5,7 @@
   Brand: Send From China
   Positioning: Made in China. Select and Deliver.
 {%- endcomment -%}
-{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- assign wp_agent_core_api_base = settings.wp_agent_core_api_base | strip -%}
 
 <script type="application/ld+json">
 {
@@ -45,8 +45,8 @@
 <p>This store supports the Universal Commerce Protocol (UCP) and Model Context Protocol (MCP) for agent-driven commerce.</p>
 <ul>
 <li><strong>UCP Discovery:</strong> <a href="/.well-known/ucp">/.well-known/ucp</a> — returns merchant profile, capabilities, supported protocol versions</li>
-{%- if wp_governance_api_base != blank -%}
-<li><strong>MCP Endpoint:</strong> <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a> — JSON-RPC 2.0; call <code>tools/list</code> for available tools</li>
+{%- if wp_agent_core_api_base != blank -%}
+<li><strong>MCP endpoint:</strong> <a href="{{ wp_agent_core_api_base }}/mcp">{{ wp_agent_core_api_base }}/mcp</a> — JSON-RPC 2.0; call <code>tools/list</code> for available tools</li>
 {%- else -%}
 <li><strong>MCP Endpoint:</strong> Not configured for this storefront</li>
 {%- endif -%}

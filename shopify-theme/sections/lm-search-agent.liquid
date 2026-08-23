@@ -5,7 +5,7 @@
 
 {%- assign utm_search = 'utm_source=ai_agent&utm_medium=agent_view&utm_campaign=sendfromchina_agent&utm_content=search' -%}
 
-{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- assign wp_agent_core_api_base = settings.wp_agent_core_api_base | strip -%}
 {%- if search.performed -%}
 
 <script type="application/ld+json">
@@ -63,8 +63,8 @@
 <ul>
 <li>Broader keywords (e.g. "bowl" instead of "ceramic noodle bowl with handles")</li>
 <li>Browse <a href="/collections?view=agent">all collections</a> for category-driven discovery</li>
-{%- if wp_governance_api_base != blank -%}
-<li>Use the MCP <code>search_catalog</code> tool via <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a> for advanced filtering</li>
+{%- if wp_agent_core_api_base != blank -%}
+<li>Use the MCP catalog tools via <a href="{{ wp_agent_core_api_base }}/mcp">{{ wp_agent_core_api_base }}/mcp</a> for agent-native filtering</li>
 {%- endif -%}
 </ul>
 
@@ -103,8 +103,8 @@
 <h1>Search</h1>
 <p>Submit a query via <code>?q={search_term}&view=agent</code> to get structured product results.</p>
 <p>Example: <a href="?q=ceramic+bowl&view=agent">/search?q=ceramic+bowl&view=agent</a></p>
-{%- if wp_governance_api_base != blank -%}
-<p>For advanced agent search, use the MCP <code>search_catalog</code> tool via <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a>.</p>
+{%- if wp_agent_core_api_base != blank -%}
+<p>For agent-native search, discover the current MCP tools via <a href="{{ wp_agent_core_api_base }}/mcp">{{ wp_agent_core_api_base }}/mcp</a>.</p>
 {%- endif -%}
 
 {%- endif -%}

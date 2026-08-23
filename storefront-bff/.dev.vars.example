@@ -1,0 +1,2 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+AGENT_CORE_TENANT_KEY="example_local_tenant_key_replace_me"

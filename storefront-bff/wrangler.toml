@@ -1,0 +1,9 @@
+name = "send-from-china-storefront-bff"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+AGENT_CORE_BASE_URL = "https://agent-core.example.invalid"
+AGENT_CORE_PAGE_SIZE = "5"
+STOREFRONT_ORIGIN = "https://store.example.invalid"
+ALLOWED_ORIGINS = "https://store.example.invalid,http://localhost:4173"

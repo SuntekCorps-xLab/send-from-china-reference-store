@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.3.0-rc.1 - 2026-08-23
+
+- Added a zero-account interactive storefront and Shopping Agent demo.
+- Added a tested Cloudflare Worker BFF that keeps Agent Core tenant credentials
+  out of browser code while adapting chat, search, and catalog responses.
+- Separated the storefront proxy setting from the agent-native `/mcp` endpoint.
+- Rebuilt the README around a 60-second quick start, visual product story,
+  architecture, setup paths, safety boundaries, FAQ, and customization map.
+- Aligned the storefront integration documentation with Agent Core
+  `0.4.0-rc.1`.
+
 ## 0.2.0-rc.1 - 2026-08-21
 
 - Aligned the documented storefront handoff with the paired guarded synthetic
