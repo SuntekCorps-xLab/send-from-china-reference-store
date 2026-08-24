@@ -26,6 +26,11 @@ The generated `shopify.app.toml` is local state and is ignored. The browser QA
 uses synthetic HTML and API fixtures. It must never target a production store,
 create a checkout, or submit payment.
 
+The Shopify app build compiles the active `wp-order-tracking` extension. Tests
+also inspect the source-only `wp-account` and `wp-ask` adapters, but those
+directories have no active extension manifests and are not deployable without
+a separately implemented merchant API.
+
 When changing a state transition, add assertions for success, empty, invalid,
 unauthorized, unavailable-service, retry, and repeated-request behavior as
 applicable.

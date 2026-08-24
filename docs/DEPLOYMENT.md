@@ -42,3 +42,6 @@ account editor only after verification. Rollback by releasing the last known
 good app version and restoring the prior editor configuration.
 
 Repository CI never deploys or activates production assets.
+
+For the first public release, complete and record every repository setting in
+[`PUBLIC_RELEASE_CHECKLIST.md`](PUBLIC_RELEASE_CHECKLIST.md).

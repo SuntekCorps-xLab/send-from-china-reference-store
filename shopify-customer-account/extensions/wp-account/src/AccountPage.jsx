@@ -295,7 +295,7 @@ function AccountPage() {
             )}
             <s-text>{summary?.tasks?.active || 0} active product requests</s-text>
           </s-stack>
-          <s-text color="subdued">WP account ID: {summary?.account?.santai_customer_id || "Initializing"}</s-text>
+          <s-text color="subdued">Customer ID: {summary?.account?.customer_id || "Initializing"}</s-text>
           {paidCreditsEnabled ? (
             <s-stack direction="block" gap="small-200">
               <s-heading>Add credits with Shopify Checkout</s-heading>

@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Made the Customer Account boundary explicit: order tracking is installable,
+  while the workspace and ask adapters are source-only and require an external
+  merchant API.
+- Removed private compatibility markers, production-domain assumptions, and
+  provider-specific status aliases from the public reference surface.
+- Expanded the public safety scan and added a pinned public-only CodeQL
+  workflow plus repository-settings release checklist.
+
 ## 0.3.0-rc.1 - 2026-08-23
 
 - Added a zero-account interactive storefront and Shopping Agent demo.

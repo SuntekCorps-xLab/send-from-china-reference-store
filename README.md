@@ -5,12 +5,12 @@
 ### A real Shopify storefront with an agent beside the shopping journey — not instead of it.
 
 [![Release candidate](https://img.shields.io/badge/status-0.3.0--rc.1-c64b1a?style=for-the-badge)](#-project-status)
-[![CI](https://img.shields.io/github/actions/workflow/status/Peter-Fu-Collab/send-from-china-reference-store/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/Peter-Fu-Collab/send-from-china-reference-store/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/SuntekCorps-xLab/send-from-china-reference-store/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/workflows/ci.yml)
 [![Shopify](https://img.shields.io/badge/Shopify-theme-142b2f?style=for-the-badge&logo=shopify&logoColor=white)](shopify-theme)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
 [![License](https://img.shields.io/badge/license-Apache--2.0-6b7c70?style=for-the-badge)](LICENSE)
 
-[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/Peter-Fu-Collab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
+[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
 
 <img src="docs/images/hybrid-storefront-hero.png" alt="Product catalog with a contextual shopping-agent drawer" width="100%">
 
@@ -31,7 +31,7 @@ This repository shows a hybrid pattern:
 - 🔐 **Keep credentials server-side** and payment inside Shopify.
 
 It is the storefront companion to
-[`send-from-china-agent-core`](https://github.com/Peter-Fu-Collab/send-from-china-agent-core),
+[`send-from-china-agent-core`](https://github.com/SuntekCorps-xLab/send-from-china-agent-core),
 which provides the agent-native catalog, quote, governance, and sourcing
 contracts. This repository provides the customer experience built on top.
 
@@ -41,7 +41,7 @@ No Shopify account, API key, database, or cloud service is needed for the local
 experience demo.
 
 ```bash
-git clone https://github.com/Peter-Fu-Collab/send-from-china-reference-store.git
+git clone https://github.com/SuntekCorps-xLab/send-from-china-reference-store.git
 cd send-from-china-reference-store
 node demo/server.mjs
 ```
@@ -73,8 +73,8 @@ Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such a
 | --- | --- | --- |
 | **Preview the UX** | `node demo/server.mjs` | Node.js 22+ |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
-| **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/Peter-Fu-Collab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
-| **Add saved requests and order views** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
+| **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
+| **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
 | **Understand custom files quickly** | [`docs/CUSTOMIZATION_MAP.md`](docs/CUSTOMIZATION_MAP.md) | Five minutes |
 
 ## 🏗️ How the pieces fit
@@ -110,8 +110,15 @@ included Worker exposes only browser-safe `/api/chat`, `/api/search`, and
 | 📦 Product | Media, variants, quantity, shipping estimate, cart action | Shopify owns variant and cart truth |
 | 🛒 Cart | Quantity, removal, shipping state, checkout handoff | Theme never receives payment details |
 | 💬 Agent drawer | Contextual chat, result cards, explicit sourcing confirmation | Credentialed calls pass through the BFF |
-| 👤 Customer account | Saved workspace and order-tracking extensions | Shopify session token is the identity boundary |
+| 👤 Customer account | Installable order-tracking extension | Shopify Customer Account API is the source of truth |
 | 🔌 Agent pages | Machine-readable discovery and MCP handoff | Agent Core exposes the current `/mcp` contract |
+
+The `wp-account` and `wp-ask` directories are source-only adapter examples for
+teams that already operate an authenticated merchant API. They have no active
+Shopify extension manifest, are not included in the default app build, and do
+not include their server implementation. See the
+[Customer Account boundary](shopify-customer-account/README.md) before adapting
+them.
 
 ## 🚀 Shopify quick start
 
@@ -191,6 +198,8 @@ Current version: **`0.3.0-rc.1`**.
 This is an integration reference, not a copy of the hosted Send From China
 service. Pair it with Agent Core **`0.4.0-rc.1`** for the current local contract.
 The included local paths use synthetic data and non-billable preview behavior.
+Only the order-tracking Customer Account extension is installable by default;
+the saved-workspace sources require a separately implemented merchant API.
 Production customer isolation, durable sourcing, catalog publication, checkout
 completion, and payment require merchant-owned services and policy.
 

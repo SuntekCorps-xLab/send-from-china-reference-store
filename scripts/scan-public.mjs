@@ -15,6 +15,8 @@ const PATTERNS = [
   ["developer path", /(?:[A-Za-z]:[\\/]Users[\\/]STGF|\/Users\/STGF)/i],
   ["production worker default", /https:\/\/wp-(?:governance|sfc-carrier)\.htfu\.workers\.dev/i],
   ["legacy production storefront", /https:\/\/landmarks\.builders/i],
+  ["legacy production storefront", /(?:^|\/\/)(?:sfc\.)?worldproducts\.ai/i],
+  ["private integration marker", /\b(?:PIPO|StoryLab|DCD)\b|AI Vision Pipeline|santai_customer_id|\bstc_/i],
   ["analytics measurement ID", /\bG-(?!X{8,}\b)[A-Z0-9]{8,}\b/],
 ];
 

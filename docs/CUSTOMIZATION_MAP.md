@@ -12,7 +12,8 @@ understand the reference implementation.
 | Home, search, collection, product, and cart | `shopify-theme/sections/lm-*-chat.liquid` |
 | Machine-readable agent views | `shopify-theme/sections/lm-*-agent.liquid` |
 | Shopping Agent drawer | `shopify-theme/snippets/wp-agent-drawer.liquid`, `shopify-theme/assets/wp-agent-drawer.*` |
-| Saved workspace | `shopify-theme/assets/wp-workspace.js`, `shopify-customer-account/extensions/` |
+| Optional saved-workspace adapter | `shopify-theme/assets/wp-workspace.js`, `shopify-customer-account/extensions/wp-account/` |
+| Installable order tracking | `shopify-customer-account/extensions/wp-order-tracking/` |
 | Browser-safe Agent Core adapter | `storefront-bff/src/index.js` |
 | Zero-account experience demo | `demo/` |
 | Contract and browser QA | `shopify-theme/tests/`, `storefront-bff/test/`, `demo/tests/` |
@@ -22,6 +23,11 @@ understand the reference implementation.
 - `lm-*` files implement the full-page reference storefront surfaces.
 - `wp-*` files implement shared shell, agent, workspace, and integration pieces.
 - Other theme files provide the standard Shopify installable theme surface.
+
+`wp-account/` and `wp-ask/` are source-only adapters with non-routable example
+endpoints. They are not part of the default Shopify app build and require a
+merchant-controlled authenticated API. The shipped Customer Account surface is
+`wp-order-tracking/`.
 
 ## Safe first changes
 

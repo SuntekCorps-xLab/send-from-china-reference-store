@@ -113,11 +113,9 @@ export function trackingActionUrl(value) {
   if (!urlValue) return "";
   try {
     const url = new URL(urlValue);
-    const host = url.hostname.toLowerCase().replace(/\.$/, "");
-    // The external tracking storefront currently requires a separate customer
-    // session. It is not an order-scoped tracking link and must not be shown
-    // as though the signed-in WP buyer can use it directly.
-    return host === "sfc.worldproducts.ai" ? "" : url.toString();
+    // A generic login or storefront root is not an order-scoped tracking link.
+    if ((url.pathname === "/" || url.pathname === "") && !url.search) return "";
+    return url.toString();
   } catch {
     return "";
   }

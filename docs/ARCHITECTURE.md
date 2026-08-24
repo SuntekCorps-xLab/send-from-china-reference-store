@@ -90,6 +90,13 @@ compatible merchant API must verify the token, bind records to the shop and
 customer subject, reject cross-customer identifiers, and apply durable
 idempotency to every write.
 
+This repository ships an installable order-tracking extension that reads from
+Shopify's Customer Account API. The `wp-account` and `wp-ask` directories are
+source-only UI adapter examples: they have no active manifest, are excluded
+from the default app build, and depend on a merchant API that is not included
+here. Their `example.invalid` endpoints must be replaced only after that API
+implements the controls above.
+
 ## Configuration boundary
 
 Store-specific hosts, app identifiers, proxy routes, and theme settings are

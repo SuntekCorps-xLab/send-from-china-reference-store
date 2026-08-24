@@ -55,8 +55,9 @@ test("rejects non-https tracking links", () => {
   assert.equal(order.tracking[0].url, "");
 });
 
-test("does not treat the generic SFC storefront as an order-scoped tracking link", () => {
-  assert.equal(trackingActionUrl("https://sfc.worldproducts.ai"), "");
-  assert.equal(trackingActionUrl("https://sfc.worldproducts.ai/#SfcTracking"), "");
+test("does not treat a generic storefront root as an order-scoped tracking link", () => {
+  assert.equal(trackingActionUrl("https://storefront.example.test"), "");
+  assert.equal(trackingActionUrl("https://storefront.example.test/#login"), "");
   assert.equal(trackingActionUrl("https://carrier.example.test/track/TEST-003"), "https://carrier.example.test/track/TEST-003");
+  assert.equal(trackingActionUrl("https://carrier.example.test/?tracking=TEST-003"), "https://carrier.example.test/?tracking=TEST-003");
 });
