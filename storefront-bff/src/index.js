@@ -43,6 +43,16 @@ function safeUrl(value) {
   }
 }
 
+function sameOriginUrl(value, origin) {
+  const candidate = safeUrl(value);
+  if (!candidate || !origin) return "";
+  try {
+    return new URL(candidate).origin === new URL(origin).origin ? candidate : "";
+  } catch {
+    return "";
+  }
+}
+
 function productImage(product) {
   const images = Array.isArray(product?.images) ? product.images : [];
   for (const image of images) {
@@ -60,8 +70,16 @@ function storefrontProduct(product, env) {
     : { amount: product?.price, currency: product?.currency };
   const amount = Number(price?.amount);
   const availability = String(product?.availability_band || "").toLowerCase();
-  const productUrl = safeUrl(product?.product_url || product?.url)
+  // A deterministic slug URL is useful for browsing, but it does not prove
+  // that a Shopify product/variant exists or is purchasable. Only an explicit
+  // customer-facing URL on this configured storefront is purchase evidence.
+  const verifiedProductUrl = sameOriginUrl(product?.product_url || product?.url, store);
+  const browseUrl = verifiedProductUrl
     || (store && slug ? `${store}/products/${encodeURIComponent(slug)}` : "");
+  const verifiedAddToCartUrl = sameOriginUrl(product?.add_to_cart_url, store);
+  const available = product?.purchasable === true
+    && availability !== "out_of_stock"
+    && Boolean(verifiedProductUrl);
   return {
     public_id: String(product?.public_id || ""),
     handle: slug,
@@ -69,13 +87,15 @@ function storefrontProduct(product, env) {
     type: String(product?.category || product?.type || "").slice(0, 100),
     summary: String(product?.description || product?.summary || "").slice(0, 500),
     image: productImage(product) || safeUrl(product?.image),
-    url: productUrl,
-    product_url: productUrl,
+    url: browseUrl,
+    product_url: browseUrl,
+    add_to_cart_url: available ? verifiedAddToCartUrl : "",
     price: Number.isFinite(amount) && amount > 0 ? amount : null,
     currency: /^[A-Z]{3}$/.test(String(price?.currency || "").toUpperCase())
       ? String(price.currency).toUpperCase()
       : null,
-    available: product?.purchasable === true && availability !== "out_of_stock",
+    available,
+    purchase_handoff: available ? "merchant_product" : null,
   };
 }
 

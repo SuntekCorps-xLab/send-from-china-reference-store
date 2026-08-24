@@ -20,7 +20,7 @@ Configure:
 | `AGENT_CORE_BASE_URL` | No | Agent Core origin, without a trailing slash |
 | `AGENT_CORE_TENANT_KEY` | **Yes** | Tenant Bearer key; use `wrangler secret put` |
 | `AGENT_CORE_PAGE_SIZE` | No | Must not exceed that tenant's `max_page_size`; defaults to `5` |
-| `STOREFRONT_ORIGIN` | No | Creates product links for returned slugs |
+| `STOREFRONT_ORIGIN` | No | Allowlisted merchant origin and browse-link base |
 | `ALLOWED_ORIGINS` | No | Exact comma-separated browser origins |
 
 ## Routes
@@ -34,6 +34,11 @@ The Worker rejects unknown origins, malformed or oversized requests, and missing
 configuration. It never returns the tenant key, upstream response bodies, or a
 server stack. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the
 browser contract and trust boundaries.
+
+A URL derived from a returned slug is browseable but is not proof that a
+Shopify product is purchasable. The BFF sets `available=true` only when Agent
+Core explicitly returns `purchasable=true` and an HTTPS product URL on the
+configured `STOREFRONT_ORIGIN`. Supplier and cross-store URLs are discarded.
 
 This is a reference adapter, not a customer identity service. Authenticated
 sourcing writes and saved state belong behind the Customer Account boundary.

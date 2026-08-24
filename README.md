@@ -227,6 +227,7 @@ completion, and payment require merchant-owned services and policy.
 ## 📚 Documentation
 
 - [Architecture and API contracts](docs/ARCHITECTURE.md)
+- [Hosted Platform integration](docs/HOSTED_PLATFORM_INTEGRATION.md)
 - [Customization map](docs/CUSTOMIZATION_MAP.md)
 - [Development and verification](docs/DEVELOPMENT.md)
 - [Deployment and rollback](docs/DEPLOYMENT.md)

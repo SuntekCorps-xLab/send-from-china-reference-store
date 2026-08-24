@@ -4,7 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
-No unreleased changes.
+- Distinguished browseable catalog links from verified Shopify purchase
+  handoffs in the Storefront BFF.
+- Rejected supplier and cross-store URLs from customer commerce responses and
+  added hosted-platform integration guidance.
 
 ## 1.0.0 - 2026-08-24
 

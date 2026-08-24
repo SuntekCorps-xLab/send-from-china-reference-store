@@ -56,6 +56,8 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
         price: { amount: 29, currency: "USD" },
         availability_band: "available",
         purchasable: true,
+        product_url: "https://store.example.test/products/walnut-desk-tray",
+        add_to_cart_url: "https://store.example.test/cart/add?id=123",
       }],
       next_actions: ["Compare materials"],
     });
@@ -80,6 +82,8 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
   const payload = await response.json();
   assert.equal(payload.results[0].url, "https://store.example.test/products/walnut-desk-tray");
   assert.equal(payload.results[0].available, true);
+  assert.equal(payload.results[0].purchase_handoff, "merchant_product");
+  assert.equal(payload.results[0].add_to_cart_url, "https://store.example.test/cart/add?id=123");
   assert.deepEqual(payload.requested_criteria, { price_max: 40 });
   assert.deepEqual(payload.criteria, { price_max: 40 });
   assert.deepEqual(payload.criteria_evaluation.enforced, ["price_max"]);
@@ -100,6 +104,7 @@ test("adapts browser POST search to Agent Core GET search", async (context) => {
       images: [],
       availability_band: "low",
       purchasable: true,
+      product_url: "https://store.example.test/products/reading-light",
     }] });
   });
   const response = await call("/api/search", {
@@ -114,6 +119,49 @@ test("adapts browser POST search to Agent Core GET search", async (context) => {
   assert.equal(url.searchParams.get("q"), "small reading light");
   assert.equal(url.searchParams.get("limit"), "5");
   assert.equal((await response.json()).results[0].available, true);
+});
+
+test("keeps derived slug links browseable without claiming purchase readiness", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+    public_id: "pub_reference_only",
+    slug: "reference-only",
+    title: "Reference only",
+    availability_band: "available",
+    purchasable: true,
+  }] }));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "reference" }),
+  });
+  const product = (await response.json()).results[0];
+  assert.equal(product.url, "https://store.example.test/products/reference-only");
+  assert.equal(product.available, false);
+  assert.equal(product.purchase_handoff, null);
+  assert.equal(product.add_to_cart_url, "");
+});
+
+test("rejects supplier and cross-store URLs from the commerce handoff", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+    public_id: "pub_off_origin",
+    slug: "safe-fallback",
+    title: "Off-origin source",
+    availability_band: "available",
+    purchasable: true,
+    product_url: "https://supplier.example/products/private-source",
+    add_to_cart_url: "https://other-shop.example/cart/add?id=1",
+  }] }));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "source" }),
+  });
+  const product = (await response.json()).results[0];
+  assert.equal(product.url, "https://store.example.test/products/safe-fallback");
+  assert.equal(product.available, false);
+  assert.equal(product.add_to_cart_url, "");
+  assert.equal(JSON.stringify(product).includes("supplier.example"), false);
+  assert.equal(JSON.stringify(product).includes("other-shop.example"), false);
 });
 
 test("rejects invalid and oversized chat requests without calling upstream", async () => {
