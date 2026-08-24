@@ -4,7 +4,7 @@
 
 ### A real Shopify storefront with an agent beside the shopping journey — not instead of it.
 
-[![Release candidate](https://img.shields.io/badge/status-0.3.0--rc.1-c64b1a?style=for-the-badge)](#-project-status)
+[![Release](https://img.shields.io/badge/release-v1.0.0-c64b1a?style=for-the-badge)](#-project-status)
 [![CI](https://img.shields.io/github/actions/workflow/status/SuntekCorps-xLab/send-from-china-reference-store/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/workflows/ci.yml)
 [![Shopify](https://img.shields.io/badge/Shopify-theme-142b2f?style=for-the-badge&logo=shopify&logoColor=white)](shopify-theme)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
@@ -43,11 +43,17 @@ experience demo.
 ```bash
 git clone https://github.com/SuntekCorps-xLab/send-from-china-reference-store.git
 cd send-from-china-reference-store
+npm ci
+npm run verify
 node demo/server.mjs
 ```
 
 Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
 `a practical desk gift under $40`.
+
+`npm run verify` is the zero-account release check. Maintainers with Chrome and
+Shopify CLI installed can additionally run `npm run verify:browser` and the
+Shopify checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 > [!NOTE]
 > The local demo uses three synthetic responses. It demonstrates interaction
@@ -193,10 +199,10 @@ alphabetically.
 
 ## 🧪 Project status
 
-Current version: **`0.3.0-rc.1`**.
+Current version: **`1.0.0`**.
 
 This is an integration reference, not a copy of the hosted Send From China
-service. Pair it with Agent Core **`0.4.0-rc.1`** for the current local contract.
+service. Pair it with Agent Core **`1.0.0`** for the current stable contract.
 The included local paths use synthetic data and non-billable preview behavior.
 Only the order-tracking Customer Account extension is installable by default;
 the saved-workspace sources require a separately implemented merchant API.

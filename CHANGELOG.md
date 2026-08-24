@@ -4,13 +4,20 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+No unreleased changes.
+
+## 1.0.0 - 2026-08-24
+
+- Declared the first stable hybrid storefront and shopping-agent reference
+  contract.
+- Added a root `npm run verify` command for the zero-account demo, BFF, theme
+  contracts, responsive drawer QA, documentation links, and safety scan.
 - Made the Customer Account boundary explicit: order tracking is installable,
-  while the workspace and ask adapters are source-only and require an external
+  while workspace and ask adapters remain source-only examples requiring a
   merchant API.
 - Removed private compatibility markers, production-domain assumptions, and
-  provider-specific status aliases from the public reference surface.
-- Expanded the public safety scan and added a pinned public-only CodeQL
-  workflow plus repository-settings release checklist.
+  provider-specific aliases from the public reference surface.
+- Added pinned CodeQL, Dependabot, and public-repository settings guidance.
 
 ## 0.3.0-rc.1 - 2026-08-23
 

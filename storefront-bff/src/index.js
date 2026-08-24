@@ -113,7 +113,7 @@ function chatBody(input) {
     .slice(-MAX_MESSAGES)
     .map((message) => ({
       role: message?.role === "assistant" ? "assistant" : "user",
-      // Agent Core 0.4 accepts a maximum 300-character query. Bound every
+      // Agent Core V1 accepts a maximum 300-character query. Bound every
       // forwarded turn so the final user message cannot be rejected upstream.
       content: String(message?.content || "").trim().slice(0, 300),
     }))

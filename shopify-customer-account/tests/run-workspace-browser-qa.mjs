@@ -118,8 +118,8 @@ async function runRequestDetailDesktopCase(cdp, server) {
   assert(state.activityOpen === false, "desktop: request activity must start collapsed");
   assert(state.deeperVisible === true, "desktop: paid continuation is missing after initial results");
   assert(state.requestCards === 3, `desktop: expected exactly 3 initial matches, received ${state.requestCards}`);
-  assert(state.text.includes("Unlock all 4 matches"), "desktop: full result unlock is missing");
-  assert(state.text.includes("complete saved 1688 candidate pool"),
+  assert(state.text.includes("Prepare more products"), "desktop: additional product preparation is missing");
+  assert(state.text.includes("verified matches") && state.text.includes("available to prepare"),
     "desktop: saved candidate-pool boundary is missing");
   assert(state.text.includes("Starter search credits"), "desktop: paid deeper-search offer is missing");
   const audit = await auditPage(cdp, 1440, [

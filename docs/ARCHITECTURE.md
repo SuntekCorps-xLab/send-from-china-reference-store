@@ -22,7 +22,7 @@ contracts. The BFF translates between them without exposing a tenant key.
 
 ## Why the BFF is required
 
-Agent Core `0.4.0-rc.1` protects `/api/chat`, `/api/search`, and `/api/catalog`
+Agent Core `1.0.0` protects `/api/chat`, `/api/search`, and `/api/catalog`
 with a tenant Bearer credential. A Shopify theme is public browser code, so it
 cannot hold that credential.
 

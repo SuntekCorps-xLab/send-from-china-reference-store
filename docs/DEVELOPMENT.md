@@ -16,6 +16,7 @@ npm run check -- --no-color
 cd ..
 npx shopify theme check --path shopify-theme --fail-level error
 node shopify-theme/tests/run-agent-drawer-browser-qa.mjs
+node shopify-customer-account/tests/run-workspace-browser-qa.mjs
 node scripts/scan-public.mjs .
 ```
 
@@ -35,7 +36,7 @@ When changing a state transition, add assertions for success, empty, invalid,
 unauthorized, unavailable-service, retry, and repeated-request behavior as
 applicable.
 
-For agent integration tests, pair this release with Agent Core `0.4.0-rc.1` and
+For agent integration tests, pair this release with Agent Core `1.0.0` and
 route public theme requests through `storefront-bff/`. Verify that the tenant
 key appears only in the BFF-to-Agent-Core request. For sourcing, verify terminal
 catalog miss, explicit confirmation, stable

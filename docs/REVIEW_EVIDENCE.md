@@ -1,5 +1,9 @@
 # Review evidence
 
+V1 release: `1.0.0`
+
+Review date: 2026-08-24
+
 Release reviews are commit-specific. Record the repository URL, `main` commit
 SHA, review date, tool versions, successful commands, skipped commands and
 reasons, dependency-audit output, and GitHub Actions links.
@@ -23,3 +27,24 @@ tenant key is present only in the upstream request.
 Repository administrator evidence such as branch protection, required checks,
 private vulnerability reporting, and secret scanning must be verified on
 GitHub and cannot be inferred from files in the repository.
+
+## V1 recorded results
+
+The 2026-08-24 V1 run produced:
+
+- 33 of 33 zero-account demo, BFF, theme contract, and Customer Account tests
+  passing;
+- desktop and mobile Shopping Agent drawer QA passing;
+- three Customer Account Workspace browser scenarios passing at desktop and
+  mobile viewports;
+- the installable order-tracking extension building successfully from the
+  non-deployable `example.invalid` configuration;
+- Shopify Theme Check completing with zero errors (upstream theme warnings
+  remain informational);
+- zero high-severity npm audit findings across root, BFF, and Customer Account
+  lockfiles;
+- local documentation links, current-tree public safety scan, Git diff check,
+  and credential/private-host history probes passing.
+
+GitHub Actions must pass on the exact release commit before the `v1.0.0` tag is
+created or repository visibility is changed.

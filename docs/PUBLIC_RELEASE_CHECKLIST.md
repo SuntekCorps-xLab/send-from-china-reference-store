@@ -15,5 +15,5 @@ Record the completed settings and links in the release review.
 6. Confirm Dependabot alerts and security updates are enabled.
 7. Run the public safety scan and inspect the complete Git history for
    credentials, customer data, private integrations, and production hosts.
-8. Create the release candidate from the exact reviewed commit and link its CI
+8. Create the `v1.0.0` release from the exact reviewed commit and link its CI
    and security evidence.

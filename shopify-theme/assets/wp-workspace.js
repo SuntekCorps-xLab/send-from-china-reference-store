@@ -1525,7 +1525,7 @@
       await api("/tasks/" + encodeURIComponent(state.selectedTask.id)
         + "/results/" + encodeURIComponent(result.id) + "/governance", {
         method: "POST",
-        body: JSON.stringify({ content_version: "amazon-us-en-v1" }),
+        body: JSON.stringify({ content_version: "retail-en-v1" }),
       });
       await openTask(state.selectedTask);
       showNotice("Product preparation started. Progress and the final result will return to this conversation.", "success");
