@@ -45,7 +45,7 @@ git clone https://github.com/SuntekCorps-xLab/send-from-china-reference-store.gi
 cd send-from-china-reference-store
 npm ci
 npm run verify
-node demo/server.mjs
+npm run demo
 ```
 
 Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
@@ -58,7 +58,21 @@ Shopify checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 > [!NOTE]
 > The local demo uses three synthetic responses. It demonstrates interaction
 > states only; it does not call a merchant, create a sourcing task, or perform a
-> commerce write.
+> commerce write. The UI and `/api/status` display `synthetic_demo`; every card
+> is labelled illustrative rather than presented as a catalog match.
+
+### Demo and connected modes
+
+| Mode | Data source | Credential | What it proves |
+| --- | --- | --- | --- |
+| Zero-account demo | Three local fixtures | None | Drawer states, responsive layout, and explicit truth labels |
+| Connected reference | Storefront BFF → Agent Core | Tenant key stored only in the BFF | Governed catalog search and product cards |
+| Production commerce | Merchant-owned Shopify and service adapters | Merchant-managed | Variants, cart, checkout, identity, and any real shipping integration |
+
+The repository does not include a carrier-rate service. Any interface that
+shows real freight must obtain package, origin, destination, and service-level
+facts from a separately operated provider and must not relabel Agent Core's
+catalog estimate as shipping.
 
 ## 📸 Experience at a glance
 
@@ -77,7 +91,7 @@ Shopify checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 | I want to… | Start here | What you need |
 | --- | --- | --- |
-| **Preview the UX** | `node demo/server.mjs` | Node.js 22+ |
+| **Preview the UX** | `npm run demo` | Node.js 22+ |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
 | **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
 | **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
@@ -175,6 +189,7 @@ Link an app you control before running `npm run dev`.
 - No Agent Core tenant key in theme code or browser traffic.
 - No direct payment, checkout completion, catalog write, or management action.
 - Missing price renders **View current price** — never zero.
+- Demo cards and execution traces remain visibly marked `illustrative` and never claim a criteria match.
 - Missing endpoints fail closed with a useful customer-facing state.
 - Sourcing is a separate, explicit confirmation after bounded catalog search.
 - CI runs contract tests, browser QA, dependency audit, and a repository safety scan.

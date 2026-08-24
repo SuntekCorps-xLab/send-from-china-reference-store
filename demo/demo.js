@@ -39,7 +39,7 @@
     conversation.append(user);
     const pending = document.createElement("article");
     pending.className = "turn agent";
-    pending.innerHTML = "<small>SEND FROM CHINA</small><p>Searching the demo catalog…</p>";
+    pending.innerHTML = "<small>SEND FROM CHINA · DEMO</small><p>Applying the demo boundary…</p><div class=\"trace\"><span class=\"is-active\">Request</span><span>Policy</span><span>Cards</span></div>";
     conversation.append(pending);
     conversation.scrollTop = conversation.scrollHeight;
     try {
@@ -49,13 +49,22 @@
         body: JSON.stringify({ messages: [{ role: "user", content: message }] }),
       });
       const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "request_failed");
       pending.querySelector("p").textContent = payload.reply;
+      const trace = pending.querySelector(".trace");
+      trace.innerHTML = "";
+      payload.trace.forEach((step) => {
+        const item = document.createElement("span");
+        item.className = step.state === "complete" ? "is-complete" : "";
+        item.textContent = step.label;
+        trace.append(item);
+      });
       const row = document.createElement("div");
       row.className = "result-row";
       payload.results.forEach((product) => {
         const card = document.createElement("div");
         card.className = "result";
-        card.innerHTML = `<b>${product.emoji} ${product.title}</b><span>${product.tag}</span><strong>${product.price}</strong>`;
+        card.innerHTML = `<small>ILLUSTRATIVE</small><b>${product.emoji} ${product.title}</b><span>${product.tag}</span><strong>${product.price}</strong>`;
         row.append(card);
       });
       pending.append(row);

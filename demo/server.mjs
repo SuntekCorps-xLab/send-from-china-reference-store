@@ -7,27 +7,56 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const types = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
 const products = [
-  { title: "Walnut desk organizer", price: "$29", tag: "Natural wood", emoji: "🪵" },
-  { title: "Compact reading light", price: "$34", tag: "Small spaces", emoji: "💡" },
-  { title: "Ceramic pour-over set", price: "$42", tag: "Gift ready", emoji: "☕" },
+  { title: "Walnut desk organizer", price: "$29", tag: "Natural wood", emoji: "🪵", match_status: "illustrative_only" },
+  { title: "Compact reading light", price: "$34", tag: "Small spaces", emoji: "💡", match_status: "illustrative_only" },
+  { title: "Ceramic pour-over set", price: "$42", tag: "Gift ready", emoji: "☕", match_status: "illustrative_only" },
 ];
+
+function sendJson(response, body, status = 200) {
+  response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+  response.end(JSON.stringify(body));
+}
 
 export function createDemoServer() {
   return createServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://127.0.0.1");
+    if (request.method === "GET" && url.pathname === "/api/status") {
+      sendJson(response, {
+        ok: true,
+        mode: "synthetic_demo",
+        live_agent_core: false,
+        commerce_writes: false,
+        shipping_rates: false,
+      });
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/api/chat") {
       let body = "";
       for await (const chunk of request) body += chunk;
-      let query = "product";
+      let payload;
       try {
-        const payload = JSON.parse(body || "{}");
-        query = String(payload?.messages?.at(-1)?.content || query).slice(0, 120);
-      } catch {}
-      response.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      response.end(JSON.stringify({
-        reply: `I treated “${query}” as a catalog-first request. Here are three governed demo matches; open a product to review real variants, price, and availability.`,
+        payload = JSON.parse(body || "{}");
+      } catch {
+        sendJson(response, { error: "invalid_json" }, 400);
+        return;
+      }
+      const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+      const query = String([...messages].reverse().find((message) => message?.role === "user")?.content || "").trim().slice(0, 120);
+      if (!query) {
+        sendJson(response, { error: "invalid_messages" }, 400);
+        return;
+      }
+      sendJson(response, {
+        reply: `Demo mode recorded “${query}”. These cards illustrate the governed result UI; they were not evaluated as catalog matches.`,
         results: products,
-      }));
+        mode: "synthetic_demo",
+        live_agent_core: false,
+        trace: [
+          { label: "Request received", state: "complete" },
+          { label: "Demo boundary applied", state: "complete" },
+          { label: "Illustrative cards rendered", state: "complete" },
+        ],
+      });
       return;
     }
 

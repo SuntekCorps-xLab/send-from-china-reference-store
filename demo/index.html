@@ -14,6 +14,7 @@
   </header>
 
   <main>
+    <div class="runtime-banner" role="status"><span></span><strong>Zero-account demo</strong><em>No live API · No commerce writes · No carrier rates</em></div>
     <section class="hero">
       <div>
         <p class="eyebrow">Catalog, guidance, and custom sourcing</p>
@@ -21,6 +22,7 @@
         <p class="lede">Browse normally, then ask a contextual shopping agent when filters are not enough. The catalog stays visible and checkout stays with Shopify.</p>
         <div class="hero-actions"><button class="primary" data-open-agent>Ask the Shopping Agent ↗</button><a href="#catalog">Browse demo products ↓</a></div>
         <ul class="proof"><li>✓ Catalog-first</li><li>✓ Explicit sourcing consent</li><li>✓ Shopify checkout boundary</li></ul>
+        <div class="agent-pipeline" aria-label="Agent request pipeline"><span>01 Intent</span><i></i><span>02 Policy</span><i></i><span>03 Results</span></div>
       </div>
       <div class="brief-card">
         <div class="tabs"><strong>Search products</strong><span>Ask Agent</span></div>
@@ -44,9 +46,10 @@
 
   <div class="backdrop" hidden data-close-agent></div>
   <aside class="drawer" hidden aria-label="Shopping Agent" aria-modal="true" role="dialog">
-    <header><button class="history">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong></div><button class="close" data-close-agent aria-label="Close">×</button></header>
+    <header><button class="history">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill">DEMO · OFFLINE FIXTURES</span></div><button class="close" data-close-agent aria-label="Close">×</button></header>
     <div class="conversation" data-conversation>
-      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. I will search the live catalog first.</p>
+      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. This zero-account preview demonstrates the interaction with synthetic cards; connect the BFF for live Agent Core results.</p>
+        <div class="capability-grid"><span><b>Catalog UI</b>Ready</span><span><b>Agent Core</b>Not connected</span><span><b>Carrier rates</b>Not included</span></div>
         <button data-starter>A practical gift under $40</button><button data-starter>Options for a small apartment</button><button data-starter>Choose by material and destination</button>
       </section>
     </div>

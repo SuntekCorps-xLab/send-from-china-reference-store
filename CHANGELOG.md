@@ -8,6 +8,16 @@ No unreleased changes.
 
 ## 1.0.0 - 2026-08-24
 
+- Added explicit zero-account Demo versus connected-mode labels and a public
+  `/api/status` response.
+- Rejected invalid and empty demo chat requests instead of returning default
+  recommendations.
+- Marked synthetic cards as illustrative and added a visible three-stage demo
+  execution trace and capability status.
+- Forwarded structured criteria through the BFF so connected Agent Core chat
+  applies the same hard-filter contract as MCP search.
+- Documented the catalog-estimate, carrier-rate, and confirmed sourcing-proof
+  boundaries.
 - Declared the first stable hybrid storefront and shopping-agent reference
   contract.
 - Added a root `npm run verify` command for the zero-account demo, BFF, theme

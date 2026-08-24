@@ -44,6 +44,8 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
     upstreamRequest = new Request(request, init);
     return Response.json({
       reply: "Two governed matches are available.",
+      criteria: { price_max: 40 },
+      criteria_evaluation: { enforced: ["price_max"], informational: [] },
       products: [{
         public_id: "pub_demo_01",
         slug: "walnut-desk-tray",
@@ -71,10 +73,18 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
   assert.equal(upstreamRequest.headers.get("authorization"), `Bearer ${env.AGENT_CORE_TENANT_KEY}`);
   assert.equal(upstreamRequest.method, "POST");
   assert.equal(upstreamRequest.url, "https://core.example.test/api/chat");
+  assert.deepEqual(await upstreamRequest.json(), {
+    messages: [{ role: "user", content: "desk tray" }],
+    criteria: { price_max: 40 },
+  });
   const payload = await response.json();
   assert.equal(payload.results[0].url, "https://store.example.test/products/walnut-desk-tray");
   assert.equal(payload.results[0].available, true);
+  assert.deepEqual(payload.requested_criteria, { price_max: 40 });
+  assert.deepEqual(payload.criteria, { price_max: 40 });
+  assert.deepEqual(payload.criteria_evaluation.enforced, ["price_max"]);
   assert.equal(payload.next_actions[0].operation, "chat");
+  assert.equal(payload.live_agent_core, true);
   assert.equal(JSON.stringify(payload).includes(env.AGENT_CORE_TENANT_KEY), false);
   assert.equal(response.headers.get("access-control-allow-origin"), "https://store.example.test");
 });
@@ -120,4 +130,12 @@ test("rejects invalid and oversized chat requests without calling upstream", asy
     body: JSON.stringify({ messages: [{ role: "user", content: "x" }] }),
   });
   assert.equal(oversized.status, 413);
+
+  const empty = await call("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "  " }] }),
+  });
+  assert.equal(empty.status, 400);
+  assert.deepEqual(await empty.json(), { error: "invalid_request" });
 });

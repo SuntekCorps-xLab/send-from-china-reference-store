@@ -19,6 +19,26 @@ test("the zero-account demo serves the storefront and an interactive chat", asyn
     const payload = await chat.json();
     assert.equal(payload.results.length, 3);
     assert.match(payload.reply, /gift under \$40/);
+    assert.equal(payload.mode, "synthetic_demo");
+    assert.equal(payload.live_agent_core, false);
+    assert.ok(payload.results.every((result) => result.match_status === "illustrative_only"));
+
+    const empty = await fetch(`http://127.0.0.1:${port}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "  " }] }),
+    });
+    assert.equal(empty.status, 400);
+    assert.deepEqual(await empty.json(), { error: "invalid_messages" });
+
+    const status = await fetch(`http://127.0.0.1:${port}/api/status`);
+    assert.deepEqual(await status.json(), {
+      ok: true,
+      mode: "synthetic_demo",
+      live_agent_core: false,
+      commerce_writes: false,
+      shipping_rates: false,
+    });
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

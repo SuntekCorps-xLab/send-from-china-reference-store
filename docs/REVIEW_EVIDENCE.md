@@ -34,6 +34,9 @@ The 2026-08-24 V1 run produced:
 
 - 33 of 33 zero-account demo, BFF, theme contract, and Customer Account tests
   passing;
+- empty and invalid demo chat requests failing closed, `/api/status` declaring
+  synthetic mode, and every fixture card labelled illustrative;
+- structured criteria remaining intact across the browser-safe BFF boundary;
 - desktop and mobile Shopping Agent drawer QA passing;
 - three Customer Account Workspace browser scenarios passing at desktop and
   mobile viewports;

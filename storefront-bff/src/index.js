@@ -119,7 +119,10 @@ function chatBody(input) {
     }))
     .filter((message) => message.content);
   if (!messages.length) throw new Response(null, { status: 400 });
-  return { messages };
+  const criteria = input?.criteria && typeof input.criteria === "object" && !Array.isArray(input.criteria)
+    ? input.criteria
+    : {};
+  return { messages, criteria };
 }
 
 async function upstream(path, init, env) {
@@ -151,7 +154,11 @@ async function handleChat(request, env) {
     : Array.isArray(payload?.results) ? payload.results : [];
   return {
     session_id: sessionId(input?.session_id),
-    criteria: input?.criteria && typeof input.criteria === "object" ? input.criteria : {},
+    requested_criteria: input?.criteria && typeof input.criteria === "object" ? input.criteria : {},
+    criteria: payload?.criteria && typeof payload.criteria === "object" ? payload.criteria : {},
+    criteria_evaluation: payload?.criteria_evaluation && typeof payload.criteria_evaluation === "object"
+      ? payload.criteria_evaluation
+      : {},
     next_cursor: String(payload?.next_cursor || ""),
     reply: String(payload?.reply || payload?.answer || "I could not find a confident catalog match.").slice(0, 8000),
     results: products.slice(0, MAX_RESULTS).map((product) => ({
@@ -160,6 +167,8 @@ async function handleChat(request, env) {
     })),
     next_actions: nextActions(payload?.next_actions),
     dynamic_request_recommended: payload?.dynamic_request_recommended === true,
+    mode: String(payload?.mode || "connected_agent_core").slice(0, 60),
+    live_agent_core: true,
   };
 }
 

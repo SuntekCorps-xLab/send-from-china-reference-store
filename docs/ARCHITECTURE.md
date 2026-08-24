@@ -50,6 +50,10 @@ structured criteria, an operation, cursor, and limit. It expects a reply,
 optional result cards, criteria, cursor, and explicit next actions. See
 `storefront-bff/test/worker.test.mjs` for a complete executable example.
 
+The BFF keeps `requested_criteria` separate from the normalized upstream
+`criteria` and `criteria_evaluation`. A browser must not infer that an input was
+enforced merely because the customer requested it.
+
 Missing price or availability remains unknown in the UI. A result is never made
 purchasable unless the commerce system confirms it.
 
@@ -79,6 +83,12 @@ QUEUED -> SOURCING -> GOVERNING -> RESULTS_READY
 `NO_MATCH`, `FAILED`, and `CANCELLED` are valid terminal states. A retry must
 preserve its idempotency key; tasks must remain bound to the authenticated
 customer; a sourcing result must not imply purchasability.
+
+The terminal `confirm_search` response supplies a short-lived `search_id`.
+Creation must reuse the exact query and criteria, include that `search_id`, set
+`confirmed=true`, and use `plan_id=preview`. A search proof can create at most
+one task. Public fixture results are `illustrative_only`; they are not evidence
+that the request criteria were satisfied.
 
 The public drawer offers a handoff only. Credentialed sourcing creation belongs
 behind the authenticated account boundary, not the public BFF chat route.
