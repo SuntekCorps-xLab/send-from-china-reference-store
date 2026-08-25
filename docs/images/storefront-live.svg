@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 820" role="img" aria-labelledby="title desc">
+  <title id="title">Reference storefront shopping-agent animation</title>
+  <desc id="desc">A shopper searches a product catalog, opens a contextual agent, receives a governed match, and continues to a verified Shopify product page.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f2e8"/><stop offset=".62" stop-color="#eef2e9"/><stop offset="1" stop-color="#f3dfce"/></linearGradient>
+    <linearGradient id="nav" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0b3136"/><stop offset="1" stop-color="#173f40"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#15383a" flood-opacity=".18"/></filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.serif{font-family:Georgia,"Times New Roman",serif}.ink{fill:#0c2f34}.muted{fill:#6b7772}.white{fill:#fff}.eyebrow{font-size:13px;font-weight:800;letter-spacing:2px}.small{font-size:13px;font-weight:600}.label{font-size:16px;font-weight:750}
+      .typing{animation:typing 10s steps(28,end) infinite}.cursor{animation:blink .8s step-end infinite}.drawer{transform-box:fill-box;transform-origin:right center;animation:drawer 10s cubic-bezier(.65,0,.2,1) infinite}.scrim{animation:scrim 10s ease infinite}.answer{animation:answer 10s ease infinite}.result{transform-box:fill-box;transform-origin:center;animation:result 10s cubic-bezier(.2,.8,.2,1) infinite}.verify{animation:verify 10s ease infinite}.spark{transform-box:fill-box;transform-origin:center;animation:spark 2.8s ease-in-out infinite}.float{transform-box:fill-box;transform-origin:center;animation:float 5s ease-in-out infinite}.f2{animation-delay:-1.3s}.f3{animation-delay:-2.6s}
+      @keyframes typing{0%,8%{clip-path:inset(0 100% 0 0)}30%,100%{clip-path:inset(0 0 0 0)}}@keyframes blink{50%{opacity:0}}
+      @keyframes drawer{0%,26%{transform:translateX(460px)}38%,92%{transform:translateX(0)}100%{transform:translateX(460px)}}@keyframes scrim{0%,26%,100%{opacity:0}38%,92%{opacity:.23}}
+      @keyframes answer{0%,45%{opacity:0;transform:translateY(12px)}56%,100%{opacity:1;transform:translateY(0)}}@keyframes result{0%,58%{opacity:0;transform:translateY(18px) scale(.96)}68%,100%{opacity:1;transform:translateY(0) scale(1)}}@keyframes verify{0%,70%{opacity:0}80%,100%{opacity:1}}
+      @keyframes spark{0%,100%{transform:scale(.82) rotate(0);opacity:.65}50%{transform:scale(1.14) rotate(12deg);opacity:1}}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+      @media (prefers-reduced-motion:reduce){.typing,.cursor,.drawer,.scrim,.answer,.result,.verify,.spark,.float{animation:none!important}.drawer{transform:none}.scrim{opacity:.23}.answer,.result,.verify{opacity:1}}
+    </style>
+  </defs>
+  <rect width="1600" height="820" rx="40" fill="url(#bg)"/>
+  <circle cx="145" cy="160" r="170" fill="#e4773c" opacity=".35"/><circle cx="1480" cy="695" r="210" fill="#a9bba2" opacity=".45"/>
+  <g filter="url(#shadow)">
+    <rect x="62" y="56" width="1476" height="708" rx="32" fill="#fffdfa"/>
+    <path d="M62 132h1476" stroke="#d8dfda"/>
+    <rect x="62" y="56" width="1476" height="76" rx="32" fill="url(#nav)"/><path d="M62 100v32h1476v-32" fill="url(#nav)"/>
+  </g>
+  <g class="sans">
+    <circle cx="103" cy="94" r="18" fill="#fff"/><path d="M103 79l4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#e85d22" class="spark"/>
+    <text x="136" y="101" class="label white">SEND FROM CHINA</text>
+    <text x="685" y="100" class="small white">Home</text><text x="758" y="100" class="small white">Catalog</text><text x="842" y="100" class="small white">Workspace</text>
+    <circle cx="1445" cy="94" r="19" fill="none" stroke="#fff"/><path d="M1437 96c3-12 13-12 16 0m-20 10c7-8 22-8 29 0" fill="none" stroke="#fff" stroke-width="2"/>
+
+    <text x="103" y="183" class="eyebrow" fill="#c64c18">MERCHANT CATALOG</text><text x="103" y="225" class="serif ink" font-size="38">Shop normally. Ask in context.</text>
+    <rect x="103" y="250" width="850" height="58" rx="29" fill="#f5f3ed" stroke="#cfd8d2"/><circle cx="133" cy="279" r="10" fill="none" stroke="#25494b" stroke-width="3"/><path d="M140 286l10 10" stroke="#25494b" stroke-width="3" stroke-linecap="round"/>
+    <g class="typing"><text x="169" y="286" class="label ink">a practical desk gift under $40</text></g><rect x="437" y="267" width="2" height="24" fill="#e85d22" class="cursor"/><rect x="863" y="260" width="80" height="38" rx="19" fill="#173f40"/><text x="887" y="285" class="small white">Search</text>
+
+    <g class="float"><rect x="103" y="340" width="255" height="330" rx="22" fill="#f6f1e8" stroke="#d7ddd7"/><rect x="120" y="357" width="221" height="193" rx="16" fill="#e1e6dc"/><path d="M176 487h115v36H176zm18-84h79v90h-79z" fill="#89725d"/><rect x="136" y="576" width="155" height="12" rx="6" fill="#173f40"/><rect x="136" y="601" width="93" height="9" rx="4.5" fill="#c1c9c2"/><text x="136" y="641" class="label ink">$29</text><circle cx="319" cy="634" r="13" fill="#778e75"/></g>
+    <g class="float f2"><rect x="380" y="340" width="255" height="330" rx="22" fill="#f6f1e8" stroke="#d7ddd7"/><rect x="397" y="357" width="221" height="193" rx="16" fill="#f0dfd2"/><path d="M455 494h110l-10-88h-90z" fill="#dd642b"/><path d="M476 409c0-33 68-33 68 0" fill="none" stroke="#a33f18" stroke-width="9"/><rect x="413" y="576" width="145" height="12" rx="6" fill="#173f40"/><rect x="413" y="601" width="110" height="9" rx="4.5" fill="#c1c9c2"/><text x="413" y="641" class="label ink">$34</text><circle cx="596" cy="634" r="13" fill="#d7652e"/></g>
+    <g class="float f3"><rect x="657" y="340" width="255" height="330" rx="22" fill="#f6f1e8" stroke="#d7ddd7"/><rect x="674" y="357" width="221" height="193" rx="16" fill="#e0e9e5"/><path d="M730 493h110v29H730zm17-67h76v70h-76z" fill="#30575a"/><circle cx="785" cy="452" r="17" fill="#9bb5a9"/><rect x="690" y="576" width="166" height="12" rx="6" fill="#173f40"/><rect x="690" y="601" width="88" height="9" rx="4.5" fill="#c1c9c2"/><text x="690" y="641" class="label ink">$24</text><circle cx="873" cy="634" r="13" fill="#2c5557"/></g>
+
+    <rect x="939" y="132" width="599" height="632" fill="#163f41" class="scrim"/>
+    <g class="drawer">
+      <rect x="1014" y="132" width="524" height="632" fill="#fffdf9" stroke="#cfd8d2"/>
+      <path d="M1014 212h524" stroke="#d8dfda"/>
+      <circle cx="1054" cy="172" r="24" fill="#173f40"/><path d="M1054 154l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" fill="#ff9a57" class="spark"/>
+      <text x="1092" y="165" class="eyebrow" fill="#c64c18">PRODUCT CONCIERGE</text><text x="1092" y="192" class="serif ink" font-size="25">Shopping Agent</text><rect x="1463" y="151" width="46" height="42" rx="12" fill="#f2f1ec"/><path d="M1478 166l16 16m0-16l-16 16" stroke="#173f40" stroke-width="2"/>
+      <rect x="1044" y="239" width="463" height="66" rx="18" fill="#f0eee7"/><text x="1067" y="266" class="eyebrow muted">YOU</text><text x="1067" y="290" class="small ink">Find a practical desk gift under $40</text>
+      <g class="answer"><text x="1045" y="343" class="eyebrow" fill="#527266">SEND FROM CHINA</text><text x="1045" y="374" class="label ink">I found one governed catalog match.</text><text x="1045" y="398" class="small muted">It fits the budget and keeps checkout with Shopify.</text></g>
+      <g class="result"><rect x="1044" y="425" width="463" height="188" rx="20" fill="#f7f3eb" stroke="#d3dbd5"/><rect x="1060" y="441" width="142" height="156" rx="15" fill="#e0e6dc"/><path d="M1085 554h92v28h-92zm16-71h60v74h-60z" fill="#8a735e"/><circle cx="1131" cy="508" r="15" fill="#b9c6b2"/><text x="1223" y="459" class="eyebrow" fill="#568063">CATALOG MATCH</text><text x="1223" y="491" class="label ink">Modular desk organizer</text><text x="1223" y="520" class="small muted">Wood · cable routing · compact</text><text x="1223" y="555" class="serif ink" font-size="27">$29.00</text><rect x="1223" y="570" width="247" height="27" rx="13.5" fill="#e3ece1"/><circle cx="1241" cy="583.5" r="6" fill="#6b9c60"/><text x="1254" y="588" class="small ink">Published catalog record</text></g>
+      <g class="verify"><rect x="1044" y="635" width="463" height="54" rx="15" fill="#173f40"/><circle cx="1072" cy="662" r="13" fill="#88b57c"/><path d="M1065 662l5 5 9-11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><text x="1097" y="667" class="label white">Open verified Shopify product</text><path d="M1470 654l9 8-9 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="1045" y="720" class="small muted">Agent Core finds it. Shopify confirms variant, price and cart.</text></g>
+    </g>
+  </g>
+</svg>

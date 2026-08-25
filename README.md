@@ -12,7 +12,7 @@
 
 [⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
 
-<img src="docs/images/hybrid-storefront-hero.png" alt="Product catalog with a contextual shopping-agent drawer" width="100%">
+<img src="docs/images/storefront-live.svg" alt="Animated walkthrough of normal catalog shopping followed by a contextual Shopping Agent and verified Shopify handoff" width="100%">
 
 </div>
 

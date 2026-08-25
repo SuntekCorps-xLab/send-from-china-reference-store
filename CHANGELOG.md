@@ -12,6 +12,8 @@ All notable changes to this project are documented here.
   derived destinations as browse links, and rejected malformed service origins.
 - Added an opt-in cross-repository smoke test for a controlled Agent Core
   deployment and the browser-safe Storefront BFF boundary.
+- Replaced the static repository hero with a lightweight animated walkthrough
+  of catalog shopping, contextual agent guidance, and Shopify handoff.
 
 ## 1.0.0 - 2026-08-24
 
