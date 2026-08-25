@@ -81,6 +81,8 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
   });
   const payload = await response.json();
   assert.equal(payload.results[0].url, "https://store.example.test/products/walnut-desk-tray");
+  assert.equal(payload.results[0].browse_url, "https://store.example.test/products/walnut-desk-tray");
+  assert.equal(payload.results[0].product_url, "https://store.example.test/products/walnut-desk-tray");
   assert.equal(payload.results[0].available, true);
   assert.equal(payload.results[0].purchase_handoff, "merchant_product");
   assert.equal(payload.results[0].add_to_cart_url, "https://store.example.test/cart/add?id=123");
@@ -136,6 +138,8 @@ test("keeps derived slug links browseable without claiming purchase readiness", 
   });
   const product = (await response.json()).results[0];
   assert.equal(product.url, "https://store.example.test/products/reference-only");
+  assert.equal(product.browse_url, "https://store.example.test/products/reference-only");
+  assert.equal(product.product_url, "");
   assert.equal(product.available, false);
   assert.equal(product.purchase_handoff, null);
   assert.equal(product.add_to_cart_url, "");
@@ -150,6 +154,7 @@ test("rejects supplier and cross-store URLs from the commerce handoff", async (c
     purchasable: true,
     product_url: "https://supplier.example/products/private-source",
     add_to_cart_url: "https://other-shop.example/cart/add?id=1",
+    image: "https://user:pass@images.example.test/private.jpg",
   }] }));
   const response = await call("/api/search", {
     method: "POST",
@@ -158,10 +163,51 @@ test("rejects supplier and cross-store URLs from the commerce handoff", async (c
   });
   const product = (await response.json()).results[0];
   assert.equal(product.url, "https://store.example.test/products/safe-fallback");
+  assert.equal(product.product_url, "");
   assert.equal(product.available, false);
   assert.equal(product.add_to_cart_url, "");
+  assert.equal(product.image, "");
   assert.equal(JSON.stringify(product).includes("supplier.example"), false);
   assert.equal(JSON.stringify(product).includes("other-shop.example"), false);
+});
+
+test("fails closed when the storefront origin is not an exact HTTPS origin", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+    public_id: "pub_invalid_store",
+    slug: "must-not-be-linked",
+    title: "Invalid storefront configuration",
+    availability: "available",
+    purchasable: true,
+    product_url: "https://store.example.test/products/must-not-be-linked",
+  }] }));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "invalid store" }),
+  }, { ...env, STOREFRONT_ORIGIN: "https://store.example.test/path?tenant=one" });
+  const product = (await response.json()).results[0];
+  assert.equal(product.url, "");
+  assert.equal(product.browse_url, "");
+  assert.equal(product.product_url, "");
+  assert.equal(product.available, false);
+  assert.equal(product.purchase_handoff, null);
+});
+
+test("fails closed when the Agent Core base URL carries credentials or request state", async () => {
+  const init = {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "desk" }),
+  };
+  for (const base of [
+    "https://user:pass@core.example.test",
+    "https://core.example.test?tenant=one",
+    "https://core.example.test#catalog",
+  ]) {
+    const response = await call("/api/search", init, { ...env, AGENT_CORE_BASE_URL: base });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "service_not_configured" });
+  }
 });
 
 test("rejects invalid and oversized chat requests without calling upstream", async () => {

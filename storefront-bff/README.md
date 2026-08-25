@@ -35,10 +35,13 @@ configuration. It never returns the tenant key, upstream response bodies, or a
 server stack. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the
 browser contract and trust boundaries.
 
-A URL derived from a returned slug is browseable but is not proof that a
-Shopify product is purchasable. The BFF sets `available=true` only when Agent
-Core explicitly returns `purchasable=true` and an HTTPS product URL on the
-configured `STOREFRONT_ORIGIN`. Supplier and cross-store URLs are discarded.
+A URL derived from a returned slug is exposed as `url` and `browse_url`, but is
+not proof that a Shopify product is purchasable. `product_url` remains empty
+unless Agent Core explicitly returns an HTTPS product URL on the configured
+`STOREFRONT_ORIGIN`. The BFF sets `available=true` only when that verified URL
+is accompanied by `purchasable=true`. Supplier and cross-store URLs are
+discarded. `STOREFRONT_ORIGIN` must be an exact HTTPS origin without a path,
+credentials, query, or fragment.
 
 This is a reference adapter, not a customer identity service. Authenticated
 sourcing writes and saved state belong behind the Customer Account boundary.

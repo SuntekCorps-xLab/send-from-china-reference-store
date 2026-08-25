@@ -49,5 +49,14 @@ The 2026-08-24 V1 run produced:
 - local documentation links, current-tree public safety scan, Git diff check,
   and credential/private-host history probes passing.
 
+## Unreleased integration verification
+
+On 2026-08-25, `npm run verify` passed on the current tree with 37 of 37 tests,
+desktop and mobile drawer QA, documentation-link checks, and the public safety
+scan. The live cross-repository smoke command remains optional and requires a
+controlled Agent Core deployment plus a test tenant key. Record its target
+release and result separately when it is run; do not treat an offline unit test
+as evidence of deployment reachability.
+
 GitHub Actions must pass on the exact release commit before the `v1.0.0` tag is
 created or repository visibility is changed.

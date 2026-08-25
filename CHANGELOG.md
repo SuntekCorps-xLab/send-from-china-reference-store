@@ -8,6 +8,10 @@ All notable changes to this project are documented here.
   handoffs in the Storefront BFF.
 - Rejected supplier and cross-store URLs from customer commerce responses and
   added hosted-platform integration guidance.
+- Reserved `product_url` for verified same-origin purchase evidence, exposed
+  derived destinations as browse links, and rejected malformed service origins.
+- Added an opt-in cross-repository smoke test for a controlled Agent Core
+  deployment and the browser-safe Storefront BFF boundary.
 
 ## 1.0.0 - 2026-08-24
 

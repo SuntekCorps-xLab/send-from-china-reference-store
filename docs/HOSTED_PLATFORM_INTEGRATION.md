@@ -32,6 +32,10 @@ variant at the moment the buyer acts. The BFF therefore distinguishes:
 - a **verified purchase handoff**, which requires an explicit HTTPS product
   URL on the configured `STOREFRONT_ORIGIN` plus `purchasable=true`.
 
+In the BFF response, `url` and `browse_url` may contain the derived browsing
+destination. `product_url` is reserved for the verified same-origin value and
+remains empty when no purchase evidence was supplied.
+
 A derived `/products/<slug>` link is not enough to mark a card available. A
 supplier URL, another storefront, or a plain source URL is discarded. The
 Shopify product page must re-check variant, inventory, price, delivery, tax,

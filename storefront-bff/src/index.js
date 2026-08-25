@@ -16,7 +16,28 @@ function json(body, status = 200, headers = {}) {
 }
 
 function normalizedBase(value) {
-  return String(value || "").trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(String(value || "").trim());
+    const local = url.hostname === "localhost"
+      || url.hostname === "[::1]"
+      || url.hostname === ["127", "0", "0", "1"].join(".");
+    if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return "";
+    if (url.username || url.password || url.search || url.hash) return "";
+    return url.href.replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+function storefrontOrigin(value) {
+  try {
+    const url = new URL(String(value || "").trim());
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return "";
+    if (url.pathname !== "/") return "";
+    return url.origin;
+  } catch {
+    return "";
+  }
 }
 
 function allowedOrigin(request, env) {
@@ -37,7 +58,7 @@ function cors(origin) {
 function safeUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "https:" ? url.href : "";
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : "";
   } catch {
     return "";
   }
@@ -64,12 +85,12 @@ function productImage(product) {
 
 function storefrontProduct(product, env) {
   const slug = String(product?.slug || product?.handle || "").trim();
-  const store = normalizedBase(env.STOREFRONT_ORIGIN);
+  const store = storefrontOrigin(env.STOREFRONT_ORIGIN);
   const price = product?.price && typeof product.price === "object"
     ? product.price
     : { amount: product?.price, currency: product?.currency };
   const amount = Number(price?.amount);
-  const availability = String(product?.availability_band || "").toLowerCase();
+  const availability = String(product?.availability_band || product?.availability || "").toLowerCase();
   // A deterministic slug URL is useful for browsing, but it does not prove
   // that a Shopify product/variant exists or is purchasable. Only an explicit
   // customer-facing URL on this configured storefront is purchase evidence.
@@ -88,7 +109,8 @@ function storefrontProduct(product, env) {
     summary: String(product?.description || product?.summary || "").slice(0, 500),
     image: productImage(product) || safeUrl(product?.image),
     url: browseUrl,
-    product_url: browseUrl,
+    browse_url: browseUrl,
+    product_url: verifiedProductUrl,
     add_to_cart_url: available ? verifiedAddToCartUrl : "",
     price: Number.isFinite(amount) && amount > 0 ? amount : null,
     currency: /^[A-Z]{3}$/.test(String(price?.currency || "").toUpperCase())

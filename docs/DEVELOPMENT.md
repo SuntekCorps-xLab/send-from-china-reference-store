@@ -43,3 +43,20 @@ catalog miss, explicit confirmation, stable
 idempotency on retry, the documented task lifecycle, paginated results, and the
 absence of cart, checkout, order, and payment permission. Use synthetic data and
 a controlled local profile only.
+
+Run the optional cross-repository smoke test against a controlled deployment of
+the sample Agent Core profile:
+
+```bash
+AGENT_CORE_BASE_URL=https://agent.example.invalid \
+AGENT_CORE_TENANT_KEY=replace-with-a-test-tenant-key \
+npm run smoke:integration
+```
+
+PowerShell users can set the same two process environment variables before
+running `npm run smoke:integration`. The script performs public capability
+discovery, then calls Agent Core only through the local BFF adapter. It verifies
+structured criteria, a terminal catalog miss, server-side credential isolation,
+and the distinction between a derived browse URL and verified purchase evidence.
+It does not create a sourcing task or perform a commerce write and is not part
+of the offline `npm run verify` command.
