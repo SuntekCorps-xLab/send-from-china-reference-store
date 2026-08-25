@@ -10,7 +10,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
 [![License](https://img.shields.io/badge/license-Apache--2.0-6b7c70?style=for-the-badge)](LICENSE)
 
-[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
+[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🗺️ Roadmap](ROADMAP.md) · [🔐 Security](SECURITY.md)
 
 <img src="docs/images/storefront-live.svg" alt="Animated walkthrough of normal catalog shopping followed by a contextual Shopping Agent and verified Shopify handoff" width="100%">
 
@@ -92,6 +92,7 @@ catalog estimate as shipping.
 | I want to… | Start here | What you need |
 | --- | --- | --- |
 | **Preview the UX** | `npm run demo` | Node.js 22+ |
+| **Test both public repos together** | [`docs/PAIRED_LOCAL_QUICKSTART.md`](docs/PAIRED_LOCAL_QUICKSTART.md) | Node.js 22+; no hosted account |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
 | **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
 | **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
@@ -228,12 +229,15 @@ completion, and payment require merchant-owned services and policy.
 
 - [Architecture and API contracts](docs/ARCHITECTURE.md)
 - [Hosted Platform integration](docs/HOSTED_PLATFORM_INTEGRATION.md)
+- [Paired local Agent Core integration](docs/PAIRED_LOCAL_QUICKSTART.md)
 - [Customization map](docs/CUSTOMIZATION_MAP.md)
 - [Development and verification](docs/DEVELOPMENT.md)
 - [Deployment and rollback](docs/DEPLOYMENT.md)
 - [Operations](docs/OPERATIONS.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Review evidence](docs/REVIEW_EVIDENCE.md)
+- [Public roadmap](ROADMAP.md)
+- [Support boundaries](SUPPORT.md)
 
 ## ❓FAQ
 
@@ -260,4 +264,5 @@ behavior uses Shopify; checkout and payment stay on Shopify-hosted surfaces.
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Report security
 issues privately using [SECURITY.md](SECURITY.md); never attach credentials,
-customer data, or production responses to an issue.
+customer data, or production responses to an issue. For setup, bugs, and
+feature proposals, use the structured issue forms described in [SUPPORT.md](SUPPORT.md).

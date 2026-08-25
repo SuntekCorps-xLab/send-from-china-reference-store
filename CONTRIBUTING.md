@@ -16,3 +16,11 @@ Before opening a pull request:
 
 Security reports must follow `SECURITY.md`, not the public issue tracker.
 
+Start with a `good first issue` or `help wanted` item when available. For a new
+idea, open a feature request and relate it to `ROADMAP.md` before implementing
+it. Every accepted issue should identify the customer state transition, source
+of truth, failure behavior, and observable acceptance check.
+
+At least one named maintainer must approve every pull request. Boundary,
+dependency, workflow, and release changes require a second owner review; see
+`docs/MAINTAINERS.md`.

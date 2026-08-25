@@ -1,0 +1,32 @@
+name: Setup help
+description: Ask about the zero-account demo, BFF, theme, or Customer Account setup.
+title: "setup: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, shop domains, customer data, account identifiers, and private URLs before submitting.
+  - type: dropdown
+    id: path
+    attributes:
+      label: Setup path
+      options:
+        - Zero-account demo
+        - Storefront BFF
+        - Shopify theme
+        - Customer Account extension
+        - Connected Agent Core integration
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and sanitized output
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Node, operating system, browser, and Shopify CLI versions when applicable
+    validations:
+      required: true
