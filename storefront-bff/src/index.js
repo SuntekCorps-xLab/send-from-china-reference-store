@@ -6,6 +6,21 @@ const SEARCH_STATUSES = new Set(["results", "needs_clarification", "no_match", "
 const CONDITION_SOURCES = new Set(["explicit", "inferred", "default"]);
 const CONDITION_SCOPES = new Set(["product", "session", "transaction"]);
 const CONDITION_HARDNESS = new Set(["hard", "soft", "informational"]);
+const SEARCH_V2_REQUEST_FIELDS = new Set([
+  "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit", "cursor",
+]);
+const SEARCH_V2_REQUIRED_FIELDS = [
+  "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit",
+];
+const SEARCH_V2_CONDITION_FIELDS = new Set(["name", "value", "source", "scope", "hardness"]);
+const SEARCH_V2_PRICE_CONSTRAINTS = new Set(["price_min", "price_max"]);
+const SEARCH_V2_TEXT_CONSTRAINTS = new Set(["material", "color", "must_have", "exclude"]);
+const SEARCH_V2_HARD_CONSTRAINTS = new Set([
+  ...SEARCH_V2_PRICE_CONSTRAINTS, ...SEARCH_V2_TEXT_CONSTRAINTS,
+]);
+const SEARCH_V2_TRANSACTION_CONDITIONS = new Set(["ship_to", "quantity", "delivery_days_max"]);
 
 function upstreamPageSize(requested, env) {
   const configured = Number(env.AGENT_CORE_PAGE_SIZE || 20);
@@ -69,27 +84,83 @@ function safeUrl(value) {
   }
 }
 
-function publicCondition(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const name = String(value.name || "").trim().toLowerCase();
-  const source = String(value.source || "");
-  const scope = String(value.scope || "");
-  const hardness = String(value.hardness || "");
-  if (!/^[a-z][a-z0-9_]{0,63}$/.test(name)
-    || !CONDITION_SOURCES.has(source)
+function exactObjectFields(value, fields) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === fields.size
+    && Object.keys(value).every((key) => fields.has(key));
+}
+
+function contractCondition(value) {
+  if (!exactObjectFields(value, SEARCH_V2_CONDITION_FIELDS)) return null;
+  if (typeof value.name !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(value.name)) return null;
+  const name = value.name;
+  const source = value.source;
+  const scope = value.scope;
+  const hardness = value.hardness;
+  if (!CONDITION_SOURCES.has(source)
     || !CONDITION_SCOPES.has(scope)
     || !CONDITION_HARDNESS.has(hardness)) return null;
-  const values = Array.isArray(value.value) ? value.value.slice(0, 50) : [value.value];
-  if (!values.length || values.some((item) => !["string", "number", "boolean"].includes(typeof item))) return null;
-  const cleaned = values.map((item) => typeof item === "string" ? item.trim().slice(0, 300) : item);
-  if (cleaned.some((item) => (typeof item === "string" && !item) || (typeof item === "number" && !Number.isFinite(item)))) {
-    return null;
-  }
-  return { name, value: Array.isArray(value.value) ? cleaned : cleaned[0], source, scope, hardness };
+  const values = Array.isArray(value.value) ? value.value : [value.value];
+  if (!values.length || values.length > 50
+    || values.some((item) => (
+      (typeof item === "string" && (!item.trim() || item.length > 300))
+      || (typeof item === "number" && !Number.isFinite(item))
+      || !["string", "number", "boolean"].includes(typeof item)
+    ))) return null;
+  return {
+    name,
+    value: Array.isArray(value.value) ? [...value.value] : value.value,
+    source,
+    scope,
+    hardness,
+  };
 }
 
 function publicConditions(value) {
-  return (Array.isArray(value) ? value : []).slice(0, 50).map(publicCondition).filter(Boolean);
+  return (Array.isArray(value) ? value : []).slice(0, 50).map(contractCondition).filter(Boolean);
+}
+
+function isProductIdentityCondition(condition) {
+  return Boolean(condition
+    && condition.name === "product_identity"
+    && typeof condition.value === "string"
+    && condition.scope === "product"
+    && condition.hardness === "hard");
+}
+
+function isHardConstraint(condition) {
+  return Boolean(condition
+    && condition.source === "explicit"
+    && condition.scope === "product"
+    && condition.hardness === "hard"
+    && SEARCH_V2_HARD_CONSTRAINTS.has(condition.name)
+    && (SEARCH_V2_PRICE_CONSTRAINTS.has(condition.name)
+      ? typeof condition.value === "number" && Number.isFinite(condition.value) && condition.value >= 0
+      : isSearchV2TextCriterion(condition.value)));
+}
+
+function isSearchV2TextCriterion(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.length >= 1 && values.length <= 20
+    && values.every((item) => typeof item === "string" && item.trim() && item.length <= 80);
+}
+
+function isSoftContext(condition) {
+  return Boolean(condition
+    && (condition.scope === "product" || condition.scope === "session")
+    && (condition.hardness === "soft" || condition.hardness === "informational"));
+}
+
+function isTransactionContext(condition) {
+  return Boolean(condition
+    && condition.scope === "transaction"
+    && (condition.hardness === "hard" || condition.hardness === "informational")
+    && (condition.hardness !== "hard" || condition.source === "explicit")
+    && SEARCH_V2_TRANSACTION_CONDITIONS.has(condition.name)
+    && (condition.name === "ship_to"
+      ? typeof condition.value === "string" && condition.value.trim()
+        && condition.value.length <= 100
+      : Number.isInteger(condition.value) && condition.value >= 1));
 }
 
 function publicRelaxations(value) {
@@ -242,37 +313,47 @@ function invalidSearchContract() {
   throw error;
 }
 
-function requestConditions(value) {
+function requestConditions(value, accepts) {
   if (!Array.isArray(value) || value.length > 50) invalidSearchRequest();
-  const output = value.map(publicCondition);
-  if (output.some((condition) => !condition)) invalidSearchRequest();
+  const output = value.map(contractCondition);
+  if (output.some((condition) => !condition || !accepts(condition))) invalidSearchRequest();
   return output;
 }
 
 function searchContractRequest(input, env) {
-  const supplied = input?.search_contract && typeof input.search_contract === "object"
-    ? input.search_contract
-    : input?.contract_version ? input : null;
+  const hasWrappedContract = Boolean(input && typeof input === "object"
+    && Object.hasOwn(input, "search_contract"));
+  const hasDirectContract = Boolean(input && typeof input === "object"
+    && Object.hasOwn(input, "contract_version"));
+  if (hasWrappedContract && (!input.search_contract || typeof input.search_contract !== "object"
+    || Array.isArray(input.search_contract))) invalidSearchRequest();
+  const supplied = hasWrappedContract ? input.search_contract : (hasDirectContract ? input : null);
   if (supplied) {
-    if (String(supplied.contract_version || "") !== SEARCH_CONTRACT_VERSION) {
+    if (!supplied || typeof supplied !== "object" || Array.isArray(supplied)
+      || Object.keys(supplied).some((key) => !SEARCH_V2_REQUEST_FIELDS.has(key))
+      || SEARCH_V2_REQUIRED_FIELDS.some((key) => !Object.hasOwn(supplied, key))
+      || supplied.contract_version !== SEARCH_CONTRACT_VERSION) {
       invalidSearchRequest();
     }
-    const productIdentity = publicCondition(supplied.product_identity);
-    if (!productIdentity
-      || productIdentity.name !== "product_identity"
-      || productIdentity.scope !== "product"
-      || productIdentity.hardness !== "hard"
-      || typeof productIdentity.value !== "string") invalidSearchRequest();
+    const productIdentity = contractCondition(supplied.product_identity);
+    if (!isProductIdentityCondition(productIdentity)) invalidSearchRequest();
+    if (!Number.isInteger(supplied.limit) || supplied.limit < 1 || supplied.limit > MAX_RESULTS) {
+      invalidSearchRequest();
+    }
+    if (supplied.cursor !== undefined && supplied.cursor !== null
+      && (typeof supplied.cursor !== "string" || supplied.cursor.length > 1000)) {
+      invalidSearchRequest();
+    }
     const limit = upstreamPageSize(supplied.limit, env);
     return {
       contract_version: SEARCH_CONTRACT_VERSION,
       product_identity: productIdentity,
-      hard_constraints: requestConditions(supplied.hard_constraints),
-      soft_context: requestConditions(supplied.soft_context),
-      transaction_context: requestConditions(supplied.transaction_context),
+      hard_constraints: requestConditions(supplied.hard_constraints, isHardConstraint),
+      soft_context: requestConditions(supplied.soft_context, isSoftContext),
+      transaction_context: requestConditions(supplied.transaction_context, isTransactionContext),
       limit,
       cursor: supplied.cursor === undefined || supplied.cursor === null || supplied.cursor === ""
-        ? null : String(supplied.cursor).slice(0, 1000),
+        ? null : supplied.cursor,
     };
   }
   const query = String(input?.q || "").trim().slice(0, 300);
@@ -297,18 +378,22 @@ function searchContractRequest(input, env) {
 function storefrontSearchContract(payload, env, effectiveLimit) {
   const status = String(payload?.status || "").toLowerCase();
   const intent = payload?.normalized_intent;
-  const productIdentity = publicCondition(intent?.product_identity);
+  const productIdentity = contractCondition(intent?.product_identity);
   const traceId = String(payload?.trace_id || "").trim();
   if (String(payload?.contract_version || "") !== SEARCH_CONTRACT_VERSION
     || !SEARCH_STATUSES.has(status)
     || !/^[A-Za-z0-9._:-]{1,200}$/.test(traceId)
-    || !productIdentity) invalidSearchContract();
+    || !isProductIdentityCondition(productIdentity)) invalidSearchContract();
   const limit = Math.min(Math.max(Number(effectiveLimit) || 1, 1), MAX_RESULTS);
   if (!Array.isArray(payload?.results) || payload.results.length > limit) invalidSearchContract();
   const conditionGroups = [intent?.hard_constraints, intent?.soft_context, intent?.transaction_context];
   const publicConditionGroups = conditionGroups.map(publicConditions);
   if (conditionGroups.some((group, index) => !Array.isArray(group) || group.length > 50
     || publicConditionGroups[index].length !== group.length)) invalidSearchContract();
+  const groupValidators = [isHardConstraint, isSoftContext, isTransactionContext];
+  if (publicConditionGroups.some((group, index) => group.some(
+    (condition) => !groupValidators[index](condition),
+  ))) invalidSearchContract();
   if (!Array.isArray(payload?.relaxations) || payload.relaxations.length > 100) invalidSearchContract();
   const relaxations = publicRelaxations(payload.relaxations);
   if (relaxations.length !== payload.relaxations.length) invalidSearchContract();

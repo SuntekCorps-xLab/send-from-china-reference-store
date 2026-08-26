@@ -25,12 +25,13 @@ function searchContractResponse({
   hasMore = false,
   degraded = false,
   missingCriteria = [],
+  normalizedIntent = null,
 } = {}) {
   return {
     contract_version: "2.0",
     trace_id: "trace_reference_store_test",
     status,
-    normalized_intent: {
+    normalized_intent: normalizedIntent || {
       product_identity: condition("product_identity", "reference product"),
       hard_constraints: [],
       soft_context: [],
@@ -186,7 +187,10 @@ test("forwards a complete v2 request and exposes truthful pagination metadata", 
   const searchContract = {
     contract_version: "2.0",
     product_identity: condition("product_identity", "desk tray"),
-    hard_constraints: [condition("material", "wood")],
+    hard_constraints: [
+      condition("material", "wood"),
+      condition("must_have", ["foldable", "compact"]),
+    ],
     soft_context: [condition("recipient", "coworker", "explicit", "session", "soft")],
     transaction_context: [condition("ship_to", "US", "explicit", "transaction", "informational")],
     limit: 20,
@@ -204,6 +208,94 @@ test("forwards a complete v2 request and exposes truthful pagination metadata", 
   assert.equal(payload.pagination.has_more, true);
   assert.equal(payload.normalized_intent.product_identity.value, "reference product");
   assert.equal(JSON.stringify(payload).includes(env.AGENT_CORE_TENANT_KEY), false);
+});
+
+test("accepts normalized intent groups that follow Search Contract v2 semantics", async (context) => {
+  const normalizedIntent = {
+    product_identity: condition("product_identity", "desk organizer", "inferred", "product", "hard"),
+    hard_constraints: [condition("material", "wood", "explicit", "product", "hard")],
+    soft_context: [
+      condition("recipient", "coworker", "inferred", "session", "soft"),
+      condition("room", "home office", "default", "product", "informational"),
+    ],
+    transaction_context: [
+      condition("ship_to", "US", "explicit", "transaction", "hard"),
+      condition("quantity", 1, "inferred", "transaction", "informational"),
+    ],
+  };
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({
+    normalizedIntent,
+    results: [{ title: "Wood desk organizer", slug: "wood-desk-organizer" }],
+  })));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "desk organizer" }),
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).normalized_intent, normalizedIntent);
+});
+
+test("rejects normalized intent conditions placed in the wrong semantic group", async (context) => {
+  const validIdentity = condition("product_identity", "desk organizer");
+  const invalidIntents = [
+    {
+      product_identity: condition("category", "desk organizer"),
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    {
+      product_identity: condition("product_identity", "desk organizer", "explicit", "session", "hard"),
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    {
+      product_identity: condition("product_identity", "desk organizer", "explicit", "product", "soft"),
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    {
+      product_identity: { ...validIdentity, value: ["desk organizer"] },
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    {
+      product_identity: validIdentity,
+      hard_constraints: [condition("material", "wood", "inferred", "product", "hard")],
+      soft_context: [], transaction_context: [],
+    },
+    {
+      product_identity: validIdentity,
+      hard_constraints: [],
+      soft_context: [condition("recipient", "friend", "explicit", "transaction", "soft")],
+      transaction_context: [],
+    },
+    {
+      product_identity: validIdentity,
+      hard_constraints: [],
+      soft_context: [condition("recipient", "friend", "explicit", "session", "hard")],
+      transaction_context: [],
+    },
+    {
+      product_identity: validIdentity,
+      hard_constraints: [], soft_context: [],
+      transaction_context: [condition("ship_to", "US", "explicit", "product", "informational")],
+    },
+    {
+      product_identity: validIdentity,
+      hard_constraints: [], soft_context: [],
+      transaction_context: [condition("ship_to", "US", "inferred", "transaction", "hard")],
+    },
+  ];
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({
+    normalizedIntent: invalidIntents.shift(),
+    results: [{ title: "Desk organizer", slug: "desk-organizer" }],
+  })));
+  while (invalidIntents.length) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "desk organizer" }),
+    });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "invalid_upstream_contract" });
+  }
 });
 
 test("accepts an Agent Core tenant page limit lower than the BFF request", async (context) => {
@@ -392,6 +484,143 @@ test("rejects malformed full contracts before calling Agent Core", async (contex
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "invalid_search_request" });
   assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("rejects full requests that put conditions in an incompatible contract group", async (context) => {
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("must not call upstream");
+  });
+  const invalidGroups = [
+    {
+      hard_constraints: [condition("material", "wood", "inferred", "product", "hard")],
+      soft_context: [], transaction_context: [],
+    },
+    {
+      hard_constraints: [],
+      soft_context: [condition("recipient", "friend", "explicit", "transaction", "soft")],
+      transaction_context: [],
+    },
+    {
+      hard_constraints: [], soft_context: [],
+      transaction_context: [condition("ship_to", "US", "inferred", "transaction", "hard")],
+    },
+  ];
+  for (const groups of invalidGroups) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        search_contract: {
+          contract_version: "2.0",
+          product_identity: condition("product_identity", "desk organizer"),
+          ...groups,
+          limit: 20,
+          cursor: null,
+        },
+      }),
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "invalid_search_request" });
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("rejects non-canonical or incorrectly typed full v2 request conditions", async (context) => {
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("must not call upstream");
+  });
+  const identity = condition("product_identity", "desk organizer");
+  const valid = {
+    contract_version: "2.0",
+    product_identity: identity,
+    hard_constraints: [],
+    soft_context: [],
+    transaction_context: [],
+    limit: 20,
+    cursor: null,
+  };
+  const hard = (name, value) => condition(name, value, "explicit", "product", "hard");
+  const transaction = (name, value) => condition(name, value, "explicit", "transaction", "hard");
+  const invalidContracts = [
+    { ...valid, unsupported: true },
+    { ...valid, limit: "20" },
+    { ...valid, cursor: 2 },
+    { ...valid, product_identity: { ...identity, name: true } },
+    { ...valid, product_identity: { ...identity, private_hint: "supplier" } },
+    { ...valid, hard_constraints: [hard("size", "large")] },
+    { ...valid, hard_constraints: [hard("price_max", "30")] },
+    { ...valid, hard_constraints: [hard("price_min", -1)] },
+    { ...valid, hard_constraints: [hard("material", 304)] },
+    { ...valid, hard_constraints: [hard("must_have", ["foldable", 1])] },
+    { ...valid, hard_constraints: [hard("exclude", Array.from({ length: 21 }, (_, index) => `item-${index}`))] },
+    { ...valid, transaction_context: [transaction("postal_code", "22202")] },
+    { ...valid, transaction_context: [transaction("ship_to", 1)] },
+    { ...valid, transaction_context: [transaction("quantity", "2")] },
+    { ...valid, transaction_context: [transaction("quantity", 0)] },
+    { ...valid, transaction_context: [transaction("quantity", 1.5)] },
+    { ...valid, transaction_context: [transaction("delivery_days_max", "3")] },
+  ];
+  for (const searchContract of invalidContracts) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ search_contract: searchContract }),
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "invalid_search_request" });
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+
+  for (const body of [
+    { search_contract: null, q: "desk organizer" },
+    { contract_version: "", q: "desk organizer" },
+  ]) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "invalid_search_request" });
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("rejects non-canonical or incorrectly typed v2 conditions from Agent Core", async (context) => {
+  const identity = condition("product_identity", "desk organizer");
+  const baseIntent = {
+    product_identity: identity,
+    hard_constraints: [],
+    soft_context: [],
+    transaction_context: [],
+  };
+  const hard = (name, value) => condition(name, value, "explicit", "product", "hard");
+  const transaction = (name, value) => condition(name, value, "explicit", "transaction", "hard");
+  const invalidIntents = [
+    { ...baseIntent, product_identity: { ...identity, private_hint: "supplier" } },
+    { ...baseIntent, hard_constraints: [hard("size", "large")] },
+    { ...baseIntent, hard_constraints: [hard("price_max", "30")] },
+    { ...baseIntent, hard_constraints: [hard("material", 304)] },
+    { ...baseIntent, hard_constraints: [hard("must_have", ["foldable", false])] },
+    { ...baseIntent, transaction_context: [transaction("postal_code", "22202")] },
+    { ...baseIntent, transaction_context: [transaction("ship_to", 1)] },
+    { ...baseIntent, transaction_context: [transaction("quantity", "2")] },
+    { ...baseIntent, transaction_context: [transaction("delivery_days_max", 1.5)] },
+  ];
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({
+    normalizedIntent: invalidIntents.shift(),
+    results: [{ title: "Desk organizer", slug: "desk-organizer" }],
+  })));
+  const expectedCalls = invalidIntents.length;
+  for (let index = 0; index < expectedCalls; index += 1) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "desk organizer" }),
+    });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "invalid_upstream_contract" });
+  }
 });
 
 test("maps upstream search authentication, version, validation, and rate errors without leaking bodies", async (context) => {
