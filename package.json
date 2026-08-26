@@ -11,6 +11,7 @@
     "demo": "node demo/server.mjs",
     "qa:drawer": "node shopify-theme/tests/run-agent-drawer-browser-qa.mjs",
     "qa:workspace": "node shopify-customer-account/tests/run-workspace-browser-qa.mjs",
+    "sbom": "node scripts/generate-sboms.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "smoke:integration": "node scripts/integration-smoke.mjs",
     "test": "node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs shopify-theme/tests/*.test.mjs shopify-customer-account/tests/*.test.mjs",

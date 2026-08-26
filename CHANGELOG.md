@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Integrated the Storefront BFF with Agent Core Search Contract v2 while
+  keeping search semantics in Agent Core and preserving the compact browser
+  query as a rule-free convenience wrapper.
+- Added executable compatibility coverage for contract statuses, pagination,
+  public response allowlisting, authentication isolation, and unsupported or
+  malformed upstream contracts.
+- Added mock/live integration guidance, a compatibility matrix, and CycloneDX
+  SBOM policy and CI generation.
 - Distinguished browseable catalog links from verified Shopify purchase
   handoffs in the Storefront BFF.
 - Rejected supplier and cross-store URLs from customer commerce responses and

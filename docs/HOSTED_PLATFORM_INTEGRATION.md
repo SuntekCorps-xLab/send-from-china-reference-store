@@ -9,6 +9,12 @@ For server-side agent workflows, use the JavaScript SDK in the paired
 repository. It provides capability discovery, catalog search, sourcing task
 polling, pagination, and allowlisted merchant purchase handoffs.
 
+For browser-facing discovery, send Search Contract v2 through the Storefront
+BFF. Keep product identity, explicit hard constraints, soft context, and
+transaction context separate. The Reference Store does not duplicate Agent
+Core's search rules or its v1 compatibility adapter. Follow the
+[Search Contract v2 integration guide](SEARCH_CONTRACT_V2_INTEGRATION.md).
+
 ## Product-pool expansion
 
 Use the published catalog first. When a bounded search ends in a truthful

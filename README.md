@@ -218,6 +218,7 @@ completion, and payment require merchant-owned services and policy.
 ## 📚 Documentation
 
 - [Architecture and API contracts](docs/ARCHITECTURE.md)
+- [Search Contract v2 mock/live quickstart](docs/SEARCH_CONTRACT_V2_INTEGRATION.md)
 - [Hosted Platform integration](docs/HOSTED_PLATFORM_INTEGRATION.md)
 - [Paired local Agent Core integration](docs/PAIRED_LOCAL_QUICKSTART.md)
 - [Customization map](docs/CUSTOMIZATION_MAP.md)
@@ -228,6 +229,8 @@ completion, and payment require merchant-owned services and policy.
 - [Review evidence](docs/REVIEW_EVIDENCE.md)
 - [Public roadmap](ROADMAP.md)
 - [Support boundaries](SUPPORT.md)
+- [Compatibility matrix](docs/COMPATIBILITY.md)
+- [Supply-chain and SBOM policy](docs/SUPPLY_CHAIN.md)
 
 ## ❓FAQ
 

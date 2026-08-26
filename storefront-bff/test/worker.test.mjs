@@ -13,6 +13,44 @@ function call(path, init = {}, bindings = env) {
   return worker.fetch(new Request(`https://bff.example.test${path}`, init), bindings);
 }
 
+function condition(name, value, source = "explicit", scope = "product", hardness = "hard") {
+  return { name, value, source, scope, hardness };
+}
+
+function searchContractResponse({
+  status = "results",
+  results = [],
+  limit = 20,
+  nextCursor = null,
+  hasMore = false,
+  degraded = false,
+  missingCriteria = [],
+} = {}) {
+  return {
+    contract_version: "2.0",
+    trace_id: "trace_reference_store_test",
+    status,
+    normalized_intent: {
+      product_identity: condition("product_identity", "reference product"),
+      hard_constraints: [],
+      soft_context: [],
+      transaction_context: [],
+    },
+    relaxations: [],
+    missing_criteria: missingCriteria,
+    results,
+    pagination: { limit, cursor: null, next_cursor: nextCursor, has_more: hasMore },
+    search_scope: {
+      plan_complete: status === "no_match",
+      scope_exhausted: status === "no_match",
+      global_catalog_exhaustive: false,
+      scan_limit_reached: false,
+      degraded,
+      degraded_reason: degraded ? "The complete index is temporarily unavailable." : null,
+    },
+  };
+}
+
 test("health is public and contains no configuration", async () => {
   const response = await call("/health");
   assert.equal(response.status, 200);
@@ -95,11 +133,11 @@ test("keeps the tenant key server-side and maps products for the drawer", async 
   assert.equal(response.headers.get("access-control-allow-origin"), "https://store.example.test");
 });
 
-test("adapts browser POST search to Agent Core GET search", async (context) => {
+test("adapts a browser query to Agent Core Search Contract v2 without adding search rules", async (context) => {
   let upstreamRequest;
   context.mock.method(globalThis, "fetch", async (request, init) => {
     upstreamRequest = new Request(request, init);
-    return Response.json({ items: [{
+    return Response.json(searchContractResponse({ results: [{
       public_id: "pub_demo_02",
       slug: "reading-light",
       title: "Reading Light",
@@ -107,7 +145,7 @@ test("adapts browser POST search to Agent Core GET search", async (context) => {
       availability_band: "low",
       purchasable: true,
       product_url: "https://store.example.test/products/reading-light",
-    }] });
+    }] }));
   });
   const response = await call("/api/search", {
     method: "POST",
@@ -115,22 +153,101 @@ test("adapts browser POST search to Agent Core GET search", async (context) => {
     body: JSON.stringify({ q: "small reading light", topK: 99 }),
   });
   assert.equal(response.status, 200);
-  assert.equal(upstreamRequest.method, "GET");
+  assert.equal(upstreamRequest.method, "POST");
   const url = new URL(upstreamRequest.url);
-  assert.equal(url.pathname, "/api/search");
-  assert.equal(url.searchParams.get("q"), "small reading light");
-  assert.equal(url.searchParams.get("limit"), "5");
-  assert.equal((await response.json()).results[0].available, true);
+  assert.equal(url.pathname, "/api/search/v2");
+  const upstreamBody = await upstreamRequest.json();
+  assert.deepEqual(upstreamBody, {
+    contract_version: "2.0",
+    product_identity: condition("product_identity", "small reading light"),
+    hard_constraints: [],
+    soft_context: [],
+    transaction_context: [],
+    limit: 20,
+    cursor: null,
+  });
+  const payload = await response.json();
+  assert.equal(payload.contract_version, "2.0");
+  assert.equal(payload.status, "results");
+  assert.equal(payload.results[0].available, true);
+  assert.equal(payload.trace_id, "trace_reference_store_test");
+});
+
+test("forwards a complete v2 request and exposes truthful pagination metadata", async (context) => {
+  let upstreamRequest;
+  context.mock.method(globalThis, "fetch", async (request, init) => {
+    upstreamRequest = new Request(request, init);
+    return Response.json(searchContractResponse({
+      results: [{ title: "Desk tray", slug: "desk-tray" }],
+      nextCursor: "cursor_page_2",
+      hasMore: true,
+    }));
+  });
+  const searchContract = {
+    contract_version: "2.0",
+    product_identity: condition("product_identity", "desk tray"),
+    hard_constraints: [condition("material", "wood")],
+    soft_context: [condition("recipient", "coworker", "explicit", "session", "soft")],
+    transaction_context: [condition("ship_to", "US", "explicit", "transaction", "informational")],
+    limit: 20,
+    cursor: "cursor_page_1",
+  };
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ search_contract: searchContract }),
+  }, { ...env, AGENT_CORE_PAGE_SIZE: "20" });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await upstreamRequest.json(), searchContract);
+  const payload = await response.json();
+  assert.equal(payload.pagination.next_cursor, "cursor_page_2");
+  assert.equal(payload.pagination.has_more, true);
+  assert.equal(payload.normalized_intent.product_identity.value, "reference product");
+  assert.equal(JSON.stringify(payload).includes(env.AGENT_CORE_TENANT_KEY), false);
+});
+
+test("accepts an Agent Core tenant page limit lower than the BFF request", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({
+    limit: 5,
+    results: [{ title: "Tenant-capped result", slug: "tenant-capped-result" }],
+  })));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "desk tray", limit: 20 }),
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.pagination.limit, 5);
+  assert.equal(payload.results.length, 1);
+});
+
+test("preserves no_match, needs_clarification, and degraded as distinct contract states", async (context) => {
+  const responses = [
+    searchContractResponse({ status: "no_match" }),
+    searchContractResponse({ status: "needs_clarification", missingCriteria: ["product_identity"] }),
+    searchContractResponse({ status: "degraded", degraded: true }),
+  ];
+  context.mock.method(globalThis, "fetch", async () => Response.json(responses.shift()));
+  for (const expected of ["no_match", "needs_clarification", "degraded"]) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "query" }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, expected);
+  }
 });
 
 test("keeps derived slug links browseable without claiming purchase readiness", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({ results: [{
     public_id: "pub_reference_only",
     slug: "reference-only",
     title: "Reference only",
     availability_band: "available",
     purchasable: true,
-  }] }));
+  }] })));
   const response = await call("/api/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -146,7 +263,7 @@ test("keeps derived slug links browseable without claiming purchase readiness", 
 });
 
 test("rejects supplier and cross-store URLs from the commerce handoff", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({ results: [{
     public_id: "pub_off_origin",
     slug: "safe-fallback",
     title: "Off-origin source",
@@ -155,7 +272,7 @@ test("rejects supplier and cross-store URLs from the commerce handoff", async (c
     product_url: "https://supplier.example/products/private-source",
     add_to_cart_url: "https://other-shop.example/cart/add?id=1",
     image: "https://user:pass@images.example.test/private.jpg",
-  }] }));
+  }] })));
   const response = await call("/api/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -172,14 +289,14 @@ test("rejects supplier and cross-store URLs from the commerce handoff", async (c
 });
 
 test("fails closed when the storefront origin is not an exact HTTPS origin", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [{
+  context.mock.method(globalThis, "fetch", async () => Response.json(searchContractResponse({ results: [{
     public_id: "pub_invalid_store",
     slug: "must-not-be-linked",
     title: "Invalid storefront configuration",
     availability: "available",
     purchasable: true,
     product_url: "https://store.example.test/products/must-not-be-linked",
-  }] }));
+  }] })));
   const response = await call("/api/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -207,6 +324,99 @@ test("fails closed when the Agent Core base URL carries credentials or request s
     const response = await call("/api/search", init, { ...env, AGENT_CORE_BASE_URL: base });
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), { error: "service_not_configured" });
+  }
+});
+
+test("fails closed on an invalid or unsupported upstream search contract", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json({ items: [] }));
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "desk" }),
+  });
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: "invalid_upstream_contract" });
+});
+
+test("rejects incomplete terminal scope and result pages larger than the requested limit", async (context) => {
+  const unsafeMiss = searchContractResponse({ status: "no_match" });
+  unsafeMiss.search_scope.scan_limit_reached = true;
+  const oversizedPage = searchContractResponse({
+    limit: 1,
+    results: [{ title: "One" }, { title: "Two" }],
+  });
+  const responses = [unsafeMiss, oversizedPage];
+  context.mock.method(globalThis, "fetch", async () => Response.json(responses.shift()));
+
+  for (const input of [{ q: "miss" }, { q: "page", limit: 1 }]) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "invalid_upstream_contract" });
+  }
+});
+
+test("keeps Search Contract error mapping scoped to the search route", async (context) => {
+  context.mock.method(globalThis, "fetch", async () => Response.json({ private_detail: "not returned" }, { status: 404 }));
+  const response = await call("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "desk" }] }),
+  });
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: "upstream_unavailable" });
+});
+
+test("rejects malformed full contracts before calling Agent Core", async (context) => {
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("must not call upstream");
+  });
+  const response = await call("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      search_contract: {
+        contract_version: "2.0",
+        product_identity: condition("recipient", "friend", "explicit", "session", "soft"),
+        hard_constraints: [],
+        soft_context: [],
+        transaction_context: [],
+        limit: 20,
+        cursor: null,
+      },
+    }),
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_search_request" });
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("maps upstream search authentication, version, validation, and rate errors without leaking bodies", async (context) => {
+  const responses = [
+    Response.json({ private_detail: "not returned" }, { status: 401 }),
+    Response.json({ private_detail: "not returned" }, { status: 404 }),
+    Response.json({ private_detail: "not returned" }, { status: 400 }),
+    Response.json({ private_detail: "not returned" }, { status: 429, headers: { "retry-after": "17" } }),
+  ];
+  context.mock.method(globalThis, "fetch", async () => responses.shift());
+  const expected = [
+    [502, { error: "upstream_authentication_failed" }],
+    [502, { error: "search_contract_not_supported" }],
+    [400, { error: "invalid_search_request" }],
+    [429, { error: "rate_limited" }],
+  ];
+  for (const [status, body] of expected) {
+    const response = await call("/api/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "desk" }),
+    });
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), body);
+    if (status === 429) assert.equal(response.headers.get("retry-after"), "17");
   }
 });
 

@@ -13,6 +13,7 @@ shopify-customer-account/shopify.app.*.toml
 !shopify-customer-account/shopify.app.toml.example
 shopify-customer-account/extensions/*/manifest.json
 qa-artifacts/
+artifacts/
 .tmp-*/
 .test-temp-*/
 test-tmp-*/

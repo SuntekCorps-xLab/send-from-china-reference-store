@@ -51,6 +51,7 @@ const discoveryResponse = await fetch(`${baseUrl}/.well-known/send-from-china.js
 const discovery = await payload(discoveryResponse, "capability discovery");
 assert.equal(discovery.service, "send-from-china-agent-core");
 assert.equal(discovery.capabilities?.catalog_search, true);
+assert.equal(discovery.capabilities?.search_contract_v2, true);
 
 const chatResponse = await worker.fetch(new Request("https://bff.example.test/api/chat", {
   method: "POST",
@@ -73,9 +74,27 @@ assert.equal(JSON.stringify(chat).includes(tenantKey), false, "tenant key leaked
 const searchResponse = await worker.fetch(new Request("https://bff.example.test/api/search", {
   method: "POST",
   headers: { origin: storefrontOrigin, "content-type": "application/json" },
-  body: JSON.stringify({ q: "desk", topK: 1 }),
+  body: JSON.stringify({
+    search_contract: {
+      contract_version: "2.0",
+      product_identity: {
+        name: "product_identity", value: "desk", source: "explicit", scope: "product", hardness: "hard",
+      },
+      hard_constraints: [],
+      soft_context: [{
+        name: "recipient", value: "coworker", source: "explicit", scope: "session", hardness: "soft",
+      }],
+      transaction_context: [],
+      limit: 1,
+      cursor: null,
+    },
+  }),
 }), env);
 const search = await payload(searchResponse, "BFF search");
+assert.equal(search.contract_version, "2.0");
+assert.equal(search.status, "results");
+assert.equal(search.normalized_intent.product_identity.value, "desk");
+assert.equal(search.pagination.limit, 1);
 assert.equal(search.results.length, 1, "the sample Agent Core should return one desk result");
 const product = search.results[0];
 assert.ok(product.browse_url.startsWith(`${storefrontOrigin}/products/`));
@@ -84,15 +103,30 @@ assert.equal(product.available, false);
 assert.equal(product.purchase_handoff, null);
 assert.equal(JSON.stringify(search).includes(tenantKey), false, "tenant key leaked into the browser response");
 
+const missResponse = await worker.fetch(new Request("https://bff.example.test/api/search", {
+  method: "POST",
+  headers: { origin: storefrontOrigin, "content-type": "application/json" },
+  body: JSON.stringify({ q: "left-handed titanium curling stone with braille and solar heating", limit: 5 }),
+}), env);
+const miss = await payload(missResponse, "BFF terminal miss");
+assert.equal(miss.contract_version, "2.0");
+assert.equal(miss.status, "no_match");
+assert.deepEqual(miss.results, []);
+assert.equal(miss.search_scope.plan_complete, true);
+assert.equal(miss.search_scope.scope_exhausted, true);
+assert.equal(miss.search_scope.degraded, false);
+
 console.log(JSON.stringify({
   ok: true,
   service: discovery.service,
   version: discovery.version,
   verified: [
     "public capability discovery",
+    "Search Contract v2 capability and response",
     "server-side tenant authentication",
-    "structured criteria forwarding",
+    "four-part search intent forwarding",
     "terminal catalog miss",
+    "truthful pagination and retrieval scope",
     "browse and purchase-link separation",
     "browser response credential isolation",
   ],

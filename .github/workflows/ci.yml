@@ -27,6 +27,20 @@ jobs:
       - name: Test zero-account demo and BFF
         run: node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs
 
+  search-contract-v2:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Verify browser-to-BFF Search Contract v2 compatibility
+        run: node --test storefront-bff/test/worker.test.mjs
+
   customer-account:
     runs-on: ubuntu-latest
     steps:
@@ -86,6 +100,13 @@ jobs:
         run: |
           node scripts/check-doc-links.mjs
           node scripts/scan-public.mjs .
+      - name: Generate CycloneDX SBOM
+        run: npm run sbom
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reference-store-sbom
+          path: artifacts/sbom/
 
   dependency-review:
     # GitHub's dependency-review API requires Advanced Security for private

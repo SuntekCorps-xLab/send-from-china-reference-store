@@ -44,10 +44,12 @@ npm run smoke:integration
 The smoke test calls public capability discovery and catalog search, then
 invokes the BFF in process exactly as a browser-facing adapter would. It checks:
 
-- the local Agent Core advertises catalog search;
+- the local Agent Core advertises Search Contract v2;
 - the BFF authenticates server-side;
-- structured search criteria reach Agent Core;
+- a complete Search Contract v2 reaches Agent Core without storefront search rules;
 - a catalog miss remains a truthful terminal miss;
+- the result page exposes its requested limit and the terminal miss reports a
+  complete, exhausted, non-degraded retrieval scope;
 - a derived browse link is not presented as purchase evidence; and
 - the tenant key never appears in the browser response.
 

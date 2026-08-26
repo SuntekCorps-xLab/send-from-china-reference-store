@@ -64,6 +64,18 @@ These return the compact storefront product shape used by the custom search and
 choice; configure an Agent Core tenant with the appropriate read capability or
 replace the BFF handler with a merchant-owned catalog service.
 
+Search uses Agent Core Search Contract v2. The BFF accepts either a complete
+`search_contract` or the legacy browser convenience shape `{q, limit, cursor}`.
+Both call authenticated Agent Core `POST /api/search/v2`; the latter only wraps
+`q` as an explicit product identity. Product identity parsing, hard filters,
+soft-context ranking, relaxation, and terminal-miss semantics remain in Agent
+Core. The BFF preserves the version, trace, status, normalized intent,
+relaxations, pagination, and search scope while applying a public field
+allowlist to products and contract metadata.
+
+See [`SEARCH_CONTRACT_V2_INTEGRATION.md`](SEARCH_CONTRACT_V2_INTEGRATION.md) for
+request examples, cursor handling, error mapping, and mock/live verification.
+
 ## Agent-native endpoint
 
 The separate theme setting `wp_agent_core_api_base` is used only on

@@ -1,10 +1,15 @@
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGES = 12;
-const MAX_RESULTS = 20;
+const MAX_RESULTS = 50;
+const SEARCH_CONTRACT_VERSION = "2.0";
+const SEARCH_STATUSES = new Set(["results", "needs_clarification", "no_match", "degraded"]);
+const CONDITION_SOURCES = new Set(["explicit", "inferred", "default"]);
+const CONDITION_SCOPES = new Set(["product", "session", "transaction"]);
+const CONDITION_HARDNESS = new Set(["hard", "soft", "informational"]);
 
 function upstreamPageSize(requested, env) {
-  const configured = Number(env.AGENT_CORE_PAGE_SIZE || 5);
-  const ceiling = Number.isInteger(configured) && configured >= 1 && configured <= MAX_RESULTS ? configured : 5;
+  const configured = Number(env.AGENT_CORE_PAGE_SIZE || 20);
+  const ceiling = Number.isInteger(configured) && configured >= 1 && configured <= MAX_RESULTS ? configured : 20;
   return Math.min(Math.max(Number(requested) || ceiling, 1), ceiling);
 }
 
@@ -62,6 +67,42 @@ function safeUrl(value) {
   } catch {
     return "";
   }
+}
+
+function publicCondition(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const name = String(value.name || "").trim().toLowerCase();
+  const source = String(value.source || "");
+  const scope = String(value.scope || "");
+  const hardness = String(value.hardness || "");
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(name)
+    || !CONDITION_SOURCES.has(source)
+    || !CONDITION_SCOPES.has(scope)
+    || !CONDITION_HARDNESS.has(hardness)) return null;
+  const values = Array.isArray(value.value) ? value.value.slice(0, 50) : [value.value];
+  if (!values.length || values.some((item) => !["string", "number", "boolean"].includes(typeof item))) return null;
+  const cleaned = values.map((item) => typeof item === "string" ? item.trim().slice(0, 300) : item);
+  if (cleaned.some((item) => (typeof item === "string" && !item) || (typeof item === "number" && !Number.isFinite(item)))) {
+    return null;
+  }
+  return { name, value: Array.isArray(value.value) ? cleaned : cleaned[0], source, scope, hardness };
+}
+
+function publicConditions(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 50).map(publicCondition).filter(Boolean);
+}
+
+function publicRelaxations(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 100).flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const condition = String(item.condition || "").trim().toLowerCase();
+    const reason = String(item.reason || "").trim().slice(0, 300);
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(condition) || !reason) return [];
+    const output = { condition, reason };
+    if (["string", "number", "boolean"].includes(typeof item.from)) output.from = item.from;
+    if (["string", "number", "boolean"].includes(typeof item.to)) output.to = item.to;
+    return [output];
+  });
 }
 
 function sameOriginUrl(value, origin) {
@@ -182,10 +223,166 @@ async function upstream(path, init, env) {
   if (!response.ok) {
     const error = new Error(`upstream_${response.status}`);
     error.status = response.status;
+    error.path = path;
     error.retryAfter = response.headers.get("retry-after") || "";
     throw error;
   }
   return response.json();
+}
+
+function invalidSearchRequest() {
+  const error = new Error("invalid_search_request");
+  error.status = 400;
+  throw error;
+}
+
+function invalidSearchContract() {
+  const error = new Error("invalid_search_contract");
+  error.status = 502;
+  throw error;
+}
+
+function requestConditions(value) {
+  if (!Array.isArray(value) || value.length > 50) invalidSearchRequest();
+  const output = value.map(publicCondition);
+  if (output.some((condition) => !condition)) invalidSearchRequest();
+  return output;
+}
+
+function searchContractRequest(input, env) {
+  const supplied = input?.search_contract && typeof input.search_contract === "object"
+    ? input.search_contract
+    : input?.contract_version ? input : null;
+  if (supplied) {
+    if (String(supplied.contract_version || "") !== SEARCH_CONTRACT_VERSION) {
+      invalidSearchRequest();
+    }
+    const productIdentity = publicCondition(supplied.product_identity);
+    if (!productIdentity
+      || productIdentity.name !== "product_identity"
+      || productIdentity.scope !== "product"
+      || productIdentity.hardness !== "hard"
+      || typeof productIdentity.value !== "string") invalidSearchRequest();
+    const limit = upstreamPageSize(supplied.limit, env);
+    return {
+      contract_version: SEARCH_CONTRACT_VERSION,
+      product_identity: productIdentity,
+      hard_constraints: requestConditions(supplied.hard_constraints),
+      soft_context: requestConditions(supplied.soft_context),
+      transaction_context: requestConditions(supplied.transaction_context),
+      limit,
+      cursor: supplied.cursor === undefined || supplied.cursor === null || supplied.cursor === ""
+        ? null : String(supplied.cursor).slice(0, 1000),
+    };
+  }
+  const query = String(input?.q || "").trim().slice(0, 300);
+  if (!query) invalidSearchRequest();
+  return {
+    contract_version: SEARCH_CONTRACT_VERSION,
+    product_identity: {
+      name: "product_identity",
+      value: query,
+      source: "explicit",
+      scope: "product",
+      hardness: "hard",
+    },
+    hard_constraints: [],
+    soft_context: [],
+    transaction_context: [],
+    limit: upstreamPageSize(input?.topK || input?.limit, env),
+    cursor: input?.cursor ? String(input.cursor).slice(0, 1000) : null,
+  };
+}
+
+function storefrontSearchContract(payload, env, effectiveLimit) {
+  const status = String(payload?.status || "").toLowerCase();
+  const intent = payload?.normalized_intent;
+  const productIdentity = publicCondition(intent?.product_identity);
+  const traceId = String(payload?.trace_id || "").trim();
+  if (String(payload?.contract_version || "") !== SEARCH_CONTRACT_VERSION
+    || !SEARCH_STATUSES.has(status)
+    || !/^[A-Za-z0-9._:-]{1,200}$/.test(traceId)
+    || !productIdentity) invalidSearchContract();
+  const limit = Math.min(Math.max(Number(effectiveLimit) || 1, 1), MAX_RESULTS);
+  if (!Array.isArray(payload?.results) || payload.results.length > limit) invalidSearchContract();
+  const conditionGroups = [intent?.hard_constraints, intent?.soft_context, intent?.transaction_context];
+  const publicConditionGroups = conditionGroups.map(publicConditions);
+  if (conditionGroups.some((group, index) => !Array.isArray(group) || group.length > 50
+    || publicConditionGroups[index].length !== group.length)) invalidSearchContract();
+  if (!Array.isArray(payload?.relaxations) || payload.relaxations.length > 100) invalidSearchContract();
+  const relaxations = publicRelaxations(payload.relaxations);
+  if (relaxations.length !== payload.relaxations.length) invalidSearchContract();
+  if (!Array.isArray(payload?.missing_criteria) || payload.missing_criteria.length > 50) {
+    invalidSearchContract();
+  }
+  const missingCriteria = payload.missing_criteria
+    .map((item) => String(item).trim().toLowerCase());
+  if (missingCriteria.some((item) => !/^[a-z][a-z0-9_]{0,63}$/.test(item))) invalidSearchContract();
+  const upstreamResults = payload.results;
+  if (upstreamResults.some((product) => !String(product?.title || "").trim())) {
+    invalidSearchContract();
+  }
+  const results = upstreamResults
+    .slice(0, MAX_RESULTS)
+    .map((product) => storefrontProduct(product, env));
+  if ((status === "results" && !results.length) || (status === "no_match" && results.length)) {
+    invalidSearchContract();
+  }
+  const pagination = payload?.pagination;
+  const searchScope = payload?.search_scope;
+  const requiredScopeBooleans = [
+    "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached", "degraded",
+  ];
+  if (!pagination || typeof pagination !== "object" || Array.isArray(pagination)
+    || !Number.isInteger(pagination.limit) || pagination.limit < 1 || pagination.limit > limit
+    || ![null, "string"].includes(pagination.cursor === null ? null : typeof pagination.cursor)
+    || ![null, "string"].includes(pagination.next_cursor === null ? null : typeof pagination.next_cursor)
+    || (typeof pagination.cursor === "string" && pagination.cursor.length > 1000)
+    || (typeof pagination.next_cursor === "string" && pagination.next_cursor.length > 1000)
+    || typeof pagination.has_more !== "boolean"
+    || !searchScope || typeof searchScope !== "object" || Array.isArray(searchScope)
+    || requiredScopeBooleans.some((key) => typeof searchScope[key] !== "boolean")) {
+    invalidSearchContract();
+  }
+  if (results.length > pagination.limit) invalidSearchContract();
+  const hasNextCursor = typeof pagination.next_cursor === "string" && Boolean(pagination.next_cursor);
+  if (pagination.has_more !== hasNextCursor) invalidSearchContract();
+  if ((status === "no_match" && (searchScope.plan_complete !== true
+      || searchScope.scope_exhausted !== true || searchScope.scan_limit_reached !== false
+      || searchScope.degraded !== false || pagination.has_more !== false))
+    || (status === "degraded" && searchScope.degraded !== true)
+    || (status !== "degraded" && searchScope.degraded !== false)) {
+    invalidSearchContract();
+  }
+  return {
+    contract_version: SEARCH_CONTRACT_VERSION,
+    trace_id: traceId,
+    status,
+    normalized_intent: {
+      product_identity: productIdentity,
+      hard_constraints: publicConditionGroups[0],
+      soft_context: publicConditionGroups[1],
+      transaction_context: publicConditionGroups[2],
+    },
+    relaxations,
+    missing_criteria: missingCriteria,
+    results,
+    pagination: {
+      limit: pagination.limit,
+      cursor: pagination.cursor ? String(pagination.cursor).slice(0, 1000) : null,
+      next_cursor: pagination.next_cursor ? String(pagination.next_cursor).slice(0, 1000) : null,
+      has_more: pagination.has_more === true,
+    },
+    search_scope: {
+      plan_complete: searchScope.plan_complete === true,
+      scope_exhausted: searchScope.scope_exhausted === true,
+      global_catalog_exhaustive: searchScope.global_catalog_exhaustive === true,
+      scan_limit_reached: searchScope.scan_limit_reached === true,
+      degraded: searchScope.degraded === true,
+      degraded_reason: searchScope.degraded_reason
+        ? String(searchScope.degraded_reason).slice(0, 200) : null,
+    },
+  };
 }
 
 async function handleChat(request, env) {
@@ -229,13 +426,12 @@ async function handleCatalog(request, env) {
 
 async function handleSearch(request, env) {
   const input = await requestJson(request);
-  const query = String(input?.q || "").trim().slice(0, 500);
-  if (!query) throw new Response(null, { status: 400 });
-  const limit = upstreamPageSize(input?.topK || input?.limit, env);
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
-  const payload = await upstream(`/api/search?${params}`, { method: "GET" }, env);
-  const products = Array.isArray(payload?.items) ? payload.items : [];
-  return { results: products.map((product) => storefrontProduct(product, env)) };
+  const contract = searchContractRequest(input, env);
+  const payload = await upstream("/api/search/v2", {
+    method: "POST",
+    body: JSON.stringify(contract),
+  }, env);
+  return storefrontSearchContract(payload, env, contract.limit);
 }
 
 export default {
@@ -281,6 +477,22 @@ export default {
           ...headers,
           ...(error.retryAfter ? { "retry-after": error.retryAfter } : {}),
         });
+      }
+      if (error?.message === "invalid_search_request") {
+        return json({ error: "invalid_search_request" }, 400, headers);
+      }
+      const searchUpstreamError = error?.path === "/api/search/v2";
+      if (searchUpstreamError && error?.status === 400) {
+        return json({ error: "invalid_search_request" }, 400, headers);
+      }
+      if (error?.message === "invalid_search_contract") {
+        return json({ error: "invalid_upstream_contract" }, 502, headers);
+      }
+      if (searchUpstreamError && [401, 403].includes(error?.status)) {
+        return json({ error: "upstream_authentication_failed" }, 502, headers);
+      }
+      if (searchUpstreamError && error?.status === 404) {
+        return json({ error: "search_contract_not_supported" }, 502, headers);
       }
       return json({ error: "upstream_unavailable" }, 502, headers);
     }
