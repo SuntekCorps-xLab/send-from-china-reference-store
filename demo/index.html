@@ -9,12 +9,45 @@
 <body>
   <header class="topbar">
     <a class="brand" href="#"><span>CN</span><strong>Send From China<small>Reference Store Demo</small></strong></a>
-    <form class="search"><input aria-label="Search the catalog" placeholder="Search the catalog"><button aria-label="Search">→</button></form>
+    <form class="search" data-catalog-search><input aria-label="Search the catalog" placeholder="Search the catalog"><button aria-label="Search">→</button></form>
     <nav><a href="#catalog">Shop</a><button data-open-agent>💬 Ask Agent</button><a href="#">Orders</a><a class="cart" href="#">Cart (0)</a></nav>
   </header>
 
   <main>
-    <div class="runtime-banner" role="status"><span></span><strong>Zero-account demo</strong><em>No live API · No commerce writes · No carrier rates</em></div>
+    <div class="runtime-banner" role="status" aria-live="polite">
+      <span class="runtime-dot"></span>
+      <strong data-runtime-label>Checking local runtime…</strong>
+      <em>Illustrative · Non-purchasable · No shipping rates · No commerce writes</em>
+    </div>
+
+    <section class="sandbox-console" aria-labelledby="sandbox-title">
+      <div class="sandbox-heading">
+        <p class="eyebrow">🧪 Developer sandbox</p>
+        <h2 id="sandbox-title">Choose a truthful test journey.</h2>
+        <p>Every path is safe to inspect in the browser. The active runtime—not a UI toggle—decides where results come from.</p>
+      </div>
+      <div class="mode-options" role="list" aria-label="Available runtime modes">
+        <div class="mode-option" data-mode-option="synthetic_demo" role="listitem">
+          <span>🧪</span><div><strong>Simulated demo</strong><small>Local synthetic fixtures · zero account</small></div>
+        </div>
+        <div class="mode-option" data-mode-option="connected_local_sandbox" role="listitem">
+          <span>🔗</span><div><strong>Connected sandbox</strong><small>Local BFF · server-held Agent Core key</small></div>
+        </div>
+      </div>
+      <div class="scenario-picker" aria-labelledby="scenario-title">
+        <div><strong id="scenario-title" data-query-mode-title>Scenario lab</strong><small data-query-mode-copy>Pick a bounded contract state</small></div>
+        <button class="is-selected" type="button" data-open-scenario="catalog_match" aria-pressed="true">✅ Catalog match</button>
+        <button type="button" data-open-scenario="terminal_miss" aria-pressed="false">🔎 Terminal miss</button>
+        <button type="button" data-open-scenario="needs_clarification" aria-pressed="false">💬 Needs detail</button>
+        <button type="button" data-open-scenario="degraded" aria-pressed="false">🛟 Safe failure</button>
+      </div>
+      <ul class="sandbox-boundaries" aria-label="Sandbox truth boundaries">
+        <li><span>🧬</span><strong>Synthetic / illustrative</strong></li>
+        <li><span>🛒</span><strong>Not purchasable</strong></li>
+        <li><span>🚚</span><strong>No shipping quote</strong></li>
+        <li><span>✋</span><strong>No write path</strong></li>
+      </ul>
+    </section>
     <section class="hero">
       <div>
         <p class="eyebrow">Catalog, guidance, and custom sourcing</p>
@@ -34,27 +67,44 @@
     </section>
 
     <section class="catalog" id="catalog">
-      <div class="section-head"><div><p class="eyebrow">Governed catalog</p><h2>Available products</h2></div><p>Open a product for variants, buying details, shipping estimates, and checkout availability.</p></div>
+      <div class="section-head"><div><p class="eyebrow">Synthetic governed catalog</p><h2>Illustrative products</h2></div><p>These local cards demonstrate presentation only. They do not assert availability, purchase eligibility, or a shipping rate.</p></div>
       <div class="product-grid">
-        <article><div class="product-art wood">🪵<b>Natural materials</b></div><span>AVAILABLE</span><h3>Walnut desk organizer</h3><p>Compact compartments for a calm workspace.</p><strong>$29.00</strong></article>
-        <article><div class="product-art lamp">💡<b>Small-space light</b></div><span>AVAILABLE</span><h3>Compact reading light</h3><p>Warm adjustable light with a minimal footprint.</p><strong>$34.00</strong></article>
-        <article><div class="product-art cup">☕<b>Gift ready</b></div><span>AVAILABLE</span><h3>Ceramic pour-over set</h3><p>A simple coffee ritual in a compact set.</p><strong>$42.00</strong></article>
-        <article><div class="product-art cable">🔌<b>Cable control</b></div><span>AVAILABLE</span><h3>Magnetic cable anchors</h3><p>Reusable anchors for a cleaner desk setup.</p><strong>$12.00</strong></article>
+        <article><div class="product-art wood">🪵<b>Natural materials</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Walnut desk organizer</h3><p>Compact compartments for a calm workspace.</p><strong>Illustrative price · $29</strong></article>
+        <article><div class="product-art lamp">💡<b>Small-space light</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Compact reading light</h3><p>Warm adjustable light with a minimal footprint.</p><strong>Illustrative price · $34</strong></article>
+        <article><div class="product-art cup">☕<b>Gift ready</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Ceramic pour-over set</h3><p>A simple coffee ritual in a compact set.</p><strong>Illustrative price · $42</strong></article>
+        <article><div class="product-art cable">🔌<b>Cable control</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Magnetic cable anchors</h3><p>Reusable anchors for a cleaner desk setup.</p><strong>Illustrative price · $12</strong></article>
       </div>
     </section>
   </main>
 
   <div class="backdrop" hidden data-close-agent></div>
   <aside class="drawer" hidden aria-label="Shopping Agent" aria-modal="true" role="dialog">
-    <header><button class="history">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill">DEMO · OFFLINE FIXTURES</span></div><button class="close" data-close-agent aria-label="Close">×</button></header>
+    <header><button class="history" type="button">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill" data-drawer-mode>CHECKING LOCAL MODE</span></div><button class="close" type="button" data-close-agent aria-label="Close">×</button></header>
     <div class="conversation" data-conversation>
-      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. This zero-account preview demonstrates the interaction with synthetic cards; connect the BFF for live Agent Core results.</p>
-        <div class="capability-grid"><span><b>Catalog UI</b>Ready</span><span><b>Agent Core</b>Not connected</span><span><b>Carrier rates</b>Not included</span></div>
-        <button data-starter>A practical gift under $40</button><button data-starter>Options for a small apartment</button><button data-starter>Choose by material and destination</button>
+      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. Use offline fixtures for zero-account review, or the local connected sandbox to exercise the guarded Agent Core contract.</p>
+        <div class="capability-grid"><span><b>🧪 Result class</b>Illustrative only</span><span><b>🧠 Agent Core</b><em data-core-status>Checking</em></span><span><b>🚚 Carrier rates</b>Not included</span></div>
+        <p class="scenario-intro"><strong data-query-intro-title>Run a known contract state</strong><span data-query-intro-copy>These prompts select behavior; they do not trigger a purchase or sourcing task.</span></p>
+        <button type="button" data-starter data-scenario="catalog_match">✅ Catalog match · practical gift under $40</button>
+        <button type="button" data-starter data-scenario="terminal_miss">🔎 Terminal miss · verify no silent sourcing</button>
+        <button type="button" data-starter data-scenario="needs_clarification">💬 Needs detail · ask before claiming a match</button>
+        <button type="button" data-starter data-scenario="degraded">🛟 Safe failure · keep the boundary visible</button>
       </section>
+      <details class="contract-inspector" data-inspector>
+        <summary><span>🔬 Sanitized contract inspector</span><small data-inspector-status>Waiting for a scenario</small></summary>
+        <div class="inspector-grid">
+          <section><h3>Browser request</h3><pre data-inspector-request>{
+  "messages": [],
+  "scenario": "catalog_match"
+}</pre></section>
+          <section><h3>Browser-safe response</h3><pre data-inspector-response>{
+  "status": "not_run"
+}</pre></section>
+        </div>
+        <p>Only allowlisted contract fields appear here. Credentials, tenant configuration, upstream headers, and raw provider payloads never enter this inspector.</p>
+      </details>
     </div>
-    <form class="composer"><label for="message">Message the Shopping Agent</label><div><textarea id="message" rows="1" placeholder="Describe what you need"></textarea><button aria-label="Send">↑</button></div><small>Enter to send · Shift + Enter for a new line</small></form>
+    <form class="composer"><div class="composer-heading"><label for="message">Message the Shopping Agent</label><span><span data-query-kind>Scenario</span>: <strong data-scenario-label>Catalog match</strong></span></div><div><textarea id="message" rows="1" placeholder="Describe what you need"></textarea><button aria-label="Send">↑</button></div><small>Enter to send · Shift + Enter for a new line · No purchase or sourcing action</small></form>
   </aside>
-  <script src="demo.js"></script>
+  <script type="module" src="demo.js"></script>
 </body>
 </html>

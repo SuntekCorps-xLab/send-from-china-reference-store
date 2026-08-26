@@ -6,7 +6,12 @@ or production Shopify store.
 
 ## Available in 1.0
 
-- A zero-account, synthetic shopping-agent experience demo.
+- A zero-account shopping-agent demo with catalog-match, terminal-miss,
+  clarification, and degraded synthetic scenarios.
+- A sanitized browser contract inspector with explicit illustrative,
+  non-purchasable, no-shipping, and no-write labels.
+- A paired local launcher for the Reference Store BFF and Agent Core synthetic
+  sandbox; the local token remains server-side.
 - A browser-safe BFF that keeps Agent Core tenant credentials server-side.
 - Shopify theme patterns for catalog-first search, contextual assistance,
   explicit sourcing confirmation, cart handoff, and truthful failure states.
@@ -15,9 +20,7 @@ or production Shopify store.
 
 ## Next
 
-- A paired Agent Core + Reference Store local integration recipe.
-- Copyable fixtures for catalog match, terminal miss, partial data, quota,
-  expired state, and unavailable-service journeys.
+- Copyable fixtures for partial data, quota, and expired-state journeys.
 - More accessible keyboard, screen-reader, reduced-motion, and responsive
   acceptance examples.
 - A small integration gallery showing merchant-owned adapter boundaries.
@@ -26,6 +29,8 @@ or production Shopify store.
 ## Exploring
 
 - A one-click preview deployment that remains synthetic by default.
+- A hosted self-service sandbox with short-lived scoped credentials, tenant
+  isolation, quotas, revocation, abuse monitoring, and audit logs.
 - A synthetic evaluation pack for truth labels and customer state transitions.
 - Additional storefront framework adapters built against the same BFF contract.
 

@@ -9,6 +9,8 @@
   "scripts": {
     "check:links": "node scripts/check-doc-links.mjs",
     "demo": "node demo/server.mjs",
+    "demo:connected": "node demo/server.mjs --mode=connected",
+    "demo:platform": "node scripts/demo-platform.mjs",
     "qa:drawer": "node shopify-theme/tests/run-agent-drawer-browser-qa.mjs",
     "qa:workspace": "node shopify-customer-account/tests/run-workspace-browser-qa.mjs",
     "sbom": "node scripts/generate-sboms.mjs",

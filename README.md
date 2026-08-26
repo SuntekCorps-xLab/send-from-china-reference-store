@@ -10,7 +10,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
 [![License](https://img.shields.io/badge/license-Apache--2.0-6b7c70?style=for-the-badge)](LICENSE)
 
-[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🗺️ Roadmap](ROADMAP.md) · [🔐 Security](SECURITY.md)
+[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧪 Demo + sandbox](docs/DEMO_AND_SANDBOX.md) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🗺️ Roadmap](ROADMAP.md) · [🔐 Security](SECURITY.md)
 
 <img src="docs/images/storefront-live.svg" alt="Animated walkthrough of normal catalog shopping followed by a contextual Shopping Agent and verified Shopify handoff" width="100%">
 
@@ -56,18 +56,24 @@ Shopify CLI installed can additionally run `npm run verify:browser` and the
 Shopify checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 > [!NOTE]
-> The local demo uses three synthetic responses. It demonstrates interaction
-> states only; it does not call a merchant, create a sourcing task, or perform a
-> commerce write. The UI and `/api/status` display `synthetic_demo`; every card
-> is labelled illustrative rather than presented as a catalog match.
+> The local demo provides four deterministic synthetic scenarios: catalog
+> match, terminal miss, clarification, and safe failure. It does not call a
+> merchant, create a sourcing task, or perform a commerce write. The UI and
+> `/api/status` display `synthetic_demo`; every card is labelled synthetic,
+> illustrative, non-purchasable, and without a shipping rate.
 
 ### Demo and connected modes
 
 | Mode | Data source | Credential | What it proves |
 | --- | --- | --- | --- |
-| Zero-account demo | Three local fixtures | None | Drawer states, responsive layout, and explicit truth labels |
-| Connected reference | Storefront BFF → Agent Core | Tenant key stored only in the BFF | Governed catalog search and product cards |
+| Zero-account demo | Four deterministic local scenarios | None | Drawer states, responsive layout, sanitized contracts, and explicit truth labels |
+| Connected local sandbox | Storefront demo BFF → local Agent Core sandbox | Short-lived local token stored only in the server process | The public repositories and guarded HTTP contract working together on synthetic data |
 | Production commerce | Merchant-owned Shopify and service adapters | Merchant-managed | Variants, cart, checkout, identity, and any real shipping integration |
+
+Run `npm run demo:platform` with Agent Core checked out beside this repository
+to start the connected local sandbox. See the
+[Demo and Sandbox Guide](docs/DEMO_AND_SANDBOX.md) for mode boundaries,
+scenario expectations, and bring-your-own runtime setup.
 
 The repository does not include a carrier-rate service. Any interface that
 shows real freight must obtain package, origin, destination, and service-level
@@ -95,6 +101,7 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 | I want to… | Start here | What you need |
 | --- | --- | --- |
 | **Preview the UX** | `npm run demo` | Node.js 22+ |
+| **Run the connected local sandbox** | `npm run demo:platform` + [`docs/DEMO_AND_SANDBOX.md`](docs/DEMO_AND_SANDBOX.md) | Both public repositories checked out locally |
 | **Test both public repos together** | [`docs/PAIRED_LOCAL_QUICKSTART.md`](docs/PAIRED_LOCAL_QUICKSTART.md) | Node.js 22+; no hosted account |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
 | **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
@@ -218,6 +225,7 @@ completion, and payment require merchant-owned services and policy.
 ## 📚 Documentation
 
 - [Architecture and API contracts](docs/ARCHITECTURE.md)
+- [Demo and connected local sandbox](docs/DEMO_AND_SANDBOX.md)
 - [Search Contract v2 mock/live quickstart](docs/SEARCH_CONTRACT_V2_INTEGRATION.md)
 - [Hosted Platform integration](docs/HOSTED_PLATFORM_INTEGRATION.md)
 - [Paired local Agent Core integration](docs/PAIRED_LOCAL_QUICKSTART.md)
