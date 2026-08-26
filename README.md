@@ -76,16 +76,19 @@ catalog estimate as shipping.
 
 ## 📸 Experience at a glance
 
-<table>
-  <tr>
-    <td width="62%"><img src="docs/images/agent-drawer-desktop.png" alt="Desktop agent drawer beside a storefront"></td>
-    <td width="38%"><img src="docs/images/agent-drawer-mobile.png" alt="Mobile full-height shopping-agent sheet"></td>
-  </tr>
-  <tr>
-    <td><strong>Desktop</strong> — the catalog remains visible while guidance appears beside it.</td>
-    <td><strong>Mobile</strong> — the same state becomes an accessible full-height sheet.</td>
-  </tr>
-</table>
+### Desktop — shop and ask side by side
+
+<img src="docs/images/agent-drawer-desktop-live.svg" alt="Animated desktop walkthrough where the catalog stays visible while a contextual Shopping Agent returns an illustrative governed match and hands the shopper back to Shopify" width="100%">
+
+The catalog remains visible while guidance arrives beside it. The browser sees
+only the BFF response; the Agent Core tenant credential stays server-side.
+
+### Mobile — the same context in one accessible sheet
+
+<img src="docs/images/agent-drawer-mobile-live.svg" alt="Animated mobile walkthrough where the Shopping Agent rises as a full-height sheet, preserves product context, and returns the shopper to a verified Shopify product" width="100%">
+
+The same state becomes a focused mobile sheet without turning the conversation
+into checkout. Shopify still verifies variant, inventory, price, and cart.
 
 ## 🧭 Choose your path
 
@@ -100,20 +103,7 @@ catalog estimate as shipping.
 
 ## 🏗️ How the pieces fit
 
-```mermaid
-flowchart LR
-  B[Buyer] --> T[Shopify storefront]
-  T --> S[Shopify product + cart]
-  T --> D[Shopping Agent drawer]
-  D --> P[Storefront BFF]
-  P --> A[Agent Core]
-  B --> C[Customer Account]
-  C --> X[Account extensions]
-  X --> M[Authenticated merchant API]
-  S --> H[Shopify-hosted checkout]
-  A -. governed discovery .-> P
-  M -. authorized saved state .-> X
-```
+<img src="docs/images/storefront-architecture-live.svg" alt="Animated architecture showing a buyer moving through Shopify storefront and checkout, a browser-safe agent path through the Storefront BFF to Agent Core, and an authenticated Customer Account path to a merchant API" width="100%">
 
 The BFF is deliberate. Agent Core tenant credentials belong in a server secret
 store, never in Liquid, JavaScript, theme settings, or browser requests. The
