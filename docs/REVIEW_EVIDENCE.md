@@ -75,7 +75,7 @@ Before the Shopify BFF starter work began, the release baseline was frozen at
 This baseline evidence remains immutable. The new BFF starter requires its own
 exact-commit CI result before release.
 
-### Current candidate local verification
+### BFF starter candidate verification
 
 On 2026-08-27, `npm run verify` and `git diff --check` passed for the BFF starter
 candidate. The run included 71 Node.js demo, BFF, Shopify, Customer Account,
@@ -83,5 +83,12 @@ and starter tests; desktop/mobile drawer QA; local-link validation; and the
 public safety scan. Root, Storefront BFF, and Customer Account npm audits each
 reported zero vulnerabilities at the high-severity threshold.
 
-This is local candidate evidence only. The commit created from this tree must
-receive a successful remote CI result before the Green Gate is marked complete.
+The implementation was committed as
+`cf972e2d5ece9c52ddd36382db6e45a6ec975b93`. GitHub
+[CI run 33042081200](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/runs/33042081200)
+completed successfully on that exact SHA. Its
+[CodeQL run 33042081088](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/runs/33042081088)
+was skipped while the repository was private and is therefore recorded as
+`N/A (private)`, not as a passing scan. Any later documentation or release
+commit must also receive an exact-commit CI result; CodeQL must run and pass
+after the repository becomes public.
