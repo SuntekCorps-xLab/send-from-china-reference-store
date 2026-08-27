@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/triad-e2e/v1/journey.schema.json",
+  "title": "Mini Suntek, Agent Core, and Reference Store synthetic triad dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "provenance", "expected_mini_sha", "expected_agent_core_sha", "description", "journeys"],
+  "properties": {
+    "schema_version": { "const": "send-from-china-triad-e2e-dataset/v1" },
+    "dataset_version": { "const": "triad-e2e-v1.0.0" },
+    "provenance": { "const": "public_synthetic" },
+    "expected_mini_sha": { "const": "66528615e57886829ed695727e85e08b0cea3c90" },
+    "expected_agent_core_sha": { "const": "bee6b7bc6a404f238908a439f67c60fd35e986c3" },
+    "description": { "type": "string", "minLength": 30, "maxLength": 500 },
+    "journeys": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "fixture", "expected_status", "limit"],
+        "properties": {
+          "case_id": { "type": "string", "pattern": "^triad_v1_[0-9]{2}_[a-z0-9_]+$" },
+          "fixture": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "expected_status": { "enum": ["results", "no_match"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      }
+    }
+  }
+}

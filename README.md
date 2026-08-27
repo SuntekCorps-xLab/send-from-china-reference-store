@@ -60,6 +60,13 @@ artifact. The paired check remains synthetic, blocks non-loopback network
 requests, and makes no production or supported commerce write. Shopify CLI
 checks remain documented in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
+For an exact-SHA, three-repository synthetic contract projection, use the
+[20-journey triad harness](evals/triad-v1/README.md). It checks compatible
+result states across separately invoked Mini Suntek, Agent Core, and Reference
+Store surfaces. It is deliberately marked `full_triad_e2e=false` and
+`authorizes_release=false`: it is not evidence that Mini calls Core through
+Reference Store, and it cannot activate Live Preview.
+
 > [!NOTE]
 > The local demo provides four deterministic synthetic scenarios: catalog
 > match, terminal miss, clarification, and safe failure. It does not call a
