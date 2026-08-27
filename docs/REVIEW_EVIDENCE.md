@@ -60,3 +60,28 @@ as evidence of deployment reachability.
 
 GitHub Actions must pass on the exact release commit before the `v1.0.0` tag is
 created or repository visibility is changed.
+
+## 2026-08-27 Green Gate baseline freeze
+
+Before the Shopify BFF starter work began, the release baseline was frozen at
+`main@1a59d46993ecf5bad161dc07982b3df299749435`.
+
+- [CI run 32950207295](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/runs/32950207295) completed successfully on that exact SHA.
+- [CodeQL run 32950207310](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/runs/32950207310) was skipped because the repository was private. This is recorded
+  as `N/A (private)`, not as a passing security scan.
+- CodeQL now supports an explicit `workflow_dispatch`. It must be run and pass
+  after the repository becomes public and before the public Green Gate closes.
+
+This baseline evidence remains immutable. The new BFF starter requires its own
+exact-commit CI result before release.
+
+### Current candidate local verification
+
+On 2026-08-27, `npm run verify` and `git diff --check` passed for the BFF starter
+candidate. The run included 71 Node.js demo, BFF, Shopify, Customer Account,
+and starter tests; desktop/mobile drawer QA; local-link validation; and the
+public safety scan. Root, Storefront BFF, and Customer Account npm audits each
+reported zero vulnerabilities at the high-severity threshold.
+
+This is local candidate evidence only. The commit created from this tree must
+receive a successful remote CI result before the Green Gate is marked complete.

@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added a tested Shopify Agent BFF starter with a credential-free browser
+  adapter and a deployment configuration that keeps Agent Core credentials in
+  the server secret store.
+- Made CodeQL manually triggerable while preserving the private-repository skip
+  and public-repository enforcement boundary.
+
 - Integrated the Storefront BFF with Agent Core Search Contract v2 while
   keeping search semantics in Agent Core and preserving the compact browser
   query as a rule-free convenience wrapper.

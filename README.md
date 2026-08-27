@@ -105,6 +105,7 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 | **Test both public repos together** | [`docs/PAIRED_LOCAL_QUICKSTART.md`](docs/PAIRED_LOCAL_QUICKSTART.md) | Node.js 22+; no hosted account |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
 | **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
+| **Copy a minimal BFF integration** | [`starters/shopify-agent-bff/`](starters/shopify-agent-bff/README.md) | The paired local demo first; reviewed server credentials only for live use |
 | **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
 | **Understand custom files quickly** | [`docs/CUSTOMIZATION_MAP.md`](docs/CUSTOMIZATION_MAP.md) | Five minutes |
 
