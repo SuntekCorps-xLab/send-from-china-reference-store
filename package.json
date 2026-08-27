@@ -16,8 +16,10 @@
     "sbom": "node scripts/generate-sboms.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "smoke:integration": "node scripts/integration-smoke.mjs",
+    "smoke:paired": "node scripts/paired-integration-smoke.mjs",
     "test": "node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs shopify-theme/tests/*.test.mjs shopify-customer-account/tests/*.test.mjs starters/shopify-agent-bff/test/*.test.mjs",
     "verify:browser": "npm run qa:drawer && npm run qa:workspace",
-    "verify": "npm run test && npm run qa:drawer && npm run check:links && npm run scan"
+    "verify": "npm run test && npm run qa:drawer && npm run qa:workspace && npm run check:links && npm run scan",
+    "verify:paired": "npm run verify && npm run smoke:paired"
   }
 }

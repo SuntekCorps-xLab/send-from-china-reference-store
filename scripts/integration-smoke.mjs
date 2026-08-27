@@ -106,7 +106,7 @@ assert.equal(JSON.stringify(search).includes(tenantKey), false, "tenant key leak
 const missResponse = await worker.fetch(new Request("https://bff.example.test/api/search", {
   method: "POST",
   headers: { origin: storefrontOrigin, "content-type": "application/json" },
-  body: JSON.stringify({ q: "left-handed titanium curling stone with braille and solar heating", limit: 5 }),
+  body: JSON.stringify({ q: "quartz violin umbrella", limit: 5 }),
 }), env);
 const miss = await payload(missResponse, "BFF terminal miss");
 assert.equal(miss.contract_version, "2.0");

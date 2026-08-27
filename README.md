@@ -51,9 +51,13 @@ npm run demo
 Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
 `a practical desk gift under $40`.
 
-`npm run verify` is the zero-account release check. Maintainers with Chrome and
-Shopify CLI installed can additionally run `npm run verify:browser` and the
-Shopify checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+`npm run verify` is the zero-account release check and now covers both the
+drawer and customer-account workspace browser QA. With Agent Core checked out
+beside this repository, `npm run verify:paired` also starts both loopback
+runtimes and exercises capability discovery, Search Contract v2, terminal
+miss, BFF credential isolation, and browse/purchase separation. The paired
+check remains synthetic and makes no production or commerce write. Shopify
+CLI checks remain documented in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 > [!NOTE]
 > The local demo provides four deterministic synthetic scenarios: catalog
