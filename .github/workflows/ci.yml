@@ -26,6 +26,8 @@ jobs:
         run: npm audit --audit-level=high
       - name: Test zero-account demo and BFF
         run: node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs
+      - name: Validate paired release harness contract
+        run: npm run test:paired-e2e
 
   search-contract-v2:
     strategy:
