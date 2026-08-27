@@ -3,7 +3,7 @@
   "dataset_version": "triad-e2e-v1.0.0",
   "provenance": "public_synthetic",
   "expected_mini_sha": "66528615e57886829ed695727e85e08b0cea3c90",
-  "expected_agent_core_sha": "bee6b7bc6a404f238908a439f67c60fd35e986c3",
+  "expected_agent_core_sha": "b527e8a43c8ffe580c7412837c86198230ef252c",
   "description": "Twenty deterministic fixture-labelled journeys that traverse the committed Mini Suntek client adapter, Agent Core synthetic sandbox, and Reference Store adapters without retaining request or product data.",
   "journeys": [
     { "case_id": "triad_v1_01_result", "fixture": "desk_organizer", "expected_status": "results", "limit": 1 },

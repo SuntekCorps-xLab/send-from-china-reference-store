@@ -41,7 +41,7 @@ npm.cmd run eval:triad-contract -- `
   --mini C:\checkouts\mini-suntek `
   --mini-sha 66528615e57886829ed695727e85e08b0cea3c90 `
   --agent-core C:\checkouts\send-from-china-agent-core `
-  --agent-core-sha bee6b7bc6a404f238908a439f67c60fd35e986c3 `
+  --agent-core-sha b527e8a43c8ffe580c7412837c86198230ef252c `
   --reference-store-sha <REFERENCE_STORE_SHA> `
   --output C:\trusted-evidence\triad\run-001.json
 ```
@@ -51,7 +51,7 @@ npm run eval:triad-contract -- \
   --mini /checkouts/mini-suntek \
   --mini-sha 66528615e57886829ed695727e85e08b0cea3c90 \
   --agent-core /checkouts/send-from-china-agent-core \
-  --agent-core-sha bee6b7bc6a404f238908a439f67c60fd35e986c3 \
+  --agent-core-sha b527e8a43c8ffe580c7412837c86198230ef252c \
   --reference-store-sha <REFERENCE_STORE_SHA> \
   --output /trusted-evidence/triad/run-001.json
 ```

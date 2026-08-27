@@ -10,7 +10,7 @@
     "dataset_version": { "const": "triad-e2e-v1.0.0" },
     "provenance": { "const": "public_synthetic" },
     "expected_mini_sha": { "const": "66528615e57886829ed695727e85e08b0cea3c90" },
-    "expected_agent_core_sha": { "const": "bee6b7bc6a404f238908a439f67c60fd35e986c3" },
+    "expected_agent_core_sha": { "const": "b527e8a43c8ffe580c7412837c86198230ef252c" },
     "description": { "type": "string", "minLength": 30, "maxLength": 500 },
     "journeys": {
       "type": "array",

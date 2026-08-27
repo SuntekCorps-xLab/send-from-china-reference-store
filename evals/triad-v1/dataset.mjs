@@ -4,7 +4,7 @@ export const DATASET_SCHEMA_VERSION = "send-from-china-triad-e2e-dataset/v1";
 export const DATASET_VERSION = "triad-e2e-v1.0.0";
 export const DATASET_PROVENANCE = "public_synthetic";
 export const EXPECTED_MINI_SHA = "66528615e57886829ed695727e85e08b0cea3c90";
-export const EXPECTED_AGENT_CORE_SHA = "bee6b7bc6a404f238908a439f67c60fd35e986c3";
+export const EXPECTED_AGENT_CORE_SHA = "b527e8a43c8ffe580c7412837c86198230ef252c";
 
 const CASE_ID = /^triad_v1_[0-9]{2}_[a-z0-9_]+$/u;
 const SAFE_LABEL = /^[a-z0-9_]+$/u;
