@@ -60,3 +60,18 @@ cart or order, process payment, or run a durable sourcing job. Replace the test
 key before sharing any deployment. A hosted operator must provision a tenant
 credential separately; there is no browser registration flow in either
 repository.
+
+## Run the release harness from two local checkouts
+
+The lower-level smoke above is retained for adapter debugging. Before a paired
+release, run the deterministic 20-journey gate from Reference Store instead:
+
+```bash
+npm run verify:paired
+```
+
+The gate starts both loopback runtimes itself and writes a sanitized ignored
+artifact to `build/paired-e2e-v0/artifact.json`. Review that its two commit SHAs
+match the intended release commits and both working trees are `clean`. See the
+[paired E2E v0 contract](../evals/paired-v0/README.md) for coverage and the
+explicit synthetic-data limitations.

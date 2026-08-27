@@ -53,11 +53,12 @@ Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such a
 
 `npm run verify` is the zero-account release check and now covers both the
 drawer and customer-account workspace browser QA. With Agent Core checked out
-beside this repository, `npm run verify:paired` also starts both loopback
-runtimes and exercises capability discovery, Search Contract v2, terminal
-miss, BFF credential isolation, and browse/purchase separation. The paired
-check remains synthetic and makes no production or commerce write. Shopify
-CLI checks remain documented in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+beside this repository, `npm run verify:paired` also runs the versioned
+[20-journey paired E2E release harness](evals/paired-v0/README.md). It records
+the exact Git SHA of both checkouts and the dataset hash in a sanitized ignored
+artifact. The paired check remains synthetic, blocks non-loopback network
+requests, and makes no production or supported commerce write. Shopify CLI
+checks remain documented in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 > [!NOTE]
 > The local demo provides four deterministic synthetic scenarios: catalog

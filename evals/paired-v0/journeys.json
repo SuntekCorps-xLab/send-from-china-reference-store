@@ -1,0 +1,188 @@
+{
+  "schema_version": "send-from-china-paired-e2e-dataset/v0",
+  "dataset_version": "paired-e2e-v0.1.0",
+  "provenance": "public_synthetic",
+  "description": "Twenty deterministic public-synthetic journeys for the paired Agent Core and Reference Store local release boundary.",
+  "journeys": [
+    {
+      "case_id": "paired_v0_01_capabilities",
+      "title": "Public capability discovery declares the read-only boundary",
+      "category": "capability",
+      "action": "capability_discovery",
+      "execution_path": "paired_loopback",
+      "fixture": "public_capabilities",
+      "expected_status": "capabilities_declared"
+    },
+    {
+      "case_id": "paired_v0_02_sandbox_status",
+      "title": "Sandbox status identifies synthetic data and no writes",
+      "category": "capability",
+      "action": "sandbox_status",
+      "execution_path": "paired_loopback",
+      "fixture": "sandbox_boundary",
+      "expected_status": "synthetic_read_only"
+    },
+    {
+      "case_id": "paired_v0_03_http_results",
+      "title": "Authenticated HTTP Search Contract v2 returns a fixture match",
+      "category": "http",
+      "action": "http_v2_results",
+      "execution_path": "paired_loopback",
+      "fixture": "desk_organizer_match",
+      "expected_status": "results"
+    },
+    {
+      "case_id": "paired_v0_04_http_no_match",
+      "title": "Authenticated HTTP Search Contract v2 preserves a terminal miss",
+      "category": "http",
+      "action": "http_v2_no_match",
+      "execution_path": "paired_loopback",
+      "fixture": "absent_product",
+      "expected_status": "no_match"
+    },
+    {
+      "case_id": "paired_v0_05_http_needs_clarification",
+      "title": "Reference BFF preserves a valid needs-clarification state",
+      "category": "http",
+      "action": "http_v2_needs_clarification",
+      "execution_path": "in_process_bff_synthetic_state",
+      "fixture": "synthetic_missing_material",
+      "expected_status": "needs_clarification"
+    },
+    {
+      "case_id": "paired_v0_06_http_degraded",
+      "title": "Reference BFF preserves a valid degraded state without calling it a miss",
+      "category": "http",
+      "action": "http_v2_degraded",
+      "execution_path": "in_process_bff_synthetic_state",
+      "fixture": "synthetic_retrieval_unavailable",
+      "expected_status": "degraded"
+    },
+    {
+      "case_id": "paired_v0_07_mcp_discovery",
+      "title": "Sandbox MCP discovery exposes the bounded tool catalog",
+      "category": "mcp",
+      "action": "mcp_discovery",
+      "execution_path": "paired_loopback",
+      "fixture": "mcp_tool_catalog",
+      "expected_status": "tools_listed"
+    },
+    {
+      "case_id": "paired_v0_08_mcp_search",
+      "title": "Sandbox MCP product search returns a non-purchasable fixture result",
+      "category": "mcp",
+      "action": "mcp_search",
+      "execution_path": "paired_loopback",
+      "fixture": "desk_organizer_match",
+      "expected_status": "results"
+    },
+    {
+      "case_id": "paired_v0_09_bff_chat_results",
+      "title": "Storefront BFF chat reaches Agent Core without exposing its key",
+      "category": "bff",
+      "action": "bff_chat_results",
+      "execution_path": "paired_loopback",
+      "fixture": "desk_organizer_match",
+      "expected_status": "results"
+    },
+    {
+      "case_id": "paired_v0_10_bff_chat_no_match",
+      "title": "Storefront BFF chat keeps a filtered miss explicit",
+      "category": "bff",
+      "action": "bff_chat_no_match",
+      "execution_path": "paired_loopback",
+      "fixture": "filtered_catalog_miss",
+      "expected_status": "no_match"
+    },
+    {
+      "case_id": "paired_v0_11_bff_search_results",
+      "title": "Storefront BFF forwards a complete Search Contract v2 request",
+      "category": "bff",
+      "action": "bff_search_results",
+      "execution_path": "paired_loopback",
+      "fixture": "desk_organizer_match",
+      "expected_status": "results"
+    },
+    {
+      "case_id": "paired_v0_12_bff_search_no_match",
+      "title": "Storefront BFF preserves terminal no-match search scope",
+      "category": "bff",
+      "action": "bff_search_no_match",
+      "execution_path": "paired_loopback",
+      "fixture": "absent_product",
+      "expected_status": "no_match"
+    },
+    {
+      "case_id": "paired_v0_13_origin_rejection",
+      "title": "Storefront BFF rejects an unapproved browser origin",
+      "category": "security",
+      "action": "origin_rejection",
+      "execution_path": "paired_loopback",
+      "fixture": "unapproved_origin",
+      "expected_status": "origin_rejected"
+    },
+    {
+      "case_id": "paired_v0_14_auth_rejection",
+      "title": "Canonical Agent Core search rejects missing and invalid credentials",
+      "category": "security",
+      "action": "authentication_rejection",
+      "execution_path": "paired_loopback",
+      "fixture": "invalid_credentials",
+      "expected_status": "authentication_rejected"
+    },
+    {
+      "case_id": "paired_v0_15_credential_isolation",
+      "title": "Browser-safe responses and pages do not contain the tenant credential",
+      "category": "security",
+      "action": "credential_isolation",
+      "execution_path": "paired_loopback",
+      "fixture": "browser_surfaces",
+      "expected_status": "credential_isolated"
+    },
+    {
+      "case_id": "paired_v0_16_purchase_link_separation",
+      "title": "A browse URL is not promoted to purchase evidence",
+      "category": "boundary",
+      "action": "purchase_link_separation",
+      "execution_path": "paired_loopback",
+      "fixture": "derived_browse_link",
+      "expected_status": "purchase_link_separated"
+    },
+    {
+      "case_id": "paired_v0_17_cursor_pagination",
+      "title": "Search Contract v2 cursor advances without result overlap",
+      "category": "http",
+      "action": "cursor_pagination",
+      "execution_path": "paired_loopback",
+      "fixture": "multi_result_query",
+      "expected_status": "cursor_advanced"
+    },
+    {
+      "case_id": "paired_v0_18_cursor_refine_rejection",
+      "title": "A cursor cannot be reused after the normalized intent changes",
+      "category": "security",
+      "action": "cursor_refine_rejection",
+      "execution_path": "paired_loopback",
+      "fixture": "cursor_bound_to_intent",
+      "expected_status": "cursor_rejected"
+    },
+    {
+      "case_id": "paired_v0_19_agent_core_no_write",
+      "title": "Agent Core exposes no cart checkout order or payment write route",
+      "category": "boundary",
+      "action": "agent_core_no_write",
+      "execution_path": "paired_loopback",
+      "fixture": "common_write_routes",
+      "expected_status": "writes_unavailable"
+    },
+    {
+      "case_id": "paired_v0_20_storefront_no_write",
+      "title": "Reference demo exposes no cart checkout order or payment write route",
+      "category": "boundary",
+      "action": "storefront_no_write",
+      "execution_path": "paired_loopback",
+      "fixture": "common_write_routes",
+      "expected_status": "writes_unavailable"
+    }
+  ]
+}

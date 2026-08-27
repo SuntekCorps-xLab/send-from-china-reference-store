@@ -20,5 +20,10 @@ Record the completed settings and links in the release review.
 8. Repeat the zero-account quickstart from a clean external checkout and verify
    that Demo mode, illustrative cards, and unsupported carrier rates are
    visible without reading implementation code.
-9. Create the `v1.0.0` release from the exact reviewed commit and link its CI
+9. Check out the intended Agent Core commit beside this repository, run
+   `npm run verify:paired`, and retain the sanitized paired E2E artifact as
+   review evidence. Require 20/20 passing journeys, zero external network
+   requests, two clean working trees, and exact commit SHAs matching the
+   release candidates.
+10. Create the `v1.0.0` release from the exact reviewed commit and link its CI
    and security evidence.
