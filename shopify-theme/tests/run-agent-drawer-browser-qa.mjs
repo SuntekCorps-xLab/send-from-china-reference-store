@@ -16,22 +16,43 @@ const [drawerJs, drawerCss] = await Promise.all([
 const fixtureServer = await startFixture();
 const profileDir = await mkdtemp(path.join(os.tmpdir(), "wp-agent-drawer-qa-"));
 const debugPort = await freePort();
+const chromeDiagnostics = [];
+let chromeLaunchError;
 const chrome = spawn(chromePath, [
   "--headless",
   "--no-sandbox",
   "--disable-gpu",
+  "--disable-gpu-compositing",
+  "--use-gl=swiftshader",
+  "--enable-unsafe-swiftshader",
+  "--disable-features=Vulkan,WebGPU",
+  "--disable-gpu-shader-disk-cache",
+  "--disable-dev-shm-usage",
   "--disable-extensions",
   "--disable-background-networking",
+  "--disable-component-update",
+  "--disable-default-apps",
+  "--disable-sync",
+  "--metrics-recording-only",
   "--no-first-run",
+  "--no-default-browser-check",
+  "--remote-allow-origins=*",
   `--remote-debugging-port=${debugPort}`,
   `--user-data-dir=${profileDir}`,
   "about:blank",
-], { stdio: "ignore", windowsHide: true });
+], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+chrome.once("error", error => { chromeLaunchError = error; });
+for (const stream of [chrome.stdout, chrome.stderr]) {
+  stream?.on("data", chunk => {
+    const message = String(chunk || "").trim();
+    if (message) chromeDiagnostics.push(message);
+  });
+}
 let client;
 
 try {
   await mkdir(artifactDir, { recursive: true });
-  const endpoint = await waitForPageEndpoint(debugPort);
+  const endpoint = await waitForPageEndpoint(debugPort, chrome);
   client = await connect(endpoint.webSocketDebuggerUrl);
   await client.send("Page.enable");
   await client.send("Runtime.enable");
@@ -40,6 +61,10 @@ try {
   results.push(await runCase(client, { name: "desktop", width: 1440, height: 1000, mobile: false }));
   results.push(await runCase(client, { name: "mobile", width: 390, height: 844, mobile: true }));
   console.log(JSON.stringify({ ok: true, cases: results }, null, 2));
+} catch (error) {
+  const diagnostics = chromeDiagnostics.slice(-8).join("\n");
+  if (diagnostics) error.message = `${error.message}\nChrome diagnostics:\n${diagnostics}`;
+  throw error;
 } finally {
   client?.close();
   chrome.kill();
@@ -194,15 +219,20 @@ async function freePort() {
   return port;
 }
 
-async function waitForPageEndpoint(port) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+async function waitForPageEndpoint(port, chromeProcess) {
+  let lastError;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (chromeLaunchError) throw new Error(`Chrome failed to launch: ${chromeLaunchError.message}`);
+    if (chromeProcess.exitCode !== null) {
+      throw new Error(`Chrome exited before DevTools became ready (exit ${chromeProcess.exitCode})`);
+    }
     try {
       const page = await fetch(`http://127.0.0.1:${port}/json/new?about%3Ablank`, { method: "PUT" }).then(response => response.json());
       if (page?.webSocketDebuggerUrl) return page;
-    } catch {}
+    } catch (error) { lastError = error; }
     await delay(100);
   }
-  throw new Error("Chrome DevTools endpoint did not become ready");
+  throw lastError || new Error("Chrome DevTools endpoint did not become ready");
 }
 
 function connect(url) {

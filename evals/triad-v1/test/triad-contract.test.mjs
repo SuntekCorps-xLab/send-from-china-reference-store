@@ -40,10 +40,11 @@ function sampleArtifact(overrides = {}) {
 }
 
 function cliArgs(output) {
+  const checkoutRoot = path.join(tmpdir(), "triad-checkouts");
   return [
-    "--mini", "C:/checkouts/mini-suntek",
+    "--mini", path.join(checkoutRoot, "mini-suntek"),
     "--mini-sha", SHA_A,
-    "--agent-core", "C:/checkouts/agent-core",
+    "--agent-core", path.join(checkoutRoot, "agent-core"),
     "--agent-core-sha", SHA_B,
     "--reference-store-sha", SHA_C,
     "--output", output,
@@ -83,16 +84,20 @@ test("the checked-in schemas reject unbounded dataset and artifact fields", asyn
   assert.equal(artifactSchema.properties.aggregate.properties.guarded_fetch_redirect_count.const, 0);
 });
 
-test("CLI parsing requires both repository paths, both exact SHAs, and an external absolute output", () => {
-  const parsed = parseArguments(cliArgs("C:/triad-evidence/run-001.json"));
+test("CLI parsing requires both repository paths, all three exact SHAs, and an external absolute output", () => {
+  const outputRoot = path.join(tmpdir(), "triad-evidence");
+  const parsed = parseArguments(cliArgs(path.join(outputRoot, "run-001.json")));
   assert.equal(parsed.miniSha, SHA_A);
   assert.equal(parsed.agentCoreSha, SHA_B);
   assert.equal(parsed.referenceStoreSha, SHA_C);
   assert.ok(path.isAbsolute(parsed.output));
   assert.throws(() => parseArguments(cliArgs("relative/run.json")), /absolute/u);
-  assert.throws(() => parseArguments(cliArgs("C:/triad-evidence/../run.json")), /traversal/u);
-  assert.throws(() => parseArguments(cliArgs("C:/triad-evidence/run.json").slice(0, -2)), /required/u);
-  const abbreviated = cliArgs("C:/triad-evidence/run.json");
+  assert.throws(
+    () => parseArguments(cliArgs(`${outputRoot}${path.sep}..${path.sep}run.json`)),
+    /traversal/u,
+  );
+  assert.throws(() => parseArguments(cliArgs(path.join(outputRoot, "run.json")).slice(0, -2)), /required/u);
+  const abbreviated = cliArgs(path.join(outputRoot, "run.json"));
   abbreviated[3] = "a".repeat(12);
   assert.throws(() => parseArguments(abbreviated), /exact lowercase/u);
 });
