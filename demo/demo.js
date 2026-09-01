@@ -1,45 +1,25 @@
 import {
+  bffEndpointUrl,
   formatIllustrativePrice,
+  formatVerifiedPrice,
   runtimePresentation,
-  sanitizeOptionalInspectorFields,
+  sanitizePublicErrorCode,
 } from "./public-contract.mjs";
+import {
+  createRunStore,
+  freezeRuntimeStatus,
+} from "./run-store.mjs";
 
 (() => {
-  const scenarios = {
-    catalog_match: {
-      label: "Catalog match", labButton: "✅ Catalog match", queryButton: "🎁 Desk gift query",
-      labStarter: "✅ Catalog match · practical gift under $40", queryStarter: "🎁 Sample query · practical desk gift under $40",
-      prompt: "A practical desk gift under $40",
-    },
-    terminal_miss: {
-      label: "Terminal miss", labButton: "🔎 Terminal miss", queryButton: "🧩 Unusual product query",
-      labStarter: "🔎 Terminal miss · verify no silent sourcing", queryStarter: "🧩 Sample query · an unusual, tightly specified product",
-      prompt: "A left-handed titanium curling stone with braille and solar heating",
-    },
-    needs_clarification: {
-      label: "Needs detail", labButton: "💬 Needs detail", queryButton: "♻️ Sustainable gift query",
-      labStarter: "💬 Needs detail · ask before claiming a match", queryStarter: "♻️ Sample query · a sustainable gift",
-      prompt: "Find a sustainable gift",
-    },
-    degraded: {
-      label: "Safe failure", labButton: "🛟 Safe failure", queryButton: "🏠 Small-space query",
-      labStarter: "🛟 Safe failure · keep the boundary visible", queryStarter: "🏠 Sample query · options for a small apartment",
-      prompt: "Options for a small apartment",
-    },
-  };
-
   const drawer = document.querySelector(".drawer");
   const backdrop = document.querySelector(".backdrop");
-  const conversation = document.querySelector("[data-conversation]");
-  const inspector = document.querySelector("[data-inspector]");
-  const inspectorRequest = document.querySelector("[data-inspector-request]");
-  const inspectorResponse = document.querySelector("[data-inspector-response]");
-  const inspectorStatus = document.querySelector("[data-inspector-status]");
-  const form = document.querySelector(".composer");
-  const input = document.querySelector("#message");
-  const sendButton = form.querySelector("button[type='submit'], button:not([type])");
-  let selectedScenario = "catalog_match";
-  let runtimeMode = "unknown";
+  const workbenchResults = document.querySelector("[data-workbench-results]");
+  const drawerResults = document.querySelector("[data-drawer-results]");
+  const receipt = document.querySelector("[data-runs-receipt]");
+  const runtimeBanner = document.querySelector(".runtime-banner");
+  const runtimeStatusEndpoint = bffEndpointUrl(window.location, "runtime/status");
+  const runEndpoint = bffEndpointUrl(window.location, "runs");
+  let runtimeStatus = null;
   let lastFocus = null;
 
   function makeElement(tag, className, content) {
@@ -49,308 +29,320 @@ import {
     return element;
   }
 
-  function safeText(value, fallback = "", maximum = 240) {
-    return typeof value === "string" ? value.slice(0, maximum) : fallback;
+  function resultEmpty(container, title, copy) {
+    const empty = makeElement("section", "run-empty");
+    empty.append(makeElement("strong", "", title), makeElement("p", "", copy));
+    container.replaceChildren(empty);
   }
 
-  function safeScenario(value) {
-    return Object.hasOwn(scenarios, value) ? value : selectedScenario;
+  function addFact(list, label, value) {
+    const row = makeElement("div", "result-fact");
+    row.append(makeElement("dt", "", label), makeElement("dd", "", value));
+    list.append(row);
   }
 
-  function sanitizeResponse(payload, httpStatus) {
-    const source = payload && typeof payload === "object" ? payload : {};
-    const boundaries = source.boundaries && typeof source.boundaries === "object" ? source.boundaries : {};
-    return {
-      ...sanitizeOptionalInspectorFields(source, httpStatus, Object.keys(scenarios)),
-      mode: safeText(source.mode, "unknown", 40),
-      data_source: safeText(source.data_source, "unknown", 80),
-      live_agent_core: source.live_agent_core === true,
-      reply: safeText(source.reply, "", 600),
-      results: Array.isArray(source.results) ? source.results.slice(0, 8).map((item) => ({
-        title: safeText(item?.title, "Untitled illustrative card", 120),
-        price: formatIllustrativePrice(item),
-        tag: safeText(item?.tag, "Synthetic fixture", 80),
-        emoji: safeText(item?.emoji, "📦", 8),
-        match_status: safeText(item?.match_status, "illustrative_only", 40),
-        synthetic: item?.synthetic === true,
-        illustrative: item?.illustrative === true || item?.match_status === "illustrative_only",
-        purchasable: item?.purchasable === true,
-        available: item?.available === true,
-        shipping_rates: item?.shipping_rates === true,
-      })) : [],
-      trace: Array.isArray(source.trace) ? source.trace.slice(0, 8).map((step) => ({
-        label: safeText(step?.label, "Contract step", 80),
-        state: safeText(step?.state, "unknown", 24),
-      })) : [],
-      boundaries: {
-        synthetic: source.synthetic === true || boundaries.synthetic === true,
-        illustrative: source.illustrative === true || boundaries.illustrative === true,
-        purchasable: source.purchasable === true || boundaries.purchasable === true,
-        commerce_writes: source.commerce_writes === true || boundaries.commerce_writes === true,
-        shipping_rates: source.shipping_rates === true || boundaries.shipping_rates === true,
-      },
-    };
-  }
-
-  function setInspector(requestBody, responseBody, status) {
-    inspectorRequest.textContent = JSON.stringify(requestBody, null, 2);
-    inspectorResponse.textContent = JSON.stringify(responseBody, null, 2);
-    inspectorStatus.textContent = status;
-    inspector.open = true;
-  }
-
-  function setScenario(name) {
-    selectedScenario = safeScenario(name);
-    document.querySelectorAll("[data-open-scenario]").forEach((button) => {
-      const selected = button.dataset.openScenario === selectedScenario;
-      button.classList.toggle("is-selected", selected);
-      button.setAttribute("aria-pressed", String(selected));
-    });
-    document.querySelectorAll("[data-scenario-label]").forEach((label) => {
-      label.textContent = runtimeMode === "connected_local_sandbox"
-        ? "Sample query"
-        : scenarios[selectedScenario].label;
-    });
-  }
-
-  function updateQueryModeCopy(connected) {
-    document.querySelector("[data-query-mode-title]").textContent = connected ? "Sample queries" : "Scenario lab";
-    document.querySelector("[data-query-mode-copy]").textContent = connected
-      ? "The returned contract decides the journey"
-      : "Pick a bounded contract state";
-    document.querySelector("[data-query-intro-title]").textContent = connected
-      ? "Try a sample query"
-      : "Run a known contract state";
-    document.querySelector("[data-query-intro-copy]").textContent = connected
-      ? "Agent Core returns the actual contract state; no query triggers a purchase or sourcing task."
-      : "These prompts select behavior; they do not trigger a purchase or sourcing task.";
-    document.querySelector("[data-query-kind]").textContent = connected ? "Query" : "Scenario";
-    document.querySelectorAll("[data-open-scenario]").forEach((button) => {
-      button.textContent = connected
-        ? scenarios[button.dataset.openScenario].queryButton
-        : scenarios[button.dataset.openScenario].labButton;
-    });
-    document.querySelectorAll("[data-starter]").forEach((button) => {
-      button.textContent = connected
-        ? scenarios[button.dataset.scenario].queryStarter
-        : scenarios[button.dataset.scenario].labStarter;
-    });
-    if (inspectorStatus.textContent.startsWith("Waiting for")) {
-      inspectorStatus.textContent = connected ? "Waiting for a sample query" : "Waiting for a scenario";
-      inspectorRequest.textContent = JSON.stringify(connected
-        ? { messages: [] }
-        : { messages: [], scenario: selectedScenario }, null, 2);
+  function renderProduct(product, live) {
+    const card = makeElement("article", `result ${live ? "is-shopify" : "is-synthetic"}`);
+    const provenance = makeElement(
+      "small",
+      "result-provenance",
+      live ? "SHOPIFY VERIFIED · READ-ONLY" : "SYNTHETIC · ILLUSTRATIVE",
+    );
+    const heading = makeElement("h3", "", product.title);
+    const summary = makeElement("p", "result-summary", product.summary || "No summary supplied.");
+    const facts = makeElement("dl", "result-facts");
+    if (live) {
+      addFact(facts, "Shopify verified price", formatVerifiedPrice(product));
+      addFact(facts, "Shopify availableForSale", String(product.available_for_sale));
+      addFact(facts, "Verified at", product.shopify_verified_at);
+      addFact(facts, "Product URL", product.product_url);
+    } else {
+      addFact(facts, "Illustrative price", formatIllustrativePrice(product));
+      addFact(facts, "Availability", "Illustrative only · no Shopify availability claim");
+      addFact(facts, "Product URL", "No verified Shopify product link");
     }
-    setScenario(selectedScenario);
+    const flags = makeElement("div", "result-flags");
+    flags.append(
+      makeElement("em", "", "NON-TRANSACTIONAL"),
+      makeElement("em", "", "NOT PURCHASABLE"),
+      makeElement("em", "", "WRITES DISABLED"),
+      makeElement("em", "", "NO SHIPPING RATES"),
+    );
+    card.append(provenance, heading, summary, facts, flags);
+    if (live) {
+      const link = makeElement("a", "verified-product-link", "Open verified Shopify product");
+      link.href = product.product_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      card.append(link);
+    } else {
+      card.append(makeElement("p", "synthetic-note", "Illustrative fixture; no live Shopify fact is asserted."));
+    }
+    return card;
   }
 
-  function open(brief = "") {
+  function renderRun(container, run) {
+    const live = run.runtime.mode === "shopify_read_only";
+    const heading = makeElement("header", "run-result-heading");
+    heading.append(
+      makeElement("strong", "", live ? "Shopify read-only result" : "Synthetic result"),
+      makeElement("span", "", `${run.search.status} · ${run.search.trace_id}`),
+    );
+    const boundary = makeElement(
+      "p",
+      "run-boundary",
+      "Read-only result. No cart, checkout, order, payment, shipping quote, or inventory promise was created.",
+    );
+    const body = makeElement("div", "result-row");
+    for (const product of run.search.results) body.append(renderProduct(product, live));
+    if (!run.search.results.length) {
+      body.append(makeElement(
+        "p",
+        "result-empty-copy",
+        run.search.status === "needs_clarification"
+          ? "More criteria are required. No result or fallback was invented."
+          : run.search.status === "degraded"
+            ? "Search is degraded. No fallback result was invented."
+            : "The bounded search returned no match. No fallback result was invented.",
+      ));
+    }
+    container.replaceChildren(heading, boundary, body);
+  }
+
+  function renderReceipt(run) {
+    receipt.textContent = JSON.stringify(run, null, 2);
+  }
+
+  const runStore = createRunStore({
+    renderWorkbench: (run) => renderRun(workbenchResults, run),
+    renderDrawer: (run) => renderRun(drawerResults, run),
+    renderReceipt,
+  });
+
+  function installDiagnostics() {
+    const diagnostics = {};
+    Object.defineProperties(diagnostics, {
+      getActiveRun: {
+        value: () => runStore.getActiveRun(),
+        enumerable: true,
+      },
+      lastRenderIdentity: {
+        get: () => runStore.getLastRenderIdentity(),
+        enumerable: true,
+      },
+    });
+    Object.defineProperty(window, "__referenceStoreDemo", {
+      value: Object.freeze(diagnostics),
+      configurable: false,
+      enumerable: false,
+      writable: false,
+    });
+  }
+
+  function setText(selector, value) {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.textContent = value;
+    });
+  }
+
+  function updateRunControls(enabled) {
+    document.querySelectorAll("[data-run-button]").forEach((button) => {
+      button.disabled = !enabled;
+    });
+  }
+
+  function applyRuntimeStatus(parsedPayload) {
+    const runtime = freezeRuntimeStatus(parsedPayload);
+    const presentation = runtimePresentation(runtime);
+    runtimeStatus = runtime;
+    runtimeBanner.dataset.mode = runtime.mode;
+    runtimeBanner.dataset.connected = String(runtime.connected);
+    runtimeBanner.dataset.runtimeReady = "true";
+    setText("[data-runtime-label]", presentation.modeLabel);
+    setText("[data-runtime-connection]", presentation.connectionLabel);
+    setText("[data-runtime-checked]", presentation.checkedAtLabel);
+    setText("[data-runtime-quota]", presentation.quotaLabel);
+    setText("[data-runtime-writes]", presentation.writesLabel);
+    setText("[data-drawer-mode]", presentation.drawerLabel);
+    setText("[data-core-status]", presentation.coreLabel);
+    setText("[data-authorization-status]", presentation.authorizationLabel);
+    setText("[data-runtime-contract]", `${runtime.contract} ← ${runtime.source_contract}`);
+    document.querySelectorAll("[data-mode-option]").forEach((option) => {
+      const active = option.dataset.modeOption === runtime.mode;
+      option.classList.toggle("is-active", active);
+      option.classList.toggle("is-unavailable", active && !runtime.connected);
+      if (active) option.setAttribute("aria-current", "true");
+      else option.removeAttribute("aria-current");
+    });
+    updateRunControls(runtime.connected
+      && runtime.capabilities.catalog_search
+      && runtime.capabilities.search_contract_v2);
+    return runtime;
+  }
+
+  function showRuntimeUnavailable() {
+    runtimeStatus = null;
+    runtimeBanner.dataset.mode = "unavailable";
+    runtimeBanner.dataset.connected = "false";
+    runtimeBanner.dataset.runtimeReady = "error";
+    setText("[data-runtime-label]", "Runtime unavailable");
+    setText("[data-runtime-connection]", "Not connected · no mode asserted");
+    setText("[data-runtime-checked]", "Not verified");
+    setText("[data-runtime-quota]", "Unavailable");
+    setText("[data-runtime-writes]", "Writes disabled");
+    setText("[data-drawer-mode]", "RUNTIME UNAVAILABLE · NO FALLBACK");
+    setText("[data-core-status]", "Unavailable · no fallback");
+    setText(
+      "[data-authorization-status]",
+      "Status could not be verified. Configure authorization only in the BFF environment or secret provider.",
+    );
+    updateRunControls(false);
+  }
+
+  async function responseJson(response) {
+    try {
+      return await response.json();
+    } catch {
+      throw new TypeError("invalid_bff_response");
+    }
+  }
+
+  async function loadRuntimeStatus() {
+    try {
+      if (!runtimeStatusEndpoint) throw new TypeError("runtime_status_unavailable");
+      const response = await fetch(runtimeStatusEndpoint, {
+        method: "GET",
+        headers: { accept: "application/json" },
+        credentials: "omit",
+        cache: "no-store",
+      });
+      const payload = await responseJson(response);
+      if (!response.ok) throw new TypeError("runtime_status_unavailable");
+      applyRuntimeStatus(payload);
+    } catch {
+      showRuntimeUnavailable();
+    }
+  }
+
+  function setRunBusy(busy) {
+    document.querySelectorAll("[data-run-button]").forEach((button) => {
+      button.disabled = busy || !runtimeStatus?.connected;
+    });
+    document.querySelectorAll("[data-run-form]").forEach((form) => {
+      form.setAttribute("aria-busy", String(busy));
+    });
+  }
+
+  function setRunAlert(message = "") {
+    document.querySelectorAll("[data-run-alert]").forEach((alert) => {
+      alert.textContent = message;
+      alert.hidden = !message;
+    });
+  }
+
+  function renderRunFailure(code) {
+    const copy = `The BFF stopped safely (${code}). No synthetic fallback or external action was attempted.`;
+    setRunAlert(copy);
+    if (!runStore.getActiveRun()) {
+      resultEmpty(workbenchResults, "Read-only run unavailable", copy);
+      resultEmpty(drawerResults, "Read-only run unavailable", copy);
+    }
+  }
+
+  async function executeRun(query) {
+    if (!runtimeStatus?.connected) {
+      renderRunFailure("runtime_not_configured");
+      return;
+    }
+    setRunBusy(true);
+    setRunAlert("Running a bounded read-only search. Waiting for one closed BFF response.");
+    if (!runStore.getActiveRun()) {
+      resultEmpty(workbenchResults, "Running bounded search…", "Waiting for one closed BFF response.");
+      resultEmpty(drawerResults, "Running bounded search…", "Waiting for the same closed BFF response.");
+    }
+    try {
+      if (!runEndpoint) throw new TypeError("runtime_not_configured");
+      const response = await fetch(runEndpoint, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        credentials: "omit",
+        cache: "no-store",
+        body: JSON.stringify({ query }),
+      });
+      const payload = await responseJson(response);
+      if (!response.ok) {
+        if (payload?.runtime) applyRuntimeStatus(payload.runtime);
+        else showRuntimeUnavailable();
+        throw new TypeError(sanitizePublicErrorCode(payload?.error));
+      }
+      const run = runStore.setActiveRun(payload);
+      setRunAlert();
+      applyRuntimeStatus(run.runtime);
+    } catch (error) {
+      renderRunFailure(sanitizePublicErrorCode(error?.message));
+    } finally {
+      setRunBusy(false);
+    }
+  }
+
+  function openDrawer(brief = "") {
     lastFocus = document.activeElement;
     drawer.hidden = false;
     drawer.setAttribute("aria-hidden", "false");
     backdrop.hidden = false;
     document.documentElement.style.overflow = "hidden";
-    document.querySelectorAll("[data-open-agent]").forEach((button) => button.setAttribute("aria-expanded", "true"));
+    document.querySelectorAll("[data-open-agent]").forEach((button) => {
+      button.setAttribute("aria-expanded", "true");
+    });
+    const input = drawer.querySelector("[data-run-query]");
     if (brief) input.value = brief;
-    setTimeout(() => input.focus(), 0);
+    input.focus();
   }
 
-  function close() {
+  function closeDrawer() {
     drawer.hidden = true;
     drawer.setAttribute("aria-hidden", "true");
     backdrop.hidden = true;
     document.documentElement.style.overflow = "";
-    document.querySelectorAll("[data-open-agent]").forEach((button) => button.setAttribute("aria-expanded", "false"));
+    document.querySelectorAll("[data-open-agent]").forEach((button) => {
+      button.setAttribute("aria-expanded", "false");
+    });
     if (lastFocus instanceof HTMLElement) lastFocus.focus();
-  }
-
-  function insertBeforeInspector(element) {
-    conversation.insertBefore(element, inspector);
-  }
-
-  function renderTrace(container, steps) {
-    container.replaceChildren();
-    steps.forEach((step) => {
-      container.append(makeElement("span", step.state === "complete" ? "is-complete" : "", step.label));
-    });
-  }
-
-  function renderResults(container, results, status) {
-    if (!results.length) {
-      const empty = makeElement("div", "result-empty");
-      const emptyTitles = {
-        no_match: "🔎 Terminal catalog miss",
-        needs_clarification: "💬 More detail is required",
-        degraded: "🛟 Service state is degraded",
-        error: "🛟 Request stopped safely",
-        sandbox_not_ready: "🛟 Connected sandbox is not ready",
-      };
-      empty.append(
-        makeElement("strong", "", emptyTitles[status] || "No illustrative cards returned"),
-        makeElement("span", "", "No sourcing task, cart, order, payment, or shipping request was started."),
-      );
-      container.append(empty);
-      return;
-    }
-
-    const row = makeElement("div", "result-row");
-    results.forEach((product) => {
-      const card = makeElement("article", "result");
-      card.append(
-        makeElement("small", "", "🧬 SYNTHETIC · ILLUSTRATIVE"),
-        makeElement("b", "", `${product.emoji} ${product.title}`),
-        makeElement("span", "", product.tag),
-        makeElement("strong", "", product.price),
-      );
-      const flags = makeElement("div", "result-flags");
-      flags.append(
-        makeElement("em", "", "NOT PURCHASABLE"),
-        makeElement("em", "", "NO SHIPPING RATE"),
-        makeElement("em", "", "NO WRITE"),
-      );
-      card.append(flags);
-      row.append(card);
-    });
-    container.append(row);
-  }
-
-  function applyRuntimeStatus(payload) {
-    const presentation = runtimePresentation(payload);
-    const { mode, connected, verified } = presentation;
-    runtimeMode = presentation.mode;
-    const banner = document.querySelector(".runtime-banner");
-    banner.dataset.mode = presentation.bannerMode;
-    document.querySelector("[data-runtime-label]").textContent = presentation.runtimeLabel;
-    document.querySelector("[data-drawer-mode]").textContent = presentation.drawerLabel;
-    document.querySelector("[data-core-status]").textContent = presentation.coreLabel;
-    updateQueryModeCopy(connected);
-    document.querySelectorAll("[data-mode-option]").forEach((option) => {
-      const active = option.dataset.modeOption === mode;
-      option.classList.toggle("is-active", active);
-      option.classList.toggle("is-unavailable", active && connected && !verified);
-      if (active) option.setAttribute("aria-current", "true");
-      else option.removeAttribute("aria-current");
-    });
-  }
-
-  async function loadRuntimeStatus() {
-    try {
-      const response = await fetch("/api/status", { headers: { accept: "application/json" } });
-      const payload = await response.json();
-      if (!response.ok) throw new Error("status_unavailable");
-      applyRuntimeStatus(payload);
-    } catch {
-      document.querySelector("[data-runtime-label]").textContent = "Local runtime status unavailable";
-      document.querySelector("[data-drawer-mode]").textContent = "LOCAL SERVICE UNAVAILABLE";
-      document.querySelector("[data-core-status]").textContent = "Unavailable";
-    }
   }
 
   document.querySelectorAll("[data-open-agent]").forEach((button) => {
     button.setAttribute("aria-expanded", "false");
-    button.addEventListener("click", () => open());
+    button.addEventListener("click", () => openDrawer(button.dataset.query || ""));
   });
-  document.querySelectorAll("[data-close-agent]").forEach((button) => button.addEventListener("click", close));
-  document.querySelectorAll("[data-open-scenario]").forEach((button) => button.addEventListener("click", () => {
-    setScenario(button.dataset.openScenario);
-    open(scenarios[selectedScenario].prompt);
-  }));
-  document.querySelectorAll("[data-starter]").forEach((button) => button.addEventListener("click", () => {
-    setScenario(button.dataset.scenario);
-    input.value = scenarios[selectedScenario].prompt;
-    form.requestSubmit();
-  }));
+  document.querySelectorAll("[data-close-agent]").forEach((button) => {
+    button.addEventListener("click", closeDrawer);
+  });
+  document.querySelectorAll("[data-run-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = form.querySelector("[data-run-query]");
+      const query = input.value.trim().slice(0, 300);
+      if (query) executeRun(query);
+    });
+  });
+  document.querySelectorAll("[data-starter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = drawer.querySelector("[data-run-query]");
+      input.value = button.dataset.starter;
+      drawer.querySelector("[data-run-form]").requestSubmit();
+    });
+  });
   document.querySelector("[data-catalog-search]").addEventListener("submit", (event) => {
     event.preventDefault();
-    setScenario("catalog_match");
-    open(event.currentTarget.querySelector("input").value.trim() || scenarios.catalog_match.prompt);
+    const query = event.currentTarget.querySelector("input").value.trim();
+    openDrawer(query || "A practical desk gift under $40");
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !drawer.hidden) close();
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      form.requestSubmit();
-    }
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const message = input.value.trim().slice(0, 120);
-    if (!message || sendButton.disabled) return;
-    input.value = "";
-    conversation.querySelector(".welcome")?.remove();
-
-    const requestBody = { messages: [{ role: "user", content: message }] };
-    if (runtimeMode === "synthetic_demo") requestBody.scenario = selectedScenario;
-    setInspector(requestBody, { status: "waiting_for_browser_safe_response" }, "Request sent · sanitized view");
-
-    const user = makeElement("article", "turn user", message);
-    insertBeforeInspector(user);
-    const pending = makeElement("article", "turn agent");
-    pending.setAttribute("aria-busy", "true");
-    pending.append(
-      makeElement("small", "", "SEND FROM CHINA · SANDBOX"),
-      makeElement("p", "", "Applying the demo boundary…"),
-    );
-    const trace = makeElement("div", "trace");
-    trace.append(
-      makeElement("span", "is-active", "Request"),
-      makeElement("span", "", "Policy"),
-      makeElement("span", "", "Result"),
-    );
-    pending.append(trace);
-    insertBeforeInspector(pending);
-    conversation.scrollTop = conversation.scrollHeight;
-    sendButton.disabled = true;
-
-    let failureStatus = "error";
-    let failureError = "";
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      const payload = await response.json();
-      const safePayload = sanitizeResponse(payload, response.status);
-      setInspector(requestBody, safePayload, "Allowlisted fields only");
-      if (!response.ok) {
-        failureError = safePayload.error;
-        failureStatus = safePayload.error || safePayload.status || "error";
-        throw new Error(failureStatus);
-      }
-
-      pending.querySelector("p").textContent = safePayload.reply || "The sandbox returned a browser-safe contract state.";
-      renderTrace(trace, safePayload.trace);
-      renderResults(pending, safePayload.results, safePayload.status);
-    } catch {
-      pending.querySelector("p").textContent = failureError
-        ? `The sandbox stopped safely (${failureError}). No fallback result was invented and no external action was attempted.`
-        : "The local demo service is unavailable. No fallback result was invented and no external action was attempted.";
-      renderTrace(trace, [
-        { label: "Request received", state: "complete" },
-        { label: "Safe failure shown", state: "complete" },
-      ]);
-      renderResults(pending, [], failureStatus);
-      if (inspectorStatus.textContent !== "Allowlisted fields only") {
-        setInspector(requestBody, {
-          status: "local_service_unavailable",
-          illustrative: true,
-          purchasable: false,
-          shipping_rates: false,
-          commerce_writes: false,
-        }, "Safe failure · no raw payload");
-      }
-    } finally {
-      pending.setAttribute("aria-busy", "false");
-      sendButton.disabled = false;
-      conversation.scrollTop = conversation.scrollHeight;
-    }
+    if (event.key === "Escape" && !drawer.hidden) closeDrawer();
   });
 
   drawer.setAttribute("aria-hidden", "true");
-  setScenario(selectedScenario);
+  updateRunControls(false);
+  installDiagnostics();
   loadRuntimeStatus();
 })();

@@ -33,6 +33,35 @@ const PRODUCTS = Object.freeze([
   }),
 ]);
 
+const RUNTIME_CHECKED_AT = "2026-08-31T00:00:00.000Z";
+
+const RUNTIME_PRODUCTS = Object.freeze([
+  Object.freeze({
+    public_id: "synthetic_demo_walnut_organizer",
+    handle: "walnut-desk-organizer",
+    title: "Walnut desk organizer",
+    summary: "Synthetic natural-wood example",
+    image: "",
+    price: Object.freeze({ amount: 29, currency: "USD" }),
+  }),
+  Object.freeze({
+    public_id: "synthetic_demo_reading_light",
+    handle: "compact-reading-light",
+    title: "Compact reading light",
+    summary: "Synthetic small-space example",
+    image: "",
+    price: Object.freeze({ amount: 34, currency: "USD" }),
+  }),
+  Object.freeze({
+    public_id: "synthetic_demo_pour_over",
+    handle: "ceramic-pour-over-set",
+    title: "Ceramic pour-over set",
+    summary: "Synthetic gift example",
+    image: "",
+    price: Object.freeze({ amount: 42, currency: "USD" }),
+  }),
+]);
+
 const SCENARIOS = new Set(["catalog_match", "terminal_miss", "needs_clarification", "degraded"]);
 
 function publicProduct(product) {
@@ -74,6 +103,109 @@ export function simulatedStatus() {
     data_source: "offline_fixtures",
     live_agent_core: false,
     ...BOUNDARIES,
+  };
+}
+
+export function simulatedRuntimeStatus() {
+  return {
+    contract: "reference-store-runtime-status/v1",
+    source_contract: "shopify-live-sandbox-status/v1",
+    mode: "synthetic_local_sandbox",
+    connected: true,
+    credential_state: "mock_ready",
+    data_source: "synthetic_fixture",
+    api_version: null,
+    quota: {
+      limit: 120,
+      remaining: 120,
+      window_seconds: 60,
+      concurrency_limit: 8,
+      reset_at: null,
+    },
+    writes_disabled: true,
+    capabilities: {
+      doctor: true,
+      catalog_search: true,
+      search_contract_v2: true,
+      product_detail: true,
+      storefront_health: false,
+    },
+    checked_at: RUNTIME_CHECKED_AT,
+    error_code: null,
+    boundaries: {
+      non_transactional: true,
+      purchasable: false,
+      shipping_rates: false,
+      commerce_writes: false,
+      credential_exposed: false,
+    },
+  };
+}
+
+export function simulatedRuntimeDoctor() {
+  return {
+    contract: "reference-store-runtime-doctor/v1",
+    ok: true,
+    runtime: simulatedRuntimeStatus(),
+    checks: {
+      deployment_mode: true,
+      agent_core_status: true,
+      expected_mode: true,
+      credential_isolated: true,
+      writes_disabled: true,
+    },
+  };
+}
+
+function runtimeProduct(product) {
+  return {
+    ...product,
+    price: { ...product.price },
+    available_for_sale: false,
+    product_url: "",
+    shopify_verified_at: null,
+    synthetic: true,
+    non_transactional: true,
+    purchasable: false,
+    writes: false,
+    shipping_rates: false,
+  };
+}
+
+export function simulatedRun(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const fields = new Set(["query", "limit", "cursor"]);
+  if (Object.keys(payload).some((field) => !fields.has(field))) return null;
+  const query = typeof payload.query === "string" ? payload.query.trim() : "";
+  if (!query || query.length > 300) return null;
+  const limit = payload.limit === undefined ? 3 : payload.limit;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) return null;
+  if (payload.cursor !== undefined && payload.cursor !== null
+    && (typeof payload.cursor !== "string" || payload.cursor.length > 1_000)) return null;
+
+  const legacy = simulatedSearch({ q: query });
+  const results = legacy.results.length
+    ? RUNTIME_PRODUCTS.slice(0, limit).map(runtimeProduct)
+    : [];
+  return {
+    contract: "reference-store-read-run/v1",
+    runtime: simulatedRuntimeStatus(),
+    search: {
+      contract_version: legacy.contract_version,
+      trace_id: legacy.trace_id,
+      status: legacy.status,
+      normalized_intent: legacy.normalized_intent,
+      relaxations: legacy.relaxations,
+      missing_criteria: legacy.missing_criteria,
+      results,
+      pagination: {
+        limit,
+        cursor: payload.cursor ?? null,
+        next_cursor: null,
+        has_more: false,
+      },
+      search_scope: legacy.search_scope,
+    },
   };
 }
 

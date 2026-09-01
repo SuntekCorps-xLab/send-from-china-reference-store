@@ -80,12 +80,18 @@ Reference Store, and it cannot activate Live Preview.
 | --- | --- | --- | --- |
 | Zero-account demo | Four deterministic local scenarios | None | Drawer states, responsive layout, sanitized contracts, and explicit truth labels |
 | Connected local sandbox | Storefront demo BFF → local Agent Core sandbox | Short-lived local token stored only in the server process | The public repositories and guarded HTTP contract working together on synthetic data |
+| Shopify development-store read-only | Storefront demo BFF → Agent Core Sandbox → Shopify Storefront API | Server environment or secret provider only | Published product, verified price, `availableForSale`, and same-store product URL truth; no writes or transaction claims |
 | Production commerce | Merchant-owned Shopify and service adapters | Merchant-managed | Variants, cart, checkout, identity, and any real shipping integration |
 
 Run `npm run demo:platform` with Agent Core checked out beside this repository
 to start the connected local sandbox. See the
 [Demo and Sandbox Guide](docs/DEMO_AND_SANDBOX.md) for mode boundaries,
 scenario expectations, and bring-your-own runtime setup.
+
+Run `npm run demo:shopify` only with a separately authorized development store.
+It is an explicit read-only server mode and never silently falls back to
+synthetic data. See the
+[Shopify read-only sandbox guide](docs/SHOPIFY_READ_ONLY_SANDBOX.md).
 
 The repository does not include a carrier-rate service. Any interface that
 shows real freight must obtain package, origin, destination, and service-level
