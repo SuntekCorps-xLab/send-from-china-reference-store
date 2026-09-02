@@ -780,3 +780,129 @@ test("all public BFF responses, including health, errors, and OPTIONS, are no-st
     assert.equal(response.headers.get("set-cookie"), null);
   }
 });
+
+
+test("Shopify App Proxy preserves method and body for status, doctor, and read-only runs", async (context) => {
+  const secret = "visibly_fake_shopify_app_proxy_secret";
+  const shop = "reference-sandbox.myshopify.com";
+  const upstreamRequests = [];
+  sequenceFetch(context, [
+    jsonResponse(statusFixture("shopify_read_only")),
+    jsonResponse(statusFixture("shopify_read_only")),
+    jsonResponse(statusFixture("shopify_read_only")),
+    jsonResponse(searchFixture("shopify_read_only")),
+  ], (request) => upstreamRequests.push(request));
+  const env = runtimeEnv("shopify_read_only", {
+    BFF_DEPLOYMENT_MODE: "shopify_app_proxy",
+    SHOPIFY_APP_PROXY_SECRET: secret,
+    SHOPIFY_APP_PROXY_SHOP: shop,
+  });
+  for (const [path, method, expectedContract] of [
+    ["/api/runtime/status", "GET", "reference-store-runtime-status/v1"],
+    ["/api/runtime/doctor", "GET", "reference-store-runtime-doctor/v1"],
+    ["/api/runs", "POST", "reference-store-read-run/v1"],
+  ]) {
+    const response = await worker.fetch(new Request(signedProxyUrl(path, secret, shop,
+      Math.floor(Date.now() / 1_000), {
+        path_prefix: "/apps/reference-store",
+        logged_in_customer_id: "",
+      }), {
+      method,
+      headers: { origin: STOREFRONT, "content-type": "application/json" },
+      ...(method === "POST" ? { body: JSON.stringify({ query: "desk organizer" }) } : {}),
+    }), env);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("set-cookie"), null);
+    const payload = await response.json();
+    assert.equal(payload.contract, expectedContract);
+    const runtime = payload.runtime || payload;
+    assert.equal(runtime.mode, "shopify_read_only");
+    assert.equal(runtime.connected, true);
+    assert.equal(runtime.capabilities.catalog_search, true);
+    assert.equal(runtime.boundaries.commerce_writes, false);
+    assert.equal(JSON.stringify(payload).includes(secret), false);
+    assert.equal(JSON.stringify(payload).includes(FAKE_TOKEN), false);
+  }
+  assert.deepEqual(upstreamRequests.map((request) => [request.method, new URL(request.url).pathname]), [
+    ["GET", "/sandbox/status"], ["GET", "/sandbox/status"],
+    ["GET", "/sandbox/status"], ["POST", "/sandbox/api/search/v2"],
+  ]);
+  for (const request of upstreamRequests) {
+    assert.equal(new URL(request.url).search, "");
+    assert.equal(request.headers.get("authorization"), "Bearer " + FAKE_TOKEN);
+    assert.equal(request.headers.get("origin"), null);
+    assert.equal(request.headers.get("cookie"), null);
+  }
+  const searchInput = await upstreamRequests[3].json();
+  assert.equal(searchInput.product_identity.value, "desk organizer");
+  assert.equal(JSON.stringify(searchInput).includes("logged_in_customer_id"), false);
+});
+
+test("App Proxy canonicalizes decoded repeated parameters before sorting complete pairs", async (context) => {
+  const secret = "visibly_fake_shopify_app_proxy_secret";
+  const shop = "reference-sandbox.myshopify.com";
+  const timestamp = Math.floor(Date.now() / 1_000);
+  // Independent canonical message follows Shopify's documented full-pair sort.
+  // The hyphenated key sorts before the equals sign on its shorter sibling.
+  const message = "extra-flag=yesextra=one,two wordslogged_in_customer_id="
+    + "path_prefix=/apps/reference-storeshop=" + shop + "timestamp=" + timestamp;
+  const signature = createHmac("sha256", secret).update(message).digest("hex");
+  const query = "shop=" + shop + "&extra=one&path_prefix=%2Fapps%2Freference-store"
+    + "&extra-flag=yes&extra=two+words&logged_in_customer_id=&timestamp=" + timestamp
+    + "&signature=" + signature;
+  sequenceFetch(context, [jsonResponse(statusFixture())]);
+  const response = await worker.fetch(new Request("https://proxy.example.invalid/api/runtime/status?" + query),
+    runtimeEnv("synthetic_local_sandbox", {
+      BFF_DEPLOYMENT_MODE: "shopify_app_proxy",
+      SHOPIFY_APP_PROXY_SECRET: secret,
+      SHOPIFY_APP_PROXY_SHOP: shop,
+    }));
+  assert.equal(response.status, 200);
+});
+
+test("Shopify read-only mode cannot reopen any legacy route when deployment configuration is absent", async (context) => {
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("live configuration failure must not enter a legacy handler");
+  });
+  for (const path of ["/api/chat", "/api/search", "/api/catalog"]) {
+    const response = await localCall(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "desk organizer", messages: [{ role: "user", content: "desk organizer" }] }),
+    }, runtimeEnv("shopify_read_only", {
+      BFF_DEPLOYMENT_MODE: "",
+      AGENT_CORE_BASE_URL: "https://agent-core.example.invalid",
+      AGENT_CORE_TENANT_KEY: FAKE_TOKEN,
+    }));
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      error: "deployment_not_configured", expected_mode: "shopify_read_only",
+    });
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("signed Shopify read-only traffic cannot enter any legacy route", async (context) => {
+  const secret = "visibly_fake_shopify_app_proxy_secret";
+  const shop = "reference-sandbox.myshopify.com";
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("disabled legacy route must not reach Agent Core");
+  });
+  const env = runtimeEnv("shopify_read_only", {
+    BFF_DEPLOYMENT_MODE: "shopify_app_proxy",
+    SHOPIFY_APP_PROXY_SECRET: secret,
+    SHOPIFY_APP_PROXY_SHOP: shop,
+    AGENT_CORE_BASE_URL: "https://agent-core.example.invalid",
+    AGENT_CORE_TENANT_KEY: FAKE_TOKEN,
+  });
+  for (const path of ["/api/chat", "/api/search", "/api/catalog"]) {
+    const response = await worker.fetch(new Request(signedProxyUrl(path, secret, shop,
+      Math.floor(Date.now() / 1_000)), {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    }), env);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "not_found", expected_mode: "shopify_read_only" });
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});

@@ -28,7 +28,7 @@ they do not reconstruct search facts.
 
 The S1 dependency is:
 
-- Agent Core commit: `2f2dcbbe60dbba21144160e03f4b329d0f981341`
+- Agent Core commit: `1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a`
 - status contract: `shopify-live-sandbox-status/v1`
 - Storefront API version asserted by that contract: `2026-07`
 - schema file: `contracts/shopify-live-sandbox-status.v1.schema.json`
@@ -108,3 +108,41 @@ also verifies reduced motion, empty cookies/storage, and exact equality between
 the captured BFF response and Runs receipt. Browser engines must already be
 installed in the QA environment; the command does not download them or access
 Shopify.
+
+## Liquid theme integration and staging boundary
+
+The candidate Liquid theme uses the same three browser routes through its
+configured same-origin App Proxy prefix, by default `/apps/reference-store`.
+Server status controls the Live, Agent, and sourcing actions. While status is
+loading, missing, invalid, disconnected, or reports missing credentials, the
+corresponding action stays unavailable. The `shopify_read_only` path does not
+call legacy `/api/chat`, `/api/search`, or `/api/catalog`, and a failed read
+does not create a synthetic run.
+
+Follow the [staging App Proxy guide](SHOPIFY_APP_PROXY_STAGING.md) and use only
+the non-deployable `example.invalid` staging examples checked into
+`storefront-bff/`. Provision a protected staging BFF, Shopify App Proxy
+registration, and all real secret bindings through the authorized operator.
+Keep the Core endpoint, Core tenant/bearer key, App Proxy signing secret, and
+Shopify Storefront credential on the server. No production deployment, published
+theme, operating-store mutation, or browser credential is part of this candidate.
+
+A local Liquid render with signed proxy simulation and injected Core responses
+validates the integration paths, response projection, and browser behavior. It
+does not establish an authenticated Shopify unpublished-theme preview or a live
+development-store connection. Record those two missing dependencies explicitly
+when only injected coverage is available.
+
+## Live-only acceptance blockers
+
+Ten real read-only App Proxy -> Core journeys require all of the following:
+a protected staging endpoint, a configured and authenticated App Proxy, an
+unpublished theme preview session, and the separately authorized dedicated
+Shopify development-store identity with server-provisioned read credentials.
+Only enumerate readiness states in evidence; never capture tokens, merchant
+responses, customer data, or private hosts.
+
+Without those dependencies, complete the local mock/injected suite and label
+its receipts accordingly. Do not substitute the operating store, mark Live as
+connected, count mocks as ten live journeys, or claim the internal-preview
+release gate has passed.

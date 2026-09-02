@@ -92,3 +92,94 @@ was skipped while the repository was private and is therefore recorded as
 `N/A (private)`, not as a passing scan. Any later documentation or release
 commit must also receive an exact-commit CI result; CodeQL must run and pass
 after the repository becomes public.
+
+## 2026-09-02 Shopify Liquid/App Proxy candidate
+
+Scope is a single local Reference Store candidate paired with the accepted S1
+Core revision in [COMPATIBILITY.md](COMPATIBILITY.md). The starting Reference
+commit was `0179b8606ea18853b2669ddeffa9494a39a40550`, tree
+`aaceeb62267d35303630e84a3065ecd091508641`. No production deployment,
+theme publication, main merge, push, or operating-store write is authorized.
+
+Paired-gate implementation checks on the pre-commit working tree passed:
+
+- `node --test evals/paired-v0/test/*.test.mjs`: 9/9, including exact-SHA
+  rejection, tracked/untracked changes, active Git operation/lock, schema
+  mismatch, artifact-path confinement, and unchanged Core-style Git index
+  timestamp after a status refresh.
+- `node scripts/check-doc-links.mjs`: passed.
+- `node scripts/scan-public.mjs .`: passed.
+- `git diff --check`: passed.
+
+Fixtures for the gate tests are created and removed only inside Reference
+`build/`. Core provenance checks disable optional Git locks. Paired execution
+imports its in-memory loopback sandbox without running installs, setup, build,
+verification, or artifact writes in that checkout.
+
+Final acceptance must record the exact accepted Core SHA and the local
+Reference commit, then rerun paired evidence with both working trees clean.
+The synthetic 20-journey paired receipt and any local Liquid/injected browser
+receipt do not establish protected staging or Shopify Live connectivity.
+Ten real read-only App Proxy -> Core journeys remain conditional on an
+authenticated unpublished-theme preview, protected staging/App Proxy, and the
+separately authorized dedicated development store with server-held read
+credentials. Missing dependencies are Live-only blockers, never passing tests.
+
+### Final local validation
+
+The accepted S1 identity was independently recomputed before pinning:
+commit `1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a`,
+tree `6c06be14d2cb64c2c090cb603ddf08ffdd715ca3`, parent
+`c309bb9012607c2989c60bc8f012ef51b302c1cc`, clean. The status schema
+SHA-256 remains
+`30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211`.
+
+On Node 22.23.2, `npm run verify` passed: 115 unit/contract tests,
+9 frozen triad tests, legacy drawer desktop/mobile, three account-workspace
+cases, the actual Liquid matrix, documentation links, and public safety scan.
+The separate existing `npm run qa:shopify` demo matrix also passed all six
+browser/viewport cases. Shopify CLI 3.94.3 Theme Check inspected 324 files:
+zero errors and 36 warnings. Remote GitHub CI was not run; no push occurred.
+
+Actual Liquid QA used Chrome 152.0.7977.65, Firefox 148.0.2 and WebKit 26.4,
+each at 1440x1000 and 390x844. All six cells and 42 journey groups passed.
+The suite renders repository Liquid (including home, search, collection and
+signed-in workspace) with local Shopify adapters; it does not use the remote
+Shopify renderer. It exercises the real browser assets and BFF through a
+signed App Proxy simulator with injected Core responses.
+
+Checks cover status/doctor/runs, ten UI-driven injected read runs, credential
+and permission failures, upstream failure, synthetic mode mismatch, rejected
+cross-origin proxy configuration, degraded search, native Liquid collection
+browsing, signed-in account isolation, focus trap/restore and composer layout.
+There were zero unexpected console/page errors, serious/critical axe findings,
+horizontal overflow, external browser requests, legacy runtime calls, persisted
+queries, or exposed fixture credentials. Five browser resource-console messages
+from deliberately injected HTTP 502/503 failures are separately counted;
+they are not reported as zero total console messages. Reduced motion passed.
+
+Local evidence is in ignored `work/shopify-liquid-qa/report.json` and 18 PNGs.
+`work/s2-liquid-qa-receipt.json` additionally records the input SHA-256 map.
+No screenshot or merchant data is included in this commit.
+
+The original paired integration smoke passed, and the synthetic paired suite
+passed 20/20 with all nine exact-lock regression tests passing.
+
+The exact accepted Core implementation was also executed with its explicit
+Shopify fetch injection, through the real BFF and signed proxy authentication:
+`npm run smoke:shopify-paired` passed 10/10. Its receipt
+`build/paired-shopify-smoke/artifact.json` records 12 local Core status reads,
+10 local Core searches, one injected health probe, one injected catalog
+readiness probe, ten injected catalog reads, and zero external requests.
+Media, zero price, currency, sold-out state, terminal miss, bounded limits,
+Unicode and the non-transactional boundary were checked. This receipt contains
+case IDs and aggregate counts only. Rerunning after the single local commit
+records the final clean Reference identity without another implementation
+commit.
+
+The remaining Live-only blockers are a dedicated authenticated development
+store, an installed dedicated App Proxy, reachable staging Core/BFF bindings,
+and an authenticated unpublished Shopify theme preview. Neither the 10/10
+injected chain nor the Liquid render proves these prerequisites. Real Live
+journeys remain unverified; no production publish, operating-store write,
+main merge, push, or internal-preview acceptance is claimed.

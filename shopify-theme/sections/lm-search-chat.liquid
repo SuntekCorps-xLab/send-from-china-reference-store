@@ -44,7 +44,8 @@
   <div
     class="sfc-search-page"
     data-catalog-search
-    data-api-base="{{ settings.wp_governance_api_base | escape }}"
+    data-runtime-mode="{{ settings.wp_runtime_mode | default: 'shopify_read_only' | escape }}"
+    data-api-base="{% if settings.wp_runtime_mode == 'legacy_public' %}{{ settings.wp_governance_api_base | escape }}{% endif %}"
     data-query="{{ search.terms | escape }}"
     data-currency="{{ shop.currency | escape }}"
   >
@@ -53,18 +54,18 @@
         <p class="sfc-search-kicker">Catalog search</p>
         {%- if search.performed -%}
           <h1>Products for “{{ search.terms | escape }}”</h1>
-          <p class="sfc-search-summary">Browse the strongest live catalog results, then open a product to choose its options and buy.</p>
+          <p class="sfc-search-summary">Check the connected catalog, then open a product to review current details.</p>
         {%- else -%}
           <h1>Search the catalog</h1>
           <p class="sfc-search-summary">Search by product, material, category, or use case. Ask Agent when the request needs clarification.</p>
         {%- endif -%}
       </div>
-      <button class="sfc-search-agent" type="button" data-open-agent-drawer{% if search.terms != blank %} data-agent-brief="{{ search.terms | escape }}"{% endif %}>Ask Agent</button>
+      <button class="sfc-search-agent" type="button" data-open-agent-drawer{% if search.terms != blank %} data-agent-brief="{{ search.terms | escape }}"{% endif %}><span data-runtime-agent-label>Ask Agent</span></button>
     </header>
 
     <div class="sfc-search-status" aria-live="polite">
       <span data-search-count>{% if search.performed %}Searching the catalog…{% else %}Enter a query in the search field above.{% endif %}</span>
-      <span class="sfc-search-status-note">Live, governed, available products only.</span>
+      <span class="sfc-search-status-note" data-runtime-status>Checking catalog connection…</span>
     </div>
 
     <section class="sfc-search-grid" data-search-results aria-label="Catalog search results" aria-busy="{% if search.performed %}true{% else %}false{% endif %}">
@@ -87,6 +88,8 @@
   const grid = root.querySelector("[data-search-results]");
   const count = root.querySelector("[data-search-count]");
   const query = new URLSearchParams(window.location.search).get("q")?.trim() || root.dataset.query.trim();
+  const runtimeMode = root.dataset.runtimeMode;
+  let runtime = window.WPShopifyRuntime;
   const apiBase = root.dataset.apiBase.trim().replace(/\/+$/, "");
   const currency = /^[A-Z]{3}$/.test(root.dataset.currency) ? root.dataset.currency : "USD";
 
@@ -106,7 +109,8 @@
     const ask = document.createElement("button");
     ask.className = "is-primary";
     ask.type = "button";
-    ask.textContent = "Ask Agent";
+    ask.textContent = runtimeMode === "shopify_read_only" && !runtime?.canSearch() ? "Agent unavailable — check connection" : "Ask Agent";
+    ask.dataset.runtimeAgentLabel = "";
     ask.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wp:open-agent", { detail: { brief: query } })));
     actions.append(ask);
     if (retry) {
@@ -188,9 +192,14 @@
   };
 
   async function runSearch() {
+    runtime = window.WPShopifyRuntime;
     if (!query) {
       count.textContent = "No search query was provided.";
       state("What are you looking for?", "Enter a product, material, category, or use case in the search field above.");
+      return;
+    }
+    if (runtimeMode === "shopify_read_only") {
+      await runShopifySearch();
       return;
     }
     if (!apiBase) {
@@ -224,13 +233,44 @@
     } catch (error) {
       count.textContent = "Catalog search could not be completed.";
       state("Search is temporarily unavailable", "Your query was not lost. Try again or ask the Agent to continue with the same need.", true);
-      console.warn("catalog search error", error);
+
     } finally {
       window.clearTimeout(timeout);
     }
   }
 
-  runSearch();
+  async function runShopifySearch() {
+    if (!runtime) {
+      count.textContent = "Shopify unavailable.";
+      state("Agent unavailable", "The Shopify runtime could not be loaded. Reload to retry.", true);
+      return;
+    }
+    try {
+      const receipt = await runtime.run(query);
+      const search = receipt.search;
+      const cards = search.results.map((product) => createCard({
+        ...product, url: runtime.productPath(product.product_url, product.handle),
+        price: product.price?.amount, currency: product.price?.currency,
+        available: false
+      })).filter(Boolean);
+      const incomplete = search.status === "degraded" || search.search_scope?.degraded;
+      if (!cards.length) {
+        const clarify = search.status === "needs_clarification";
+        count.textContent = incomplete ? "Search is incomplete." : clarify ? "More product detail is needed." : "No matches in the checked catalog scope.";
+        state(incomplete ? "Search is incomplete" : "Refine the product description",
+          incomplete ? "The service could not finish checking. This does not establish that the catalog has no match." : "Try a different description. Custom sourcing is unavailable in read-only mode.", true);
+        return;
+      }
+      grid.replaceChildren(...cards);
+      count.textContent = incomplete ? "Partial Shopify results. Search is incomplete." : "Shopify catalog results · read only";
+      if (search.relaxations.length) count.textContent += " Some requested conditions could not be verified.";
+    } catch (error) {
+      count.textContent = "Shopify unavailable.";
+      state("Search unavailable", error.message, true);
+    } finally { grid.setAttribute("aria-busy", "false"); }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", runSearch, { once: true });
+  else runSearch();
 })();
 </script>
 {%- endif -%}

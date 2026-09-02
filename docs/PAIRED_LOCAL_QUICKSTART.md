@@ -75,3 +75,59 @@ artifact to `build/paired-e2e-v0/artifact.json`. Review that its two commit SHAs
 match the intended release commits and both working trees are `clean`. See the
 [paired E2E v0 contract](../evals/paired-v0/README.md) for coverage and the
 explicit synthetic-data limitations.
+
+## Exact local Core and read-only provenance
+
+The paired release candidate expects Core
+`1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a`, as declared in the
+[compatibility lock](COMPATIBILITY.md#shopify-read-only-release-lock).
+Use an already prepared checkout owned by the Core workstream:
+
+```powershell
+$env:AGENT_CORE_DIR = "..\agent-core-hosted-sandbox-worktree"
+npm run verify:paired
+```
+
+Both paired entry points reject a different Core commit, a dirty Core tree,
+an active Git operation or lock, and a changed status-contract schema before
+importing Core. They repeat the check after closing the runtimes. All provenance
+commands set `GIT_OPTIONAL_LOCKS=0`; reading status cannot refresh the Core
+index. The test runner imports Core's in-memory loopback sandbox. It does not run
+`npm ci`, setup, build, verify, or any write command in the Core checkout.
+The initial setup steps in this guide are for a separately owned clone, never
+for another workstream's active checkout.
+
+Paired artifacts are restricted to this Reference Store's ignored `build/`
+directory. A pre-commit run reports the Reference working tree as dirty; the
+release receipt must be rerun after the linear Reference commit so that both
+recorded revisions are exact and clean.
+
+This 20-journey suite remains synthetic. The Shopify release separately requires
+the Liquid three-browser/two-viewport matrix and ten protected
+App Proxy -> Core -> dedicated development-store read-only journeys. Missing
+staging or development-store authorization remains a Live-only blocker.
+
+## Actual Core with injected Shopify reads
+
+Run the new three-route pairing against the same exact accepted Core:
+
+```powershell
+$env:AGENT_CORE_DIR = "..\agent-core-hosted-sandbox-worktree"
+node scripts/paired-shopify-smoke.mjs
+```
+
+This imports the accepted Core's real Shopify sandbox/provider and its checked-in
+public fixture helpers. The provider's explicit injected `fetchImpl` supplies
+Shopify responses; all actual network calls are bounded to the local Core.
+The real BFF verifies signed App Proxy requests for status, doctor, and ten
+read-only runs, covering public media, price/currency, sold-out truth, a terminal
+miss, bounded limits, Unicode input, non-transactional boundaries, and credential
+isolation. Invalid proxy signatures and all three legacy routes fail without a
+Core call.
+
+The sanitized receipt is `build/paired-shopify-smoke/artifact.json`. It records
+both repository identities and counts, without queries, product data, credentials,
+request/response bodies, or hosts. It explicitly states that neither a real
+Shopify connection nor the Shopify-operated App Proxy was exercised. This
+injected actual-Core check complements the real Liquid browser matrix; ten live
+development-store journeys remain a separate staging gate.

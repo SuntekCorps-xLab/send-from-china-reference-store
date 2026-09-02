@@ -6,9 +6,11 @@
     <link rel="icon" type="image/png" href="{{ settings.favicon | image_url: width: 32, height: 32 }}">
   {%- endif -%}
   {%- render 'meta-tags' -%}
+  {%- if settings.wp_runtime_mode == 'legacy_public' -%}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+  {%- endif -%}
   {{ content_for_header }}
   <style>
     *,*::before,*::after { box-sizing: border-box; }
@@ -16,6 +18,7 @@
     a { color: inherit; }
     img { max-width: 100%; height: auto; display: block; }
   </style>
+  {% render 'wp-runtime' %}
 </head>
 <body>
   <main id="MainContent">{{ content_for_layout }}</main>

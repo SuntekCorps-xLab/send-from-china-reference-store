@@ -53,6 +53,11 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify Shopify read-only sandbox in three browsers
         run: npm run qa:shopify
+      - name: Verify actual Liquid and App Proxy in bundled browser engines
+        run: |
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=chromium
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=firefox
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=webkit
 
   search-contract-v2:
     strategy:

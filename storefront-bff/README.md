@@ -55,6 +55,9 @@ URLs, query strings, browser storage, requests to these routes, or response
 bodies. The runtime mode also comes only from `BFF_RUNTIME_MODE`; browser input
 cannot switch a synthetic process to Shopify.
 
+See the [staging App Proxy wiring guide](../docs/SHOPIFY_APP_PROXY_STAGING.md)
+for the same-origin Liquid prefix, Worker routing, and credential-free examples.
+
 ## Routes
 
 - `GET /health`

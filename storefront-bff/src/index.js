@@ -558,7 +558,7 @@ function proxyMessage(searchParams) {
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(value);
   }
-  return [...grouped.keys()].sort().map((key) => `${key}=${grouped.get(key).join(",")}`).join("");
+  return [...grouped].map(([key, values]) => `${key}=${values.join(",")}`).sort().join("");
 }
 
 async function verifyAppProxy(request, env) {
@@ -1435,7 +1435,9 @@ export default {
       return json({ ok: true, service: "send-from-china-storefront-bff" }, 200, headers);
     }
     const deploymentMode = String(env?.BFF_DEPLOYMENT_MODE || "").trim();
-    const protectedApi = url.pathname.startsWith("/api/") && (runtimePath || deploymentMode);
+    const shopifyReadOnly = String(env?.BFF_RUNTIME_MODE || "").trim() === "shopify_read_only";
+    const protectedApi = url.pathname.startsWith("/api/")
+      && (runtimePath || deploymentMode || shopifyReadOnly);
     if (protectedApi) {
       try {
         await authorizeRuntimeRequest(request, env);
@@ -1451,8 +1453,7 @@ export default {
         return runtimeErrorResponse(error, env, headers);
       }
     }
-    if (deploymentMode && String(env?.BFF_RUNTIME_MODE || "").trim() === "shopify_read_only"
-      && url.pathname.startsWith("/api/")) {
+    if (shopifyReadOnly && url.pathname.startsWith("/api/")) {
       return runtimeErrorResponse(new RuntimePublicError("not_found", 404), env, headers);
     }
     let releaseLegacyQuota = () => {};

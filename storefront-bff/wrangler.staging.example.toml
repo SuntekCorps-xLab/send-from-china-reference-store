@@ -1,0 +1,28 @@
+# Review-only staging template. No account, route, or credential is included.
+# Bind a dedicated staging hostname separately before any authorized deployment.
+name = "reference-store-bff-staging"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = false
+preview_urls = false
+
+[vars]
+AGENT_CORE_SANDBOX_URL = "https://agent-core-staging.example.invalid"
+AGENT_CORE_PAGE_SIZE = "20"
+BFF_RUNTIME_MODE = "shopify_read_only"
+BFF_DEPLOYMENT_MODE = "shopify_app_proxy"
+STOREFRONT_ORIGIN = "https://sandbox-store.example.invalid"
+ALLOWED_ORIGINS = "https://sandbox-store.example.invalid"
+# Set the exact dedicated development-store permanent shop domain server-side.
+# Empty intentionally fails closed until an approved store identity is supplied.
+SHOPIFY_APP_PROXY_SHOP = ""
+SHOPIFY_APP_PROXY_TIMESTAMP_WINDOW_SECONDS = "300"
+BFF_UPSTREAM_TIMEOUT_MS = "5000"
+BFF_QUOTA_LIMIT = "40"
+BFF_QUOTA_WINDOW_SECONDS = "60"
+BFF_CONCURRENCY_LIMIT = "4"
+
+# Secret bindings, deliberately absent from this file:
+# SHOPIFY_APP_PROXY_SECRET: the staging app's shared secret.
+# AGENT_CORE_SANDBOX_TOKEN: the dedicated staging sandbox Bearer token, if required.
+# No Shopify Storefront/Admin credential belongs in this BFF or the theme.

@@ -18,3 +18,4 @@ artifacts/
 .test-temp-*/
 test-tmp-*/
 *.log
+work/
