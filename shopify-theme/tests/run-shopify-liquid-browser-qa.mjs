@@ -1,32 +1,34 @@
 import assert from "node:assert/strict";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { PROXY_PREFIX, SERVER_ONLY_SENTINELS, startLiquidPreview } from "./liquid-preview-fixture.mjs";
+import { bootstrapFailureHint, browserIdentity, createBrowserPage, loadPinnedPlaywright, probeBrowser } from "./liquid-browser-runtime.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..");
-const artifactDir = path.join(repoRoot, "work", "shopify-liquid-qa");
+const artifactRoot = path.join(repoRoot, "work", "shopify-liquid-qa");
+const runId = new Date().toISOString().replaceAll(/[:.]/gu, "-") + "-" + process.pid;
+const artifactDir = path.join(artifactRoot, "runs", runId);
 const require = createRequire(import.meta.url);
 const localModules = path.join(repoRoot, "scripts", ".qa-deps", "node_modules");
-let playwright;
+const browserExecutables = new WeakMap();
+let runtime;
+let engines;
 let axeSource;
-try { playwright = await import("playwright-core"); }
-catch { playwright = await import(pathToFileURL(path.join(localModules, "playwright-core", "index.mjs")).href); }
-try { axeSource = await readFile(require.resolve("axe-core/axe.min.js"), "utf8"); }
-catch { axeSource = await readFile(path.join(localModules, "axe-core", "axe.min.js"), "utf8"); }
-const engines = { chromium: playwright.chromium, chrome: playwright.chromium, firefox: playwright.firefox, webkit: playwright.webkit };
 const option = process.argv.find(value => value.startsWith("--browser="))?.split("=")[1];
 const requested = process.argv.includes("--all") ? ["chrome", "firefox", "webkit"] : [option || "chrome"];
-assert.ok(requested.every(name => engines[name]), "Use --all or --browser=chrome|chromium|firefox|webkit");
+assert.ok(requested.every(name => ["chrome", "chromium", "firefox", "webkit"].includes(name)), "Use --all or --browser=chrome|chromium|firefox|webkit");
 await mkdir(artifactDir, { recursive: true });
-// Keep Playwright's isolated profiles and artifacts inside the authorized worktree.
-const temporaryDir = path.join(artifactDir, "tmp");
-await mkdir(temporaryDir, { recursive: true });
+// Use a short unique path for Windows profiles; evidence has its own run directory.
+const temporaryDir = await mkdtemp(path.join(artifactRoot, "tmp-"));
 for (const variable of ["TMPDIR", "TMP", "TEMP"]) process.env[variable] = temporaryDir;
-const preview = await startLiquidPreview();
+let preview;
+let activeBrowser;
+let activeStage = "dependencies";
+let firstFailure;
 const report = {
   ok: false, evidence_kind: "real_repository_liquid_local_mock_injected_e2e",
+  run_id: runId, requested_browsers: requested, browser_startups: [],
   live_shopify_verified: false,
   rendering: ["layout/chat.liquid", "sections/lm-home-chat.liquid", "sections/lm-search-chat.liquid", "sections/lm-collection.liquid", "sections/wp-workspace.liquid", "snippets/wp-agent-drawer.liquid"],
   transport: "same-origin App Proxy simulator -> real storefront BFF -> injected local Core",
@@ -34,9 +36,34 @@ const report = {
   cases: [],
 };
 try {
+  runtime = await loadPinnedPlaywright(repoRoot);
+  report.runtime = runtime.identity;
+  const { playwright } = runtime;
+  engines = { chromium: playwright.chromium, chrome: playwright.chromium, firefox: playwright.firefox, webkit: playwright.webkit };
+  try { axeSource = await readFile(require.resolve("axe-core/axe.min.js"), "utf8"); }
+  catch { axeSource = await readFile(path.join(localModules, "axe-core", "axe.min.js"), "utf8"); }
+  // Probe every engine before starting HTTP fixtures or any storefront journey.
+  for (const name of requested) {
+    const startup = { browser: name, ok: false };
+    report.browser_startups.push(startup);
+    const browser = await launch(name);
+    let failure;
+    try {
+      activeStage = "runtime_identity";
+      startup.runtime = await browserIdentity(browser, name, browserExecutables.get(browser), runtime);
+      startup.probe = await probeBrowser(browser, stage => { activeStage = stage; });
+      startup.ok = true;
+    } catch (error) { failure = error; throw error; }
+    finally { await closeBrowser(browser, failure); }
+  }
+  activeStage = "fixture_start";
+  preview = await startLiquidPreview();
   for (const name of requested) {
     const browser = await launch(name);
+    let failure;
     try {
+      activeStage = "runtime_identity";
+      await browserIdentity(browser, name, browserExecutables.get(browser), runtime);
       for (const viewport of [
         { name: "desktop", width: 1440, height: 1000 },
         { name: "mobile", width: 390, height: 844 },
@@ -44,27 +71,51 @@ try {
         const result = await runCase(browser, name, viewport);
         if (["chrome", "chromium"].includes(name) && viewport.name === "desktop") result.additional_journeys = await advancedCases(browser, viewport);
         report.cases.push(result);
-        process.stdout.write(`PASS ${name}/${viewport.name}: real Liquid + same-origin status/doctor/runs + unavailable + isolation\n`);
+        process.stdout.write("PASS " + name + "/" + viewport.name + ": real Liquid + same-origin status/doctor/runs + unavailable + isolation\n");
       }
-    } finally { await browser.close(); }
+    } catch (error) { failure = error; throw error; }
+    finally { await closeBrowser(browser, failure); }
   }
   report.ok = true;
 } catch (error) {
-  report.failure = String(error.message || error);
-  report.fixture_failures = preview.failures;
-  report.last_proxy_responses = preview.ingress.map(({ pathname, status, response }) => ({ pathname, status, response }));
-  throw error;
+  firstFailure = error;
+  report.failure = sanitizeError(error);
+  report.failure_stage = { browser: activeBrowser, stage: activeStage };
+  report.failure_hint = bootstrapFailureHint(activeBrowser, activeStage, error);
+  report.fixture_started = Boolean(preview);
+  report.fixture_failures = preview?.failures || [];
+  report.last_proxy_responses = (preview?.ingress || []).map(({ pathname, status, response }) => ({ pathname, status, response }));
 } finally {
-  await writeFile(path.join(artifactDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
-  await preview.close();
+  try { await preview?.close(); }
+  catch (error) {
+    report.cleanup_failure = sanitizeError(error);
+    report.ok = false;
+    firstFailure ||= error;
+  }
+  const contents = JSON.stringify(report, null, 2) + "\n";
+  await writeFile(path.join(artifactDir, "report.json"), contents);
+  await writeFile(path.join(artifactRoot, "report.json"), contents);
   process.stdout.write(JSON.stringify({ ok: report.ok, evidence_kind: report.evidence_kind,
     live_shopify_verified: false, browser_viewport_cases: report.cases.length,
     journeys: report.cases.reduce((total, item) => total + item.journeys.length + (item.additional_journeys?.length || 0), 0),
     report: path.relative(repoRoot, path.join(artifactDir, "report.json")).replaceAll("\\", "/"),
-    ...(report.failure ? { failure: report.failure } : {}) }, null, 2) + "\n");
+    ...(report.failure ? { failure: report.failure, failure_stage: report.failure_stage, failure_hint: report.failure_hint } : {}) }, null, 2) + "\n");
+}
+if (firstFailure) process.exitCode = 1;
+
+function sanitizeError(error) {
+  return String(error.message || error).replaceAll(repoRoot, "<repo>").replaceAll(repoRoot.replaceAll("\\", "/"), "<repo>")
+    .replaceAll(/(?:[A-Za-z]:[\\/]|\/)(?:Users|home)[\\/][^\\/\s]+/gu, "<user>");
+}
+
+async function closeBrowser(browser, failure) {
+  try { await browser.close(); }
+  catch (error) { if (!failure) throw error; }
 }
 
 async function launch(name) {
+  activeBrowser = name;
+  activeStage = "launch";
   let executablePath;
   if (name === "chrome") {
     const paths = [process.env.CHROME_PATH,
@@ -74,23 +125,23 @@ async function launch(name) {
       try { await access(candidate); executablePath = candidate; break; } catch {}
     }
     assert.ok(executablePath, "Chrome unavailable: set CHROME_PATH; this matrix does not relabel Chromium as Chrome");
-  } else if (name !== "chromium") executablePath = process.env[name === "firefox" ? "FIREFOX_PATH" : "WEBKIT_PATH"];
+  } else if (name === "chromium") executablePath = runtime.descriptors.chromium.executablePath;
+  else executablePath = process.env[name === "firefox" ? "FIREFOX_PATH" : "WEBKIT_PATH"];
   try {
-    return await engines[name].launch({
+    const browser = await engines[name].launch({
       headless: true, timeout: 20000, ...(executablePath ? { executablePath } : {}),
       ...(name === "chrome" ? { args: ["--disable-background-networking", "--disable-component-update", "--disable-extensions", "--disable-sync", "--no-first-run"] } : {}),
     });
+    browserExecutables.set(browser, executablePath || engines[name].executablePath());
+    return browser;
   } catch (error) { throw new Error(`${name} browser unavailable: ${error.message.split("\n")[0]}`); }
 }
 
 async function newPage(browser, viewport) {
-  const context = await browser.newContext({
-    viewport: { width: viewport.width, height: viewport.height },
-    reducedMotion: "reduce", serviceWorkers: "block",
+  const { context, page } = await createBrowserPage(browser, viewport, {
+    initScript: axeSource, onStage: stage => { activeStage = stage; },
   });
-  await context.addInitScript({ content: axeSource });
-  const page = await context.newPage();
-  page.setDefaultTimeout(12000);
+  activeStage = "journeys";
   const log = { requests: [], consoleErrors: [], pageErrors: [], responses: [] };
   page.on("console", message => { if (message.type() === "error") log.consoleErrors.push(message.text()); });
   page.on("pageerror", error => log.pageErrors.push(error.message));

@@ -71,6 +71,26 @@ already installed Chrome plus Playwright 1.59.1 Firefox/WebKit. Set
 needed, `CHROME_PATH`, `FIREFOX_PATH` or `WEBKIT_PATH`; no test command
 downloads a browser. Missing engines fail the gate.
 
+The Liquid gate checks the resolved Playwright package against the repository
+pin and checks Firefox/WebKit versions against that package's browser manifest.
+It probes an isolated `about:blank` page in every requested engine before
+starting the HTTP fixtures. Reports record the dependency source, executable
+hashes, startup stage and browser versions. Each run keeps its report and PNGs
+in `work/shopify-liquid-qa/runs/<run-id>/`; the root `report.json` is only the
+latest-run copy and must not replace a retained acceptance report. Platform
+revision overrides use Playwright's own resolved descriptor; Chromium evidence
+identifies the actual headless-shell executable.
+
+On Windows, `browserContext.newPage` with an undefined `_page` can occur when
+an outer restricted execution environment prevents Firefox from launching its
+content process. Set `DEBUG=pw:browser` for a local diagnostic run and look for
+`Failed to launch tab subprocess` / `SpawnTarget`. This failure remains nonzero
+and does not count as browser coverage. Run the same pinned command in an
+authorized environment that permits normal browser subprocess creation, then
+rerun the complete matrix. Do not disable Firefox's sandbox, retry until green,
+substitute Chromium, or accept a partial report. No harness command changes
+executor permissions automatically.
+
 The suite renders the repository Liquid layout, sections and snippets with
 local Shopify filter/data adapters, executes the actual browser assets, and
 forwards signed proxy requests through the real BFF into an injected Core.

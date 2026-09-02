@@ -183,3 +183,44 @@ and an authenticated unpublished Shopify theme preview. Neither the 10/10
 injected chain nor the Liquid render proves these prerequisites. Real Live
 journeys remain unverified; no production publish, operating-store write,
 main merge, push, or internal-preview acceptance is claimed.
+
+## 2026-09-02 S2.1 Firefox startup gate
+
+The independent failure on Reference parent
+`0ca78aa899dc3da0df361b278dbbeda882e5d614` was reproduced with Node 22.23.2,
+Playwright 1.59.1 and Firefox revision 1511 / 148.0.2. Even an isolated blank
+page without Liquid, axe or HTTP fixtures failed at `browserContext.newPage`
+with an undefined `_page`. Firefox process diagnostics reported
+`Failed to launch tab subprocess @SB::LA::SpawnTarget (Error:0)`.
+
+The identical blank-page command and installed binaries passed in the
+authorized executor. Both execution environments reported Windows Medium
+integrity. This identifies a content-process startup restriction in the outer
+executor, not a storefront error, dependency mismatch, or UAC elevation issue.
+The harness does not attempt to make that restricted executor compatible by
+disabling Firefox protections or changing process permissions.
+
+The gate now verifies the resolved Playwright pin, uses its effective browser
+descriptors (including OS revision overrides and Chromium headless-shell),
+and probes every requested engine before starting the application fixtures.
+It closes contexts on initialization failure, preserves the original error,
+and retains nonzero status. Reports include executable fingerprints, startup
+stages and immutable per-run paths. The latest-report copy is not the retained
+acceptance artifact. All existing behavior, accessibility, viewport, storage,
+credential, network and reduced-motion assertions remain in place.
+
+The restricted-executor regression still fails explicitly before fixture
+startup with zero completed journeys; it is not counted as Firefox coverage.
+The authorized Node 22 full gate includes Chrome/Firefox/WebKit at both
+1440x1000 and 390x844, the 42 Liquid journey groups, the legacy browser tests,
+unit/contract and paired-lock regressions, documentation links and public
+scan. Synthetic paired 20/20 and injected actual-Core 10/10 remain distinct
+from real Shopify Live acceptance. The final local receipt under
+`work/s2-1-firefox-gate-receipt.json` binds these artifacts to the child commit
+and unchanged Core pin. No browser installation or download is needed.
+
+This repairs startup diagnosis, resource ownership and acceptance provenance.
+Execution under an incompatible outer restriction is still a failed gate;
+acceptance requires the complete matrix in an authorized compatible executor.
+Live App Proxy 10/10 still awaits the dedicated S1 staging receipt and an
+authenticated unpublished development-store theme.
