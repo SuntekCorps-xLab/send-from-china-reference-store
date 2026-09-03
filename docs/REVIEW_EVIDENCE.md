@@ -128,9 +128,9 @@ credentials. Missing dependencies are Live-only blockers, never passing tests.
 ### Final local validation
 
 The accepted S1 identity was independently recomputed before pinning:
-commit `1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a`,
-tree `6c06be14d2cb64c2c090cb603ddf08ffdd715ca3`, parent
-`c309bb9012607c2989c60bc8f012ef51b302c1cc`, clean. The status schema
+commit `e0fb5743a6ded2cceae18432786bccf946e71752`,
+tree `5add61e31afdea6530218b6a6c83b1a9f01b2f63`, parent
+`b1a0a984e108a99b13948ae72c194087e658576d`, clean. The status schema
 SHA-256 remains
 `30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211`.
 

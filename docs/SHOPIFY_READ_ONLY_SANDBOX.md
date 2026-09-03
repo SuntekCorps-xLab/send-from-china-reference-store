@@ -28,7 +28,7 @@ they do not reconstruct search facts.
 
 The S1 dependency is:
 
-- Agent Core commit: `1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a`
+- Agent Core commit: `e0fb5743a6ded2cceae18432786bccf946e71752`
 - status contract: `shopify-live-sandbox-status/v1`
 - Storefront API version asserted by that contract: `2026-07`
 - schema file: `contracts/shopify-live-sandbox-status.v1.schema.json`

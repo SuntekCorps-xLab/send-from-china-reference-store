@@ -14,7 +14,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Release lock: update only after the S1 owner supplies an accepted exact commit.
 export const EXPECTED_AGENT_CORE = Object.freeze({
-  commit: "1d4ada0a38bdf30a7dc5a2646b8ea56e28fa0d2a",
+  commit: "e0fb5743a6ded2cceae18432786bccf946e71752",
   statusSchemaSha256: "30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211",
 });
 const STATUS_SCHEMA = "contracts/shopify-live-sandbox-status.v1.schema.json";
