@@ -10,12 +10,13 @@ import worker, {
 const CHECKED_AT = "2026-08-31T00:00:00.000Z";
 const VERIFIED_AT = "2026-08-31T00:00:01.000Z";
 const FAKE_TOKEN = "visibly_fake_agent_core_sandbox_token";
+const FAKE_INVITE = "visibly_fake_agent_core_sandbox_invite";
 const STOREFRONT = "https://sandbox-store.example.invalid";
 
 function runtimeEnv(mode = "synthetic_local_sandbox", overrides = {}) {
   return {
     AGENT_CORE_SANDBOX_URL: "https://agent-core.example.invalid",
-    AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
+    AGENT_CORE_SANDBOX_INVITE: FAKE_INVITE,
     BFF_RUNTIME_MODE: mode,
     BFF_DEPLOYMENT_MODE: "local",
     STOREFRONT_ORIGIN: STOREFRONT,
@@ -248,9 +249,60 @@ test("synthetic status, doctor, and run remain synthetic and issue only fixed sa
   assert.deepEqual(seen.map((request) => new URL(request.url).pathname), [
     "/sandbox/status", "/sandbox/status", "/sandbox/status", "/sandbox/api/search/v2",
   ]);
-  for (const request of seen) assert.equal(request.headers.get("authorization"), `Bearer ${FAKE_TOKEN}`);
-  assert.equal(JSON.stringify({ runtime, doctor, run }).includes(FAKE_TOKEN), false);
+  for (const request of seen) {
+    assert.equal(request.headers.get("x-sandbox-invite"), FAKE_INVITE);
+    assert.equal(request.headers.get("authorization"), null);
+  }
+  const publicSurface = JSON.stringify({ runtime, doctor, run });
+  assert.equal(publicSurface.includes(FAKE_TOKEN), false);
+  assert.equal(publicSurface.includes(FAKE_INVITE), false);
   assert.equal(await seen[3].clone().json().then((body) => body.contract_version), "2.0");
+});
+
+test("uses invite auth only for hosted HTTPS and Bearer auth only for loopback", async (context) => {
+  const seen = [];
+  sequenceFetch(context, [jsonResponse(statusFixture()), jsonResponse(statusFixture())],
+    (request) => seen.push(request));
+  assert.equal((await localCall("/api/runtime/status", {}, runtimeEnv())).status, 200);
+  assert.equal((await localCall("/api/runtime/status", {}, runtimeEnv("synthetic_local_sandbox", {
+    AGENT_CORE_SANDBOX_URL: "http://127.0.0.1:18795",
+    AGENT_CORE_SANDBOX_INVITE: "",
+    AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
+  }))).status, 200);
+  assert.equal(seen[0].headers.get("x-sandbox-invite"), FAKE_INVITE);
+  assert.equal(seen[0].headers.get("authorization"), null);
+  assert.equal(seen[1].headers.get("x-sandbox-invite"), null);
+  assert.equal(seen[1].headers.get("authorization"), `Bearer ${FAKE_TOKEN}`);
+});
+
+test("fails closed before fetch for ambiguous or origin-incompatible sandbox credentials", async (context) => {
+  const fetchMock = context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("invalid credential configuration must not reach upstream");
+  });
+  const cases = [
+    runtimeEnv("synthetic_local_sandbox", { AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN }),
+    runtimeEnv("synthetic_local_sandbox", {
+      AGENT_CORE_SANDBOX_INVITE: "",
+      AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
+    }),
+    runtimeEnv("synthetic_local_sandbox", {
+      AGENT_CORE_SANDBOX_URL: "http://127.0.0.1:18796",
+      AGENT_CORE_SANDBOX_TOKEN: "",
+    }),
+    runtimeEnv("synthetic_local_sandbox", {
+      AGENT_CORE_SANDBOX_URL: "http://127.0.0.1:18797",
+      AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
+    }),
+  ];
+  for (const env of cases) {
+    const response = await localCall("/api/runtime/status", {}, env);
+    assert.equal(response.status, 503);
+    const text = await response.text();
+    assert.equal(JSON.parse(text).error, "runtime_not_configured");
+    assert.equal(text.includes(FAKE_TOKEN), false);
+    assert.equal(text.includes(FAKE_INVITE), false);
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
 });
 
 test("Shopify run returns only verified read-only product facts and exact frozen receipt values", async (context) => {
@@ -350,6 +402,17 @@ test("never reflects an upstream Retry-After value that could contain a credenti
   assert.equal(response.headers.get("retry-after"), null);
   const publicSurface = `${await response.text()}${JSON.stringify([...response.headers])}`;
   assert.equal(publicSurface.includes(FAKE_TOKEN), false);
+});
+
+test("rejects a configured hosted invite echoed by an otherwise shaped upstream status", async (context) => {
+  const echoed = statusFixture();
+  echoed.error_code = FAKE_INVITE;
+  sequenceFetch(context, [jsonResponse(echoed)]);
+  const response = await localCall("/api/runtime/status", {}, runtimeEnv());
+  assert.equal(response.status, 502);
+  const text = await response.text();
+  assert.equal(JSON.parse(text).error, "invalid_upstream_contract");
+  assert.equal(text.includes(FAKE_INVITE), false);
 });
 
 test("rejects malformed status, mode mismatch, unavailable status, and upstream auth without bodies", async (context) => {
@@ -591,6 +654,8 @@ test("quota survives fresh Worker env wrappers with the same operator configurat
   const fetchMock = sequenceFetch(context, [jsonResponse(statusFixture())]);
   const shared = {
     AGENT_CORE_SANDBOX_URL: "http://127.0.0.1:18790",
+    AGENT_CORE_SANDBOX_INVITE: "",
+    AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
     BFF_QUOTA_LIMIT: "1",
     BFF_QUOTA_WINDOW_SECONDS: "60",
   };
@@ -702,6 +767,8 @@ test("rejects invalid UTF-8 in an upstream JSON response", async (context) => {
   })]);
   const response = await localCall("/api/runtime/status", {}, runtimeEnv("synthetic_local_sandbox", {
     AGENT_CORE_SANDBOX_URL: "http://127.0.0.1:18794",
+    AGENT_CORE_SANDBOX_INVITE: "",
+    AGENT_CORE_SANDBOX_TOKEN: FAKE_TOKEN,
   }));
   assert.equal(response.status, 502);
   assert.equal((await response.json()).error, "invalid_upstream_contract");
@@ -722,7 +789,7 @@ test("rejects unexpected private fields and configured secrets instead of partia
   const privateField = searchFixture("shopify_read_only");
   privateField.results[0] = { ...privateField.results[0], supplier_token: "supplier-private-value" };
   const credentialEcho = searchFixture("shopify_read_only");
-  credentialEcho.results[0] = { ...credentialEcho.results[0], description: `unsafe ${FAKE_TOKEN}` };
+  credentialEcho.results[0] = { ...credentialEcho.results[0], description: `unsafe ${FAKE_INVITE}` };
   sequenceFetch(context, [
     jsonResponse(statusFixture("shopify_read_only")), jsonResponse(privateField),
     jsonResponse(statusFixture("shopify_read_only")), jsonResponse(credentialEcho),
@@ -737,6 +804,7 @@ test("rejects unexpected private fields and configured secrets instead of partia
     const text = await response.text();
     assert.equal(JSON.parse(text).error, "invalid_upstream_contract");
     assert.equal(text.includes(FAKE_TOKEN), false);
+    assert.equal(text.includes(FAKE_INVITE), false);
   }
 });
 
@@ -823,6 +891,7 @@ test("Shopify App Proxy preserves method and body for status, doctor, and read-o
     assert.equal(runtime.boundaries.commerce_writes, false);
     assert.equal(JSON.stringify(payload).includes(secret), false);
     assert.equal(JSON.stringify(payload).includes(FAKE_TOKEN), false);
+    assert.equal(JSON.stringify(payload).includes(FAKE_INVITE), false);
   }
   assert.deepEqual(upstreamRequests.map((request) => [request.method, new URL(request.url).pathname]), [
     ["GET", "/sandbox/status"], ["GET", "/sandbox/status"],
@@ -830,7 +899,8 @@ test("Shopify App Proxy preserves method and body for status, doctor, and read-o
   ]);
   for (const request of upstreamRequests) {
     assert.equal(new URL(request.url).search, "");
-    assert.equal(request.headers.get("authorization"), "Bearer " + FAKE_TOKEN);
+    assert.equal(request.headers.get("authorization"), null);
+    assert.equal(request.headers.get("x-sandbox-invite"), FAKE_INVITE);
     assert.equal(request.headers.get("origin"), null);
     assert.equal(request.headers.get("cookie"), null);
   }

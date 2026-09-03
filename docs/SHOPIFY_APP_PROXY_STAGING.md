@@ -45,7 +45,10 @@ Before an authorized staging deployment, the operator must configure:
 - The staging Core origin in `AGENT_CORE_SANDBOX_URL`, with its exact accepted
   candidate from the paired gate. The process must report `shopify_read_only`.
 - The staging app shared secret as the server-only `SHOPIFY_APP_PROXY_SECRET`
-  binding, and a dedicated `AGENT_CORE_SANDBOX_TOKEN` binding if required.
+  binding, and a dedicated `AGENT_CORE_SANDBOX_INVITE` binding for an
+  invite-protected Hosted Core. The BFF sends it only as `X-Sandbox-Invite`.
+  `AGENT_CORE_SANDBOX_TOKEN` is reserved for literal `127.0.0.1` local
+  sandboxes; configuring both credentials fails closed.
 - A staging Worker hostname matching the App Proxy destination. The template
   disables workers.dev and preview URLs and contains no production route.
 

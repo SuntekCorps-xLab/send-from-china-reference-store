@@ -29,7 +29,8 @@ runtime routes use a separate, explicit sandbox boundary:
 | Binding | Secret | Purpose |
 | --- | --- | --- |
 | `AGENT_CORE_SANDBOX_URL` | No | Exact Agent Core Sandbox origin; the BFF appends only `/sandbox/status` or `/sandbox/api/search/v2` |
-| `AGENT_CORE_SANDBOX_TOKEN` | **Yes, optional** | Server-side sandbox Bearer token when the selected sandbox requires one |
+| `AGENT_CORE_SANDBOX_INVITE` | **Yes, optional** | Server-side invite sent only as `X-Sandbox-Invite` to a public-DNS HTTPS Hosted Sandbox |
+| `AGENT_CORE_SANDBOX_TOKEN` | **Yes, optional** | Server-side Bearer token sent only to a literal `127.0.0.1` Sandbox |
 | `BFF_RUNTIME_MODE` | No | Required expected mode: `synthetic_local_sandbox` or `shopify_read_only` |
 | `BFF_DEPLOYMENT_MODE` | No | Required ingress mode: `local` or `shopify_app_proxy` |
 | `STOREFRONT_ORIGIN` | No | Exact public-DNS HTTPS Shopify storefront origin used to verify live product links |
@@ -52,7 +53,9 @@ disables those legacy routes so only the closed runtime API is available.
 
 Credentials are server-only. They must not be placed in Liquid, theme settings,
 URLs, query strings, browser storage, requests to these routes, or response
-bodies. The runtime mode also comes only from `BFF_RUNTIME_MODE`; browser input
+bodies. Configure at most one Sandbox credential. A Hosted HTTPS origin with a
+Bearer token, a loopback origin with an invite, or both credentials configured
+fails closed before any upstream request. The runtime mode also comes only from `BFF_RUNTIME_MODE`; browser input
 cannot switch a synthetic process to Shopify.
 
 See the [staging App Proxy wiring guide](../docs/SHOPIFY_APP_PROXY_STAGING.md)

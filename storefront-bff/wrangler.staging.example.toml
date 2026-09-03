@@ -24,5 +24,6 @@ BFF_CONCURRENCY_LIMIT = "4"
 
 # Secret bindings, deliberately absent from this file:
 # SHOPIFY_APP_PROXY_SECRET: the staging app's shared secret.
-# AGENT_CORE_SANDBOX_TOKEN: the dedicated staging sandbox Bearer token, if required.
+# AGENT_CORE_SANDBOX_INVITE: the Hosted Core invite sent only as X-Sandbox-Invite.
+# Do not also set AGENT_CORE_SANDBOX_TOKEN; Bearer sandbox auth is loopback-only.
 # No Shopify Storefront/Admin credential belongs in this BFF or the theme.

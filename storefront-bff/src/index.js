@@ -441,6 +441,27 @@ function sandboxBase(value) {
   }
 }
 
+function sandboxCredential(value) {
+  const credential = String(value || "").trim();
+  if (credential && /[\u0000-\u001f\u007f]/u.test(credential)) {
+    runtimeFailure("runtime_not_configured", 503);
+  }
+  return credential;
+}
+
+function sandboxAuthHeaders(base, env) {
+  const token = sandboxCredential(env?.AGENT_CORE_SANDBOX_TOKEN);
+  const invite = sandboxCredential(env?.AGENT_CORE_SANDBOX_INVITE);
+  if (token && invite) runtimeFailure("runtime_not_configured", 503);
+  const local = new URL(base).hostname === "127.0.0.1";
+  if (local) {
+    if (invite) runtimeFailure("runtime_not_configured", 503);
+    return token ? { authorization: `Bearer ${token}` } : {};
+  }
+  if (token) runtimeFailure("runtime_not_configured", 503);
+  return invite ? { "x-sandbox-invite": invite } : {};
+}
+
 function runtimeTimeout(env) {
   return boundedInteger(env?.BFF_UPSTREAM_TIMEOUT_MS, DEFAULT_UPSTREAM_TIMEOUT_MS, 100, 30_000);
 }
@@ -500,9 +521,9 @@ async function readBoundedJson(response) {
 async function sandboxUpstream(path, init, env) {
   const base = sandboxBase(env?.AGENT_CORE_SANDBOX_URL);
   if (!base) runtimeFailure("runtime_not_configured", 503);
+  const authHeaders = sandboxAuthHeaders(base, env);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), runtimeTimeout(env));
-  const token = String(env?.AGENT_CORE_SANDBOX_TOKEN || env?.AGENT_CORE_TENANT_KEY || "").trim();
   try {
     const response = await fetch(`${base}${path}`, {
       ...init,
@@ -511,7 +532,7 @@ async function sandboxUpstream(path, init, env) {
       headers: {
         accept: "application/json",
         ...(init?.body ? { "content-type": "application/json; charset=utf-8" } : {}),
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...authHeaders,
       },
     });
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
@@ -1141,6 +1162,7 @@ function containsConfiguredRuntimeSecret(payload, env) {
   try { serialized = JSON.stringify(payload); }
   catch { return true; }
   return [
+    env?.AGENT_CORE_SANDBOX_INVITE,
     env?.AGENT_CORE_SANDBOX_TOKEN,
     env?.AGENT_CORE_TENANT_KEY,
     env?.SHOPIFY_APP_PROXY_SECRET,
@@ -1238,6 +1260,9 @@ function runtimeSearchContract(payload, runtime, env, effectiveLimit) {
 export async function getRuntimeStatus(env) {
   const expectedMode = expectedRuntimeMode(env);
   const source = await sandboxUpstream("/sandbox/status", { method: "GET" }, env);
+  if (containsConfiguredRuntimeSecret(source, env)) {
+    runtimeFailure("invalid_upstream_contract", 502);
+  }
   return projectRuntimeStatus(source, expectedMode);
 }
 
