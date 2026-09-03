@@ -119,6 +119,25 @@ test("the zero-account demo stays offline and labels every result as illustrativ
   assert.equal(outbound.mock.callCount(), 0);
 });
 
+test("the zero-account demo implements POST /api/search with an explicit synthetic contract", async () => {
+  await withDemo({}, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/search`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: "desk organizer under $40" }),
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.contract_version, "2.0");
+    assert.equal(payload.status, "results");
+    assert.equal(payload.mode, "synthetic_demo");
+    assert.equal(payload.data_source, "offline_fixtures");
+    assert.ok(payload.results.length > 0);
+    assert.ok(payload.results.every((result) => result.synthetic && result.illustrative));
+    assert.ok(payload.results.every((result) => !result.purchasable && !result.available));
+  });
+});
+
 test("the simulated demo exposes terminal miss without creating a sourcing task", async () => {
   await withDemo({}, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/chat`, {

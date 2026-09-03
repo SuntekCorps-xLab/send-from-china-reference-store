@@ -155,5 +155,7 @@ test("the page exposes stable QA hooks and no browser credential, persistence, o
   assert.doesNotMatch(html, /<input[^>]+(?:token|secret|credential)/iu);
   assert.match(html, /Settings \/ Connections/u);
   assert.match(html, /Writes disabled/u);
+  assert.match(html, /Synthetic behavior is deterministic/u);
+  assert.match(html, /keyword routing[^<]*not AI inference/u);
   assert.match(css, /prefers-reduced-motion[\s\S]*transition-duration:\s*\.01ms/iu);
 });

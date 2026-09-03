@@ -127,6 +127,13 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 | **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
 | **Understand custom files quickly** | [`docs/CUSTOMIZATION_MAP.md`](docs/CUSTOMIZATION_MAP.md) | Five minutes |
 
+> **Synthetic demo behavior:** local `npm run demo` responses from `/api/chat`
+> and `/api/search` are deterministic fixtures selected by fixed scenarios and
+> keyword routing; they do not use AI inference. Use the connected sandbox when
+> validating real Agent Core integration behavior. The local search route is
+> intentionally implemented so both chat and Search Contract v2 presentation
+> can be tested without an account.
+
 ## 🏗️ How the pieces fit
 
 <img src="docs/images/storefront-architecture-live.svg" alt="Animated architecture showing a buyer moving through Shopify storefront and checkout, a browser-safe agent path through the Storefront BFF to Agent Core, and an authenticated Customer Account path to a merchant API" width="100%">
