@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { link, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -289,4 +289,57 @@ test("existing symlink and hardlink artifact targets are never followed or repla
   }
   await assert.rejects(writeArtifactNew(symlinkPath, sampleArtifact(), [repository]), /EEXIST/u);
   assert.equal(await readFile(original, "utf8"), "original\n");
+});
+
+test("artifact parents accept the canonical platform temp base but reject a direct descendant symlink", async (context) => {
+  const physical = await mkdtemp(path.join(tmpdir(), "triad-physical-"));
+  const repository = await mkdtemp(path.join(tmpdir(), "triad-alias-repository-"));
+  const existing = path.join(physical, "existing");
+  await mkdir(existing);
+  const output = path.join(existing, "new", "artifact.json");
+  await writeArtifactNew(output, sampleArtifact(), [repository]);
+  assert.equal(JSON.parse(await readFile(path.join(existing, "new", "artifact.json"), "utf8")).schema_version, ARTIFACT_SCHEMA_VERSION);
+
+  const outside = await mkdtemp(path.join(tmpdir(), "triad-outside-"));
+  const injected = path.join(existing, "injected");
+  try {
+    await symlink(outside, injected, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    if (error?.code === "EPERM") {
+      context.diagnostic("directory alias creation is not permitted for this Windows test identity");
+      return;
+    }
+    throw error;
+  }
+
+  await assert.rejects(
+    writeArtifactNew(path.join(injected, "artifact.json"), sampleArtifact(), [repository]),
+    /must not traverse a symbolic link/u,
+  );
+});
+
+test("artifact writing rejects an ordinary deepest parent reached through an earlier directory link", async (context) => {
+  const external = await mkdtemp(path.join(tmpdir(), "triad-reviewer-shape-"));
+  const repository = await mkdtemp(path.join(tmpdir(), "triad-reviewer-repository-"));
+  const existing = path.join(external, "existing");
+  const outside = await mkdtemp(path.join(tmpdir(), "triad-reviewer-outside-"));
+  const preexisting = path.join(outside, "preexisting");
+  await mkdir(existing);
+  await mkdir(preexisting);
+  const injected = path.join(existing, "injected");
+  try {
+    await symlink(outside, injected, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    if (error?.code === "EPERM") {
+      context.diagnostic("directory alias creation is not permitted for this Windows test identity");
+      return;
+    }
+    throw error;
+  }
+
+  await assert.rejects(
+    writeArtifactNew(path.join(injected, "preexisting", "artifact.json"), sampleArtifact(), [repository]),
+    /must not traverse a symbolic link|junction or reparse point/u,
+  );
+  await assert.rejects(readFile(path.join(preexisting, "artifact.json"), "utf8"), /ENOENT/u);
 });

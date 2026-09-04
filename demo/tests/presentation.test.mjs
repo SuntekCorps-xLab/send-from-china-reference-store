@@ -154,6 +154,9 @@ test("the page exposes stable QA hooks and no browser credential, persistence, o
   assert.doesNotMatch(script, /localStorage|sessionStorage|document\.cookie|sendBeacon|telemetry/iu);
   assert.doesNotMatch(html, /<input[^>]+(?:token|secret|credential)/iu);
   assert.match(html, /Settings \/ Connections/u);
+  assert.match(html, /data-connected-activation/u);
+  assert.match(html, /npm run demo:platform/u);
+  assert.match(html, /runtime is selected server-side/iu);
   assert.match(html, /Writes disabled/u);
   assert.match(html, /Synthetic behavior is deterministic/u);
   assert.match(html, /keyword routing[^<]*not AI inference/u);

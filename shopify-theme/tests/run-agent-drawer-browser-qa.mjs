@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveInstalledChromiumPath } from "../../scripts/browser-path.mjs";
+
 const repoRoot = path.resolve(import.meta.dirname, "..", "..");
 const themeRoot = path.join(repoRoot, "shopify-theme");
 const artifactDir = path.join(repoRoot, "qa-artifacts", "agent-drawer");
-const chromePath = await resolveChromePath();
+const chromePath = await resolveInstalledChromiumPath();
 const [drawerJs, drawerCss] = await Promise.all([
   readFile(path.join(themeRoot, "assets", "wp-agent-drawer.js"), "utf8"),
   readFile(path.join(themeRoot, "assets", "wp-agent-drawer.css"), "utf8"),
@@ -70,37 +72,6 @@ try {
   chrome.kill();
   await fixtureServer.close();
   await rm(profileDir, { recursive: true, force: true }).catch(() => {});
-}
-
-async function resolveChromePath() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    ...(process.platform === "win32"
-      ? [
-          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-          "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-        ]
-      : process.platform === "darwin"
-        ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
-        : [
-            "/usr/bin/google-chrome",
-            "/usr/bin/google-chrome-stable",
-            "/usr/bin/chromium",
-            "/usr/bin/chromium-browser",
-          ]),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {}
-  }
-
-  throw new Error(
-    `Chrome or Chromium was not found. Set CHROME_PATH to a browser executable. Checked: ${candidates.join(", ")}`,
-  );
 }
 
 async function runCase(cdp, scenario) {

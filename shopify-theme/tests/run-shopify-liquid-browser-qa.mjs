@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { resolveInstalledChromiumPath } from "../../scripts/browser-path.mjs";
 import { PROXY_PREFIX, SERVER_ONLY_SENTINELS, startLiquidPreview } from "./liquid-preview-fixture.mjs";
 import { bootstrapFailureHint, browserIdentity, createBrowserPage, loadPinnedPlaywright, probeBrowser } from "./liquid-browser-runtime.mjs";
 
@@ -118,13 +119,7 @@ async function launch(name) {
   activeStage = "launch";
   let executablePath;
   if (name === "chrome") {
-    const paths = [process.env.CHROME_PATH,
-      ...(process.platform === "win32" ? ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"]
-        : process.platform === "darwin" ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"] : ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"])];
-    for (const candidate of paths.filter(Boolean)) {
-      try { await access(candidate); executablePath = candidate; break; } catch {}
-    }
-    assert.ok(executablePath, "Chrome unavailable: set CHROME_PATH; this matrix does not relabel Chromium as Chrome");
+    executablePath = await resolveInstalledChromiumPath();
   } else if (name === "chromium") executablePath = runtime.descriptors.chromium.executablePath;
   else executablePath = process.env[name === "firefox" ? "FIREFOX_PATH" : "WEBKIT_PATH"];
   try {

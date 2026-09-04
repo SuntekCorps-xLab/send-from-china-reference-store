@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { lstat, mkdir, open, realpath, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import vm from "node:vm";
@@ -42,7 +43,8 @@ export const FIXTURE_QUERIES = Object.freeze({
 });
 
 function normalizePath(value) {
-  return path.resolve(value).replace(/\\/gu, "/").toLowerCase();
+  const normalized = path.resolve(value).replace(/\\/gu, "/");
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 function isInside(parent, candidate) {
@@ -612,22 +614,50 @@ export function createArtifact({ repositories, journeyCount, attemptedCount, pas
   };
 }
 
-async function ensureNoSymlinkComponents(targetParent) {
-  const parsed = path.parse(targetParent);
-  let current = parsed.root;
-  for (const segment of targetParent.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
-    current = path.join(current, segment);
+async function canonicalArtifactParent(targetParent) {
+  const requestedParent = path.resolve(targetParent);
+  const platformTemporaryBase = path.resolve(tmpdir());
+  const requestedBase = isInside(platformTemporaryBase, requestedParent)
+    ? platformTemporaryBase
+    : path.parse(requestedParent).root;
+  let requestedCurrent = requestedBase;
+  let canonicalCurrent = await realpath(requestedBase);
+  const relative = path.relative(requestedBase, requestedParent);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("artifact parent escaped its trusted traversal base");
+  }
+
+  // The OS temporary base is trusted and canonicalized as one unit so macOS
+  // can expose it through the system /var -> /private/var alias. Every
+  // requested component after that base is inspected individually. For paths
+  // outside the platform temp directory, the filesystem root is the base and
+  // therefore every non-root component receives the same strict inspection.
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    requestedCurrent = path.join(requestedCurrent, segment);
+    canonicalCurrent = path.join(canonicalCurrent, segment);
     try {
-      const entry = await lstat(current);
+      const entry = await lstat(requestedCurrent);
       if (entry.isSymbolicLink()) throw new Error("artifact path must not traverse a symbolic link");
       if (!entry.isDirectory()) throw new Error("artifact parent component must be a directory");
+      const physical = await realpath(requestedCurrent);
+      if (normalizePath(physical) !== normalizePath(canonicalCurrent)) {
+        throw new Error("artifact path must not traverse a junction or reparse point");
+      }
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
-      await mkdir(current);
-      const created = await lstat(current);
+      await mkdir(canonicalCurrent);
+      const created = await lstat(canonicalCurrent);
       if (!created.isDirectory() || created.isSymbolicLink()) throw new Error("artifact directory creation was unsafe");
+      const requestedCreated = await lstat(requestedCurrent);
+      const physical = await realpath(requestedCurrent);
+      if (!requestedCreated.isDirectory()
+        || requestedCreated.isSymbolicLink()
+        || normalizePath(physical) !== normalizePath(canonicalCurrent)) {
+        throw new Error("artifact directory creation was unsafe");
+      }
     }
   }
+  return canonicalCurrent;
 }
 
 export async function writeArtifactNew(output, artifact, repositoryRoots) {
@@ -637,8 +667,7 @@ export async function writeArtifactNew(output, artifact, repositoryRoots) {
   for (const repositoryRoot of repositoryRoots) {
     if (isInside(path.resolve(repositoryRoot), target)) throw new Error("artifact output must remain outside every repository");
   }
-  await ensureNoSymlinkComponents(path.dirname(target));
-  const canonicalParent = await realpath(path.dirname(target));
+  const canonicalParent = await canonicalArtifactParent(path.dirname(target));
   const canonicalTarget = path.join(canonicalParent, path.basename(target));
   const parentBefore = await stat(canonicalParent);
   for (const repositoryRoot of repositoryRoots) {

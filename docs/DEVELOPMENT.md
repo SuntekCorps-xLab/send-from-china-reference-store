@@ -1,6 +1,16 @@
 # Development and verification
 
-Use Node.js 22 or later. Start from a clean checkout.
+Use Node.js 22 or later. Start from a clean checkout. `npm run demo` itself
+needs no browser, but the complete `npm run verify` release gate does. Provide:
+
+- an installed Chrome-family browser (Chrome, Chromium, Edge, or Brave), using
+  `CHROME_PATH` when it is outside a standard system location; and
+- the Playwright 1.59.1 Firefox/WebKit engines in the cache selected by
+  `PLAYWRIGHT_BROWSERS_PATH`, or their exact executable paths through
+  `FIREFOX_PATH` and `WEBKIT_PATH`.
+
+The verification commands never download a browser, silently substitute an
+engine, or turn a missing runtime into a passing result.
 
 ```bash
 node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs
@@ -66,7 +76,7 @@ of the offline `npm run verify` command.
 Run `npm ci --ignore-scripts` at the repository root to install the locked
 LiquidJS, Playwright client and axe dependencies. The local release gate is
 `npm run qa:liquid`, also included in `npm run verify`. It requires an
-already installed Chrome plus Playwright 1.59.1 Firefox/WebKit. Set
+already installed Chrome-family browser plus Playwright 1.59.1 Firefox/WebKit. Set
 `PLAYWRIGHT_BROWSERS_PATH` to an existing matching browser cache and, if
 needed, `CHROME_PATH`, `FIREFOX_PATH` or `WEBKIT_PATH`; no test command
 downloads a browser. Missing engines fail the gate.
