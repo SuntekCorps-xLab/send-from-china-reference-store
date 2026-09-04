@@ -73,6 +73,10 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install locked root dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install locked source-only account dependencies
+        run: npm ci --prefix shopify-customer-account --ignore-scripts --no-audit --no-fund
+      - name: Verify complete account preview bundle and actual text sinks
+        run: npm run verify:account-preview
       - name: Verify Shopify read-only sandbox in three browsers
         run: |
           mkdir -p build/ci-evidence-input
@@ -93,6 +97,12 @@ jobs:
           name: reference-store-browser-evidence
           path: artifacts/ci-evidence/browser.json
           if-no-files-found: error
+      - name: Upload source-only account preview evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: account-preview-verification
+          path: artifacts/account-preview/
 
   search-contract-v2:
     strategy:
@@ -155,6 +165,10 @@ jobs:
           node-version: "22"
       - name: Install Shopify CLI
         run: npm install --global @shopify/cli@4.6.0
+      - name: Install locked parser and test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit locked test dependencies
+        run: node scripts/npm-audit-bounded.mjs
       - name: Theme check
         run: shopify theme check --path shopify-theme --fail-level error
       - name: Storefront contract tests

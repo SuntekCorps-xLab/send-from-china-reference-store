@@ -19,17 +19,19 @@
     "qa:shopify": "node demo/tests/run-shopify-browser-qa.mjs --all",
     "qa:shopify:chromium": "node demo/tests/run-shopify-browser-qa.mjs --browser=chromium",
     "qa:workspace": "node shopify-customer-account/tests/run-workspace-browser-qa.mjs",
+    "verify:account-preview": "node scripts/verify-account-preview.mjs",
     "sbom": "node scripts/generate-sboms.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "smoke:integration": "node scripts/integration-smoke.mjs",
     "smoke:paired": "node scripts/paired-integration-smoke.mjs",
     "test": "node --test demo/tests/*.test.mjs hosted-demo/test/*.test.mjs storefront-bff/test/*.test.mjs shopify-theme/tests/*.test.mjs shopify-customer-account/tests/*.test.mjs starters/shopify-agent-bff/test/*.test.mjs",
+    "test:first-run": "node --test demo/tests/demo.test.mjs scripts/tests/first-run-docs.test.mjs",
     "test:hosted-demo": "node --test hosted-demo/test/*.test.mjs",
     "test:release-tools": "node --test scripts/tests/*.test.mjs",
     "test:paired-e2e": "node --test evals/paired-v0/test/*.test.mjs",
     "test:triad-contract": "node --test evals/triad-v1/test/*.test.mjs",
     "verify:browser": "npm run qa:drawer && npm run qa:workspace",
-    "verify": "npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run check:links && npm run verify:release-metadata && npm run scan",
+    "verify": "npm run test:first-run && npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run verify:account-preview && npm run check:links && npm run verify:release-metadata && npm run scan",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "verify:paired": "npm run verify && npm run smoke:paired && npm run test:paired-e2e && npm run eval:paired && npm run verify:paired-release-artifact && npm run smoke:shopify-paired",
     "verify:paired-release-artifact": "node evals/paired-v0/verify-release-artifact.mjs --artifact build/paired-e2e-v1/artifact.json",
@@ -38,7 +40,9 @@
   },
   "devDependencies": {
     "axe-core": "4.13.0",
-    "playwright-core": "1.59.1",
-    "liquidjs": "10.29.0"
+    "esbuild": "0.28.1",
+    "liquidjs": "10.29.0",
+    "parse5": "8.0.0",
+    "playwright-core": "1.59.1"
   }
 }

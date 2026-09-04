@@ -62,7 +62,16 @@ try {
   const results = [];
   results.push(await runCase(client, { name: "desktop", width: 1440, height: 1000, mobile: false }));
   results.push(await runCase(client, { name: "mobile", width: 390, height: 844, mobile: true }));
-  console.log(JSON.stringify({ ok: true, cases: results }, null, 2));
+  const failures = [];
+  for (const signedIn of [false, true]) {
+    for (const mode of ["uuid", "secure-bytes", "uuid-throws-with-secure-bytes", "no-crypto", "no-methods", "uuid-throws", "bytes-throws", "both-throw", "lost-after-first-send"]) {
+      const name = `security-${signedIn ? "account" : "anonymous"}-${mode}`;
+      try { results.push(await runSecurityCase(client, { name, mode, signedIn })); }
+      catch (error) { failures.push({ name, error: error.message }); }
+    }
+  }
+  console.log(JSON.stringify({ ok: failures.length === 0, cases: results, failures }, null, 2));
+  if (failures.length) process.exitCode = 1;
 } catch (error) {
   const diagnostics = chromeDiagnostics.slice(-8).join("\n");
   if (diagnostics) error.message = `${error.message}\nChrome diagnostics:\n${diagnostics}`;
@@ -131,6 +140,101 @@ async function runCase(cdp, scenario) {
   };
 }
 
+// These cases exercise the shipped drawer script through its real DOM handlers.
+// Only browser capabilities and HTTP responses are replaced with synthetic data.
+async function runSecurityCase(cdp, scenario) {
+  const script = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(${installSecurityFixture.toString()})(${JSON.stringify(scenario.mode)})`,
+  });
+  const origin = new URL(fixtureServer.origin);
+  origin.searchParams.set("signed_in", String(scenario.signedIn));
+  try {
+    await cdp.send("Page.navigate", { url: origin.href });
+    await waitFor(async () => evaluate(cdp, `document.readyState === "complete" && Boolean(window.__requests)`));
+    await evaluate(cdp, `document.querySelector("[data-open-agent-drawer]").click()`);
+    assert(await evaluate(cdp, `!document.querySelector(".wp-agent-drawer").hidden`), `${scenario.name}: initialization broke the drawer`);
+    await submitSecurityMessage(cdp);
+
+    const succeeds = ["uuid", "secure-bytes", "uuid-throws-with-secure-bytes", "lost-after-first-send"].includes(scenario.mode);
+    if (!succeeds) {
+      await assertFailClosed(cdp, scenario, origin.href, 0);
+    } else {
+      const first = await evaluate(cdp, `window.__requestBodies[0]`);
+      const idKey = scenario.signedIn ? "message_id" : "session_id";
+      const prefix = scenario.signedIn ? "msg" : "chat";
+      assert(new RegExp(`^${prefix}_[a-f0-9]{32}$`).test(first[idKey]), `${scenario.name}: first message has an invalid ID`);
+    }
+
+    if (scenario.mode === "lost-after-first-send") {
+      await evaluate(cdp, `void Object.defineProperty(window, "crypto", { configurable: true, value: undefined })`);
+    }
+    const previousRequests = await evaluate(cdp, `window.__requests.length`);
+    await evaluate(cdp, `document.querySelector("[data-agent-new]").click()`);
+    assert(await evaluate(cdp, `!document.querySelector("[data-agent-conversation-view]").hidden`), `${scenario.name}: new conversation did not open`);
+    await submitSecurityMessage(cdp);
+
+    const fails = !succeeds || scenario.mode === "lost-after-first-send";
+    if (fails) {
+      await assertFailClosed(cdp, scenario, origin.href, previousRequests);
+      await evaluate(cdp, `document.querySelector("[data-agent-sourcing-confirm]").hidden = false; document.querySelector("[data-agent-start-sourcing]").click()`);
+      await assertFailClosed(cdp, scenario, origin.href, previousRequests);
+    } else {
+      const bodies = await evaluate(cdp, `window.__requestBodies.filter(Boolean)`);
+      const idKey = scenario.signedIn ? "message_id" : "session_id";
+      assert(bodies.length === 2, `${scenario.name}: expected two chat requests`);
+      assert(bodies[0][idKey] !== bodies[1][idKey], `${scenario.name}: new conversation reused an ID`);
+      assert(await evaluate(cdp, `window.__security.errors.length === 0`), `${scenario.name}: unexpected browser error`);
+      await evaluate(cdp, `document.querySelector("[data-agent-sourcing-confirm]").hidden = false; document.querySelector("[data-agent-start-sourcing]").click()`);
+      await waitFor(async () => evaluate(cdp, `location.pathname === ${JSON.stringify(scenario.signedIn ? "/workspace" : "/login")}`));
+      const destination = new URL(await evaluate(cdp, `location.href`));
+      const target = scenario.signedIn ? destination : new URL(destination.searchParams.get("return_to"), origin);
+      assert(/^handoff_[a-f0-9]{32}$/.test(target.searchParams.get("handoff_id")), `${scenario.name}: handoff has an invalid ID`);
+      assert(target.searchParams.get("brief") === "Synthetic security regression brief", `${scenario.name}: handoff changed the brief schema`);
+      assert(await evaluate(cdp, `sessionStorage.getItem("sfc:pending-agent-brief") === "Synthetic security regression brief"`), `${scenario.name}: secure handoff did not store the brief`);
+    }
+    return { name: scenario.name, initial_send: true, new_conversation: true, handoff: true, fail_closed: fails };
+  } finally {
+    await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
+  }
+}
+
+async function submitSecurityMessage(cdp) {
+  await evaluate(cdp, `document.querySelector("[data-agent-input]").value = "Synthetic security regression brief"; document.querySelector("[data-agent-form]").requestSubmit()`);
+  await waitFor(async () => evaluate(cdp, `!document.querySelector("[data-agent-send]").disabled`));
+}
+
+async function assertFailClosed(cdp, scenario, initialUrl, requestCount) {
+  const result = await evaluate(cdp, `({ requests: window.__requests.length, writes: window.__security.writes, errors: window.__security.errors, href: location.href, status: document.querySelector("[data-agent-status]").textContent, visible: !document.querySelector("[data-agent-status]").hidden, tone: document.querySelector("[data-agent-status]").dataset.tone })`);
+  assert(result.requests === requestCount, `${scenario.name}: unavailable secure randomness allowed fetch`);
+  assert(result.writes === 0, `${scenario.name}: unavailable secure randomness wrote session storage`);
+  assert(result.href === initialUrl, `${scenario.name}: unavailable secure randomness navigated`);
+  assert(result.errors.length === 0, `${scenario.name}: uncaught browser errors: ${result.errors.join(", ")}`);
+  assert(result.visible && result.tone === "error" && result.status.includes("Secure random generation is unavailable"), `${scenario.name}: secure randomness failure was not shown to the user`);
+}
+
+function installSecurityFixture(mode) {
+  window.__security = { calls: 0, writes: 0, errors: [] };
+  window.addEventListener("error", event => window.__security.errors.push(event.message));
+  window.addEventListener("unhandledrejection", event => window.__security.errors.push(String(event.reason)));
+  const nativeSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (...args) { window.__security.writes += 1; return nativeSetItem.apply(this, args); };
+  const secureBytes = bytes => { bytes.fill(++window.__security.calls); return bytes; };
+  const uuid = () => `${String(++window.__security.calls).padStart(8, "0")}-0000-4000-8000-000000000000`;
+  const unavailable = () => { throw new Error("Synthetic random provider unavailable"); };
+  const providers = {
+    uuid: { randomUUID: uuid, getRandomValues: unavailable },
+    "secure-bytes": { getRandomValues: secureBytes },
+    "uuid-throws-with-secure-bytes": { randomUUID: unavailable, getRandomValues: secureBytes },
+    "no-crypto": undefined,
+    "no-methods": {},
+    "uuid-throws": { randomUUID: unavailable },
+    "bytes-throws": { getRandomValues: unavailable },
+    "both-throw": { randomUUID: unavailable, getRandomValues: unavailable },
+    "lost-after-first-send": { randomUUID: uuid },
+  };
+  Object.defineProperty(window, "crypto", { configurable: true, value: providers[mode] });
+}
+
 function auditExpression() {
   return `(() => {
     const drawer = document.querySelector(".wp-agent-drawer");
@@ -148,8 +252,10 @@ function auditExpression() {
 
 async function startFixture() {
   const server = http.createServer((request, response) => {
-    if (request.url === "/wp-agent-drawer.js") return send(response, 200, drawerJs, "text/javascript; charset=utf-8");
-    if (request.url === "/") return send(response, 200, fixtureHtml(), "text/html; charset=utf-8");
+    const url = new URL(request.url, "http://fixture.example.invalid");
+    if (url.pathname === "/wp-agent-drawer.js") return send(response, 200, drawerJs, "text/javascript; charset=utf-8");
+    if (url.pathname === "/") return send(response, 200, fixtureHtml(url.searchParams.get("signed_in") === "true"), "text/html; charset=utf-8");
+    if (["/workspace", "/login"].includes(url.pathname)) return send(response, 200, "<!doctype html><title>Synthetic handoff destination</title>", "text/html; charset=utf-8");
     send(response, 404, "Not found", "text/plain");
   });
   await new Promise((resolve, reject) => {
@@ -162,11 +268,11 @@ async function startFixture() {
   };
 }
 
-function fixtureHtml() {
+function fixtureHtml(signedIn = false) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
   :root{--wp-mist:#f4f3ee;--wp-white:#fff;--wp-ink:#142b2f;--wp-slate:#667572;--wp-line:#d8deda;--wp-signal:#c64b1a;--wp-signal-dark:#9f3913;--wp-success:#1e6f55}*{box-sizing:border-box}body{margin:0;background:#f4f3ee;color:#142b2f;font-family:Arial,sans-serif}.fixture{min-height:100vh;padding:30px}.fixture button{min-height:42px;padding:8px 14px}${drawerCss}</style></head><body>
   <main class="fixture"><h1>Send From China catalog</h1><button type="button" data-open-agent-drawer aria-expanded="false">Ask Agent</button></main>
-  <div class="wp-agent-layer" data-wp-agent-drawer data-signed-in="false" data-account-api="/apps/wp-account" data-public-api="https://wp.example" data-workspace-url="/workspace" data-login-url="/login">
+  <div class="wp-agent-layer" data-wp-agent-drawer data-signed-in="${signedIn}" data-account-api="/apps/wp-account" data-public-api="https://wp.example" data-workspace-url="/workspace" data-login-url="/login">
     <button class="wp-agent-backdrop" type="button" data-agent-close hidden></button>
     <aside class="wp-agent-drawer" role="dialog" aria-modal="true" aria-labelledby="Title" hidden>
       <header class="wp-agent-drawer-head"><button class="wp-agent-head-action" type="button" data-agent-history aria-controls="History" aria-expanded="false"><span>History</span></button><div class="wp-agent-title"><span>Product concierge</span><strong id="Title">Shopping Agent</strong></div><div class="wp-agent-head-actions"><a class="wp-agent-head-icon" href="/workspace" data-agent-expand>↗</a><button class="wp-agent-head-icon" type="button" data-agent-close>×</button></div></header>
@@ -174,7 +280,7 @@ function fixtureHtml() {
       <section class="wp-agent-conversation" data-agent-conversation-view><div class="wp-agent-context" data-agent-context hidden><strong data-agent-context-title></strong><small data-agent-context-price></small></div><div class="wp-agent-transcript" data-agent-transcript><div class="wp-agent-welcome" data-agent-welcome><span>Shopping guidance</span><h2>What would you like help finding?</h2><p>Search the live catalog first.</p><div class="wp-agent-starters"><button type="button" data-agent-starter="Find a gift">Find a gift</button></div></div></div><section class="wp-agent-brief" data-agent-brief hidden><div><span>Current brief</span><strong data-agent-brief-summary></strong></div><button type="button" data-agent-edit-brief>Edit</button></section><section class="wp-agent-sourcing-confirm" data-agent-sourcing-confirm hidden><span>Catalog search complete</span><h2>Search beyond the catalog?</h2><p>Start only after confirmation.</p><dl data-agent-sourcing-facts></dl><div class="wp-agent-confirm-actions"><button type="button" data-agent-start-sourcing>Start free sourcing preview</button><button type="button" data-agent-keep-chatting>Keep refining the brief</button></div></section><p data-agent-status hidden></p><form class="wp-agent-composer" data-agent-form><textarea data-agent-input></textarea><button type="submit" data-agent-send>↑</button><small>Enter to send</small></form></section>
     </aside>
   </div>
-  <script>window.__requests=[];window.fetch=async function(url,options){window.__requests.push(String(url));return{ok:true,status:200,json:async()=>({session_id:"chat_qa",answer:"I found one catalog match and kept the brief focused.",criteria:{use_case:"walnut desk organizer",price_max:40,ship_to:"US"},results:[{title:"Walnut desktop organizer",image_url:"https://cdn.shopify.com/qa.jpg",product_url:"https://sendfromchina.ai/products/qa",price_usd:29.99,currency:"USD",available:true,why:"Wood construction with cable routing"}],next_actions:[{label:"Compare this product",message:"Compare this product",operation:"chat"},{label:"Refine the material",message:"Refine the material",operation:"chat"},{label:"Search beyond the catalog",message:"Start a custom request",operation:"dynamic_request"}]})}};</script><script src="/wp-agent-drawer.js"></script></body></html>`;
+  <script>window.__requests=[];window.__requestBodies=[];window.fetch=async function(url,options){window.__requests.push(String(url));var body=options&&options.body?JSON.parse(options.body):null;window.__requestBodies.push(body);return{ok:true,status:200,json:async()=>({session_id:body&&body.session_id||"chat_qa",conversation_id:"synthetic_conversation",conversation:{id:"synthetic_conversation"},messages:[{role:"user",content:"Synthetic security regression brief"}],answer:"I found one catalog match and kept the brief focused.",criteria:{use_case:"walnut desk organizer",price_max:40,ship_to:"US"},results:[{title:"Walnut desktop organizer",image_url:"https://cdn.shopify.com/qa.jpg",product_url:"https://sendfromchina.ai/products/qa",price_usd:29.99,currency:"USD",available:true,why:"Wood construction with cable routing"}],next_actions:[{label:"Compare this product",message:"Compare this product",operation:"chat"},{label:"Refine the material",message:"Refine the material",operation:"chat"},{label:"Search beyond the catalog",message:"Start a custom request",operation:"dynamic_request"}]})}};</script><script src="/wp-agent-drawer.js"></script></body></html>`;
 }
 
 function send(response, status, body, contentType) {

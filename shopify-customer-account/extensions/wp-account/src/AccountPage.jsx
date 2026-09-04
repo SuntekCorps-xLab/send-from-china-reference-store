@@ -3,6 +3,7 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { fetchCustomerOrders, formatFulfillmentStatus, trackingActionUrl } from "./tracking.js";
+import { descriptionPreview } from "./description-preview.js";
 
 const API = "https://example.invalid/api/account";
 
@@ -692,20 +693,6 @@ function taskTone(status) {
   if (["COMPLETED", "RESULTS_READY"].includes(status)) return "success";
   if (["FAILED", "NO_MATCH", "CANCELLED"].includes(status)) return "critical";
   return "info";
-}
-
-function descriptionPreview(value) {
-  return String(value || "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim()
-    .slice(0, 800);
 }
 
 function criteriaSummary(criteria = {}) {
