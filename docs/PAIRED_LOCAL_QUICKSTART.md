@@ -79,7 +79,7 @@ explicit synthetic-data limitations.
 ## Exact local Core and read-only provenance
 
 The paired release candidate expects Core
-`ca07d540c7535ea7b9e84164b02f4d48caa11853`, as declared in the
+`d546966066973ed26c99442ebb3b4f19b9abf620`, as declared in the
 [compatibility lock](COMPATIBILITY.md#shopify-read-only-release-lock).
 Use an already prepared checkout owned by the Core workstream:
 
