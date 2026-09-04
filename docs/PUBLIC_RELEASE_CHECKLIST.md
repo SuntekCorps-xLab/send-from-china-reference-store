@@ -25,5 +25,13 @@ Record the completed settings and links in the release review.
    review evidence. Require 20/20 passing journeys, zero external network
    requests, two clean working trees, and exact commit SHAs matching the
    release candidates.
-10. Create the `v1.1.0` release from the exact reviewed commit and link its CI
+10. Retain both paired outputs. The v0 diagnostic artifact preserves sanitized
+    per-journey results; the v1 release artifact must validate with
+    `npm run verify:paired-release-artifact`, bind the observed Core and Store
+    commit/tree identities, and show exactly 20/20 synthetic passes.
+11. Download the independent `reference-store-browser-evidence` and
+    `reference-store-safety-evidence` CI artifacts. Each must bind the release
+    commit/tree and pass the closed CI evidence contract. A synthetic artifact
+    must not claim real App Proxy verification.
+12. Create the `v1.1.0` release from the exact reviewed commit and link its CI
    and security evidence.

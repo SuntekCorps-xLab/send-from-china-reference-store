@@ -34,6 +34,22 @@ Git commit, tree, and clean/dirty status of both checkouts, dataset SHA-256,
 case IDs, pass/fail status, and assertion counts. It contains no query, request,
 response, URL, credential, product record, private data, or production data.
 
+The same run also writes
+`build/paired-e2e-v1/artifact.json`. That second, closed artifact uses the
+Agent Core release schema `agent-core-reference-store-paired-e2e/v1`. It is
+created only when the runner observes both Git worktrees as clean, all 20
+unique journeys pass, and the external-request count is zero. Its component
+commit and tree values come from the runner's Git observations; environment
+variables and expected release locks are never copied into those observation
+fields. Verify it again against both current checkouts with:
+
+```bash
+npm run verify:paired-release-artifact -- --agent-core ../github-agent-core
+```
+
+The v1 synthetic artifact always records `app_proxy_live_verified=false`.
+Only the separate real App Proxy acceptance workflow may prove that gate.
+
 ## Interpretation boundary
 
 A pass proves the two exact local commits interoperate for these public

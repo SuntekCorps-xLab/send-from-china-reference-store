@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SuntekCorps-xLab/send-from-china-reference-store/contracts/ci-evidence.v1.schema.json",
+  "title": "Reference Store exact-SHA CI evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "evidence_kind", "repository", "checks", "gates"],
+  "properties": {
+    "schema_version": { "const": "send-from-china-reference-store-ci-evidence/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "evidence_kind": { "enum": ["browser", "safety"] },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "commit", "tree"],
+      "properties": {
+        "name": { "const": "send-from-china-reference-store" },
+        "version": { "const": "1.1.0" },
+        "commit": { "$ref": "#/$defs/git_object" },
+        "tree": { "$ref": "#/$defs/git_object" }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "enum": ["shopify_sandbox_three_browser", "liquid_app_proxy_three_browser", "documentation_links", "public_safety_scan", "cyclonedx_sbom"] }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "credential_exposure", "sensitive_field_count", "external_network_request_count", "app_proxy_live_verified"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "credential_exposure": { "const": 0 },
+        "sensitive_field_count": { "const": 0 },
+        "external_network_request_count": { "const": 0 },
+        "app_proxy_live_verified": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "git_object": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

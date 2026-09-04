@@ -15,6 +15,7 @@ import { loadDataset } from "./dataset.mjs";
 
 const RUNNER_VERSION = "paired-e2e-runner/v0.3.0";
 const ARTIFACT_SCHEMA_VERSION = "send-from-china-paired-e2e-artifact/v0";
+const RELEASE_ARTIFACT_SCHEMA_VERSION = "agent-core-reference-store-paired-e2e/v1";
 const LOOPBACK_HOSTS = new Set(["localhost", "[::1]", "127.0.0.1"]);
 const STOREFRONT_ORIGIN = "https://sandbox-store.example.invalid";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -513,6 +514,110 @@ export function createArtifact({ dataset, datasetHash, repositories, outcomes, e
   };
 }
 
+function exactKeys(value, keys) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function validObservedRepository(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && /^[0-9a-f]{40}$/u.test(value.commit)
+    && /^[0-9a-f]{40}$/u.test(value.tree)
+    && value.working_tree === "clean";
+}
+
+function sameObservedRepository(before, after) {
+  return validObservedRepository(before)
+    && validObservedRepository(after)
+    && before.commit === after.commit
+    && before.tree === after.tree;
+}
+
+export function createReleaseArtifact({ repositories, outcomes, externalNetworkRequests }) {
+  if (!exactKeys(repositories, ["reference_store", "agent_core"])
+    || !validObservedRepository(repositories.reference_store)
+    || !validObservedRepository(repositories.agent_core)) {
+    throw new Error("paired_release_observed_repository_invalid");
+  }
+  if (!Array.isArray(outcomes) || outcomes.length !== 20) {
+    throw new Error("paired_release_journey_count_invalid");
+  }
+  const caseIds = outcomes.map((outcome) => outcome?.case_id);
+  if (caseIds.some((caseId) => typeof caseId !== "string" || !caseId)
+    || new Set(caseIds).size !== caseIds.length) {
+    throw new Error("paired_release_duplicate_or_invalid_journey");
+  }
+  if (outcomes.some((outcome) => outcome?.status !== "passed")
+    || externalNetworkRequests !== 0) {
+    throw new Error("paired_release_gate_failed");
+  }
+  return {
+    schema_version: RELEASE_ARTIFACT_SCHEMA_VERSION,
+    generated_at: new Date().toISOString(),
+    agent_core: {
+      repository: "send-from-china-agent-core",
+      version: "1.2.0",
+      commit: repositories.agent_core.commit,
+      tree: repositories.agent_core.tree,
+    },
+    reference_store: {
+      repository: "send-from-china-reference-store",
+      version: "1.1.0",
+      commit: repositories.reference_store.commit,
+      tree: repositories.reference_store.tree,
+    },
+    execution: { mode: "synthetic", journeys: 20, passed: 20, failed: 0 },
+    gates: {
+      status: "PASS",
+      same_origin_bff: true,
+      browser_credentials: 0,
+      commerce_writes: 0,
+      credential_exposure: 0,
+      app_proxy_live_verified: false,
+    },
+  };
+}
+
+function validComponent(value, repository, version, observed) {
+  return exactKeys(value, ["repository", "version", "commit", "tree"])
+    && value.repository === repository
+    && value.version === version
+    && value.commit === observed.commit
+    && value.tree === observed.tree;
+}
+
+export function validateReleaseArtifact(value, observedRepositories) {
+  const valid = exactKeys(value, [
+    "schema_version", "generated_at", "agent_core", "reference_store", "execution", "gates",
+  ])
+    && value.schema_version === RELEASE_ARTIFACT_SCHEMA_VERSION
+    && typeof value.generated_at === "string"
+    && Number.isFinite(Date.parse(value.generated_at))
+    && exactKeys(observedRepositories, ["reference_store", "agent_core"])
+    && validObservedRepository(observedRepositories.reference_store)
+    && validObservedRepository(observedRepositories.agent_core)
+    && validComponent(value.agent_core, "send-from-china-agent-core", "1.2.0", observedRepositories.agent_core)
+    && validComponent(value.reference_store, "send-from-china-reference-store", "1.1.0", observedRepositories.reference_store)
+    && exactKeys(value.execution, ["mode", "journeys", "passed", "failed"])
+    && value.execution.mode === "synthetic"
+    && value.execution.journeys === 20
+    && value.execution.passed === 20
+    && value.execution.failed === 0
+    && exactKeys(value.gates, [
+      "status", "same_origin_bff", "browser_credentials", "commerce_writes",
+      "credential_exposure", "app_proxy_live_verified",
+    ])
+    && value.gates.status === "PASS"
+    && value.gates.same_origin_bff === true
+    && value.gates.browser_credentials === 0
+    && value.gates.commerce_writes === 0
+    && value.gates.credential_exposure === 0
+    && value.gates.app_proxy_live_verified === false;
+  if (!valid) throw new Error("paired_release_artifact_invalid");
+  return value;
+}
+
 export function resolvePairedArtifactPath(value) {
   const output = path.resolve(root, value);
   const withinBuild = path.relative(path.resolve(root, "build"), output);
@@ -524,6 +629,8 @@ export function resolvePairedArtifactPath(value) {
 export async function runPairedE2e(options = {}) {
   const args = options.args || [];
   const output = resolvePairedArtifactPath(options.output || argumentValue(args, "--output") || "build/paired-e2e-v0/artifact.json");
+  const releaseOutput = resolvePairedArtifactPath(options.releaseOutput
+    || argumentValue(args, "--release-output") || "build/paired-e2e-v1/artifact.json");
   const { bytes, dataset } = await loadDataset();
   const datasetHash = createHash("sha256").update(bytes).digest("hex");
   const agentCoreDirectory = options.agentCoreDirectory
@@ -571,7 +678,12 @@ export async function runPairedE2e(options = {}) {
   } finally {
     await runtime?.close().catch(() => {});
     network.restore();
-    await assertAcceptedAgentCore(agentCoreDirectory);
+    const finalAgentCore = await assertAcceptedAgentCore(agentCoreDirectory);
+    const finalReferenceStore = repositoryDescriptor(root);
+    if (!sameObservedRepository(repositories.agent_core, finalAgentCore)
+      || !sameObservedRepository(repositories.reference_store, finalReferenceStore)) {
+      throw new Error("paired_repository_identity_changed_during_run");
+    }
   }
 
   const artifact = createArtifact({
@@ -581,13 +693,20 @@ export async function runPairedE2e(options = {}) {
     outcomes,
     externalNetworkRequests: network.counts.external,
   });
+  const releaseArtifact = createReleaseArtifact({
+    repositories,
+    outcomes,
+    externalNetworkRequests: network.counts.external,
+  });
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
-  return { artifact, output };
+  await mkdir(path.dirname(releaseOutput), { recursive: true });
+  await writeFile(releaseOutput, `${JSON.stringify(releaseArtifact, null, 2)}\n`, "utf8");
+  return { artifact, output, releaseArtifact, releaseOutput };
 }
 
 async function runCli() {
-  const { artifact, output } = await runPairedE2e({ args: process.argv.slice(2) });
+  const { artifact, output, releaseOutput } = await runPairedE2e({ args: process.argv.slice(2) });
   const failed = artifact.journeys.filter((journey) => journey.status === "failed");
   if (artifact.summary.status !== "passed") {
     process.stderr.write(`FAIL: paired E2E ${artifact.summary.passed_count}/${artifact.summary.total_count}; failed cases: ${failed.map((item) => item.case_id).join(", ")}\n`);
@@ -602,6 +721,7 @@ async function runCli() {
   process.stdout.write(`Agent Core SHA: ${artifact.repositories.agent_core.commit}\n`);
   process.stdout.write(`Agent Core tree: ${artifact.repositories.agent_core.tree}\n`);
   process.stdout.write(`Sanitized artifact: ${path.relative(root, output)}\n`);
+  process.stdout.write(`Core-compatible release artifact: ${path.relative(root, releaseOutput)}\n`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
