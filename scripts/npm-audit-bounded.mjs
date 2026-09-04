@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const MAX_ATTEMPTS = 3;
 export const DELAYS_MS = Object.freeze([5_000, 15_000]);
+export const AUDIT_TIMEOUT_MS = 180_000;
 
 export function isRegistryServerError(output) {
   const text = String(output || "");
@@ -35,7 +36,7 @@ export async function runAudit({
         npm_config_fetch_retries: "0",
         npm_config_fetch_timeout: "120000",
       },
-      timeout: 180_000,
+      timeout: AUDIT_TIMEOUT_MS,
       windowsHide: true,
     });
     const out = String(result.stdout || "");
@@ -43,6 +44,13 @@ export async function runAudit({
     if (out) stdout.write(out);
     if (err) stderr.write(err);
     if (result.status === 0) return 0;
+
+    if (result.error?.code === "ETIMEDOUT") {
+      stderr.write(
+        `npm audit timed out after ${AUDIT_TIMEOUT_MS}ms; vulnerability status is unknown and the gate remains failed.\n`,
+      );
+      return 1;
+    }
 
     const registry5xx = isRegistryServerError(`${out}\n${err}`);
     if (!registry5xx || attempt === MAX_ATTEMPTS) return Number.isInteger(result.status) ? result.status : 1;

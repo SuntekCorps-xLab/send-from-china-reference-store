@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUDIT_TIMEOUT_MS,
   DELAYS_MS,
   MAX_ATTEMPTS,
   isRegistryServerError,
@@ -36,7 +37,7 @@ test("a Registry 503 is retried at most three times with bounded backoff", async
       assert.match(command, /^npm(?:\.cmd)?$/u);
       assert.deepEqual(args, ["audit", "--audit-level=high"]);
       assert.equal(options.env.npm_config_fetch_retries, "0");
-      assert.equal(options.timeout, 180_000);
+      assert.equal(options.timeout, AUDIT_TIMEOUT_MS);
       return { status: 1, stdout: "", stderr: "npm warn audit 503 Service Unavailable\n" };
     },
     sleep: async (milliseconds) => { delays.push(milliseconds); },
@@ -81,4 +82,29 @@ test("audit success after a transient Registry failure preserves the zero exit",
   });
   assert.equal(exitCode, 0);
   assert.equal(calls, 2);
+});
+
+test("an audit timeout fails closed with a diagnostic and is never retried", async () => {
+  let calls = 0;
+  const delays = [];
+  const error = writer();
+  const exitCode = await runAudit({
+    spawn() {
+      calls += 1;
+      return {
+        status: null,
+        stdout: "",
+        stderr: "",
+        error: Object.assign(new Error("spawnSync npm ETIMEDOUT"), { code: "ETIMEDOUT" }),
+      };
+    },
+    sleep: async (milliseconds) => { delays.push(milliseconds); },
+    stdout: writer(),
+    stderr: error,
+  });
+  assert.equal(exitCode, 1);
+  assert.equal(calls, 1);
+  assert.deepEqual(delays, []);
+  assert.match(error.value, new RegExp(`timed out after ${AUDIT_TIMEOUT_MS}ms`, "u"));
+  assert.match(error.value, /vulnerability status is unknown and the gate remains failed/u);
 });
