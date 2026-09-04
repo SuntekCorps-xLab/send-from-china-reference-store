@@ -17,7 +17,9 @@ let runtime;
 let engines;
 let axeSource;
 const option = process.argv.find(value => value.startsWith("--browser="))?.split("=")[1];
-const requested = process.argv.includes("--all") ? ["chrome", "firefox", "webkit"] : [option || "chrome"];
+// CI uses Playwright's pinned Chromium build; an installed branded Chrome is
+// not guaranteed to exist inside the pinned Playwright container.
+const requested = process.argv.includes("--all") ? ["chromium", "firefox", "webkit"] : [option || "chrome"];
 assert.ok(requested.every(name => ["chrome", "chromium", "firefox", "webkit"].includes(name)), "Use --all or --browser=chrome|chromium|firefox|webkit");
 await mkdir(artifactDir, { recursive: true });
 // Use a short unique path for Windows profiles; evidence has its own run directory.
