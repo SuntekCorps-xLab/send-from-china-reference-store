@@ -404,7 +404,9 @@ test("injected 10/10 proves receipt logic without claiming a browser or network 
     assert.equal(serialized.includes(item.query), false);
     assert.equal(serialized.includes(item.expected_handle), false);
   }
-  assert.equal(serialized.includes(SHOP), false);
+  assert.doesNotMatch(serialized, /reference-gate\.myshopify\.com/iu);
+  assert.equal(receipt.shopify.permanent_shop_domain_sha256, sha256(SHOP));
+  assert.equal(receipt.shopify.storefront_origin_sha256, sha256(`https://${SHOP}`));
 });
 
 test("wrong-but-well-formed deployed component identity fails closed and remains distinct from expected", async () => {
