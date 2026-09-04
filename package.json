@@ -13,6 +13,7 @@
     "demo:platform": "node scripts/demo-platform.mjs",
     "demo:shopify": "node scripts/demo-shopify.mjs",
     "hosted:dry-run": "node scripts/verify-hosted-demo-bundle.mjs",
+    "gate:app-proxy-live": "node scripts/live-app-proxy-gate.mjs",
     "eval:paired": "node evals/paired-v0/run.mjs",
     "eval:triad-contract": "node evals/triad-v1/run.mjs",
     "qa:drawer": "node shopify-theme/tests/run-agent-drawer-browser-qa.mjs",

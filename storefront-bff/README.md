@@ -60,6 +60,10 @@ cannot switch a synthetic process to Shopify.
 
 See the [staging App Proxy wiring guide](../docs/SHOPIFY_APP_PROXY_STAGING.md)
 for the same-origin Liquid prefix, Worker routing, and credential-free examples.
+After staging is installed, use the separate
+[real App Proxy 10/10 gate](../docs/SHOPIFY_APP_PROXY_LIVE_GATE.md). The normal
+paired smoke is injected coverage and must not be represented as that Live
+acceptance result.
 
 ## Routes
 

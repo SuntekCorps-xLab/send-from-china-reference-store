@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-live-app-proxy-cases.v1.schema.json",
+  "title": "Private read-only App Proxy acceptance cases",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cases"],
+  "properties": {
+    "schema_version": { "const": "reference-store-live-app-proxy-cases/v1" },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "query", "expected_handle"],
+        "properties": {
+          "case_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+          "query": { "type": "string", "minLength": 2, "maxLength": 300 },
+          "expected_handle": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,99}$" }
+        }
+      }
+    }
+  }
+}

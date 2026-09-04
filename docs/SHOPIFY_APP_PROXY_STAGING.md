@@ -99,6 +99,12 @@ states, result counts, and verification times. Check the status and doctor in
 the same session. Confirm the browser contacts only its storefront origin for
 runtime APIs, makes no legacy call, and receives no credential.
 
+Use the fail-closed [real App Proxy 10/10 gate](SHOPIFY_APP_PROXY_LIVE_GATE.md)
+to seal the preview URL, permanent shop and theme identity, all three component
+identities, ten private known cases, browser safety counts, and the sanitized
+external receipt. Local injected 10/10 tests are necessary coverage but are
+not evidence of an installed App Proxy or a connected Shopify catalog.
+
 If any prerequisite is unavailable, keep the injected results and explicitly
 report these Live-only blockers: dedicated development-store identity/session,
 installed App Proxy, staging Worker route and bindings, or accepted reachable
