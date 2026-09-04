@@ -104,3 +104,9 @@ test("CI uploads separate exact-SHA browser and safety evidence artifacts", asyn
   assert.match(workflow, /name: reference-store-safety-evidence/u);
   assert.match(workflow, /if-no-files-found: error/gu);
 });
+
+test("exact-SHA evidence confines Git's safe-directory exception to this checkout", async () => {
+  const source = await readFile(new URL("../generate-ci-evidence.mjs", import.meta.url), "utf8");
+  assert.match(source, /"-c", `safe\.directory=\$\{root\}`/u);
+  assert.doesNotMatch(source, /git config --global|safe\.directory=\*/u);
+});

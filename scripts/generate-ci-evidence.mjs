@@ -17,7 +17,7 @@ function exactKeys(value, keys) {
 }
 
 function git(...args) {
-  return execFileSync("git", ["--no-optional-locks", ...args], {
+  return execFileSync("git", ["--no-optional-locks", "-c", `safe.directory=${root}`, ...args], {
     cwd: root,
     encoding: "utf8",
     env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
