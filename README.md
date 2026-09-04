@@ -51,19 +51,50 @@ contracts. This repository provides the customer experience built on top.
 ## ⚡ See it in 60 seconds
 
 No Shopify account, API key, database, or cloud service is needed for the local
-experience demo.
+experience demo. Use the release runtime pair, Node.js 22.x and npm 10.x:
 
 ```bash
-git clone https://github.com/SuntekCorps-xLab/send-from-china-reference-store.git
+git clone --depth 1 https://github.com/SuntekCorps-xLab/send-from-china-reference-store.git
 cd send-from-china-reference-store
+node --version
+npm --version
 npm ci
+npm run test:first-run
 npm run demo
 ```
 
-Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
-`a practical desk gift under $40`.
+Successful startup prints:
 
-The 60-second preview requires Node.js 22 or later. The separate, fail-closed
+```text
+Reference Store offline demo: http://127.0.0.1:4173
+```
+
+Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
+`a practical desk gift under $40`. From another terminal, check both local
+contracts:
+
+```bash
+curl -fsS http://127.0.0.1:4173/health
+curl -fsS http://127.0.0.1:4173/api/status
+```
+
+`/health` reports `service: "send-from-china-reference-demo"` and
+`mode: "simulated"`. `/api/status` reports `mode: "synthetic_demo"`,
+`data_source: "offline_fixtures"`, `live_agent_core: false`,
+`purchasable: false`, and `commerce_writes: false`. Stop the server with
+<kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+This zero-account process serves only checked-in deterministic fixtures. Its
+fixture-only `/api/chat`, `/api/search`, `/api/runtime/status`,
+`/api/runtime/doctor`, and `/api/runs` responses are not evidence that an Agent
+Core, Shopify store, BFF, or App Proxy is connected. Without separately
+provisioned server credentials, do not use `npm run demo:connected`,
+`npm run demo:shopify`, a deployed BFF/App Proxy, Agent Core protected
+operations, or Shopify cart, checkout, account, order, or payment routes. The
+browser must never receive an Agent Core or Shopify credential; connected
+traffic goes through the merchant-controlled same-origin BFF/App Proxy.
+
+The 60-second preview is tested with Node.js 22.x and npm 10.x. The separate, fail-closed
 release check also requires an installed Chrome-family browser and the pinned
 Playwright Firefox/WebKit engines described in
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md):
