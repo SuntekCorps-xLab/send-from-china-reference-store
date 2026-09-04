@@ -69,5 +69,14 @@
     }));
   });
 
+  if (window.WPShopifyRuntime) {
+    copy.agent.note = "Check the Shopify connection to search. Custom sourcing is unavailable in read-only mode.";
+    window.addEventListener("wp:runtime-status", (event) => {
+      copy.agent.button = event.detail.ready ? "Ask Agent" : "Agent unavailable";
+      if (mode === "agent") submit.textContent = copy.agent.button;
+      copy.agent.note = event.detail.message + " Custom sourcing is unavailable in read-only mode.";
+      if (mode === "agent") note.textContent = copy.agent.note;
+    });
+  }
   setMode("search");
 })();

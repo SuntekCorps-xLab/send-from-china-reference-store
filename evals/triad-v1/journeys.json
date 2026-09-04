@@ -1,0 +1,30 @@
+{
+  "schema_version": "send-from-china-triad-e2e-dataset/v1",
+  "dataset_version": "triad-e2e-v1.0.0",
+  "provenance": "public_synthetic",
+  "expected_mini_sha": "66528615e57886829ed695727e85e08b0cea3c90",
+  "expected_agent_core_sha": "b527e8a43c8ffe580c7412837c86198230ef252c",
+  "description": "Twenty deterministic fixture-labelled journeys that traverse the committed Mini Suntek client adapter, Agent Core synthetic sandbox, and Reference Store adapters without retaining request or product data.",
+  "journeys": [
+    { "case_id": "triad_v1_01_result", "fixture": "desk_organizer", "expected_status": "results", "limit": 1 },
+    { "case_id": "triad_v1_02_result", "fixture": "compact_desk_organizer", "expected_status": "results", "limit": 2 },
+    { "case_id": "triad_v1_03_result", "fixture": "modular_desk_organizer", "expected_status": "results", "limit": 3 },
+    { "case_id": "triad_v1_04_result", "fixture": "desk_organizer_tray", "expected_status": "results", "limit": 4 },
+    { "case_id": "triad_v1_05_result", "fixture": "organizer_for_desk", "expected_status": "results", "limit": 5 },
+    { "case_id": "triad_v1_06_result", "fixture": "desk_cable_organizer", "expected_status": "results", "limit": 1 },
+    { "case_id": "triad_v1_07_result", "fixture": "desktop_organizer", "expected_status": "results", "limit": 2 },
+    { "case_id": "triad_v1_08_result", "fixture": "office_desk_organizer", "expected_status": "results", "limit": 3 },
+    { "case_id": "triad_v1_09_result", "fixture": "practical_desk_organizer", "expected_status": "results", "limit": 4 },
+    { "case_id": "triad_v1_10_result", "fixture": "small_desk_organizer", "expected_status": "results", "limit": 5 },
+    { "case_id": "triad_v1_11_miss", "fixture": "quartz_violin_umbrella", "expected_status": "no_match", "limit": 1 },
+    { "case_id": "triad_v1_12_miss", "fixture": "lunar_teapot_violin", "expected_status": "no_match", "limit": 2 },
+    { "case_id": "triad_v1_13_miss", "fixture": "amber_submarine_violin", "expected_status": "no_match", "limit": 3 },
+    { "case_id": "triad_v1_14_miss", "fixture": "ceramic_rocket_violin", "expected_status": "no_match", "limit": 4 },
+    { "case_id": "triad_v1_15_miss", "fixture": "marble_telescope_umbrella", "expected_status": "no_match", "limit": 5 },
+    { "case_id": "triad_v1_16_miss", "fixture": "velvet_compass_kettle", "expected_status": "no_match", "limit": 1 },
+    { "case_id": "triad_v1_17_miss", "fixture": "crystal_canoe_trumpet", "expected_status": "no_match", "limit": 2 },
+    { "case_id": "triad_v1_18_miss", "fixture": "bronze_hammock_saxophone", "expected_status": "no_match", "limit": 3 },
+    { "case_id": "triad_v1_19_miss", "fixture": "granite_balloon_cello", "expected_status": "no_match", "limit": 4 },
+    { "case_id": "triad_v1_20_miss", "fixture": "silver_cactus_trombone", "expected_status": "no_match", "limit": 5 }
+  ]
+}

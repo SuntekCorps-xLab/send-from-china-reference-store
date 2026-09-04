@@ -1,0 +1,15 @@
+# Fragment for the dedicated development-store app configuration.
+# This is not a complete app manifest and must not be used for production.
+# Preserve the app's existing scopes when reviewing this required proxy scope.
+[access_scopes]
+scopes = "write_app_proxy"
+
+[app_proxy]
+url = "https://bff-staging.example.invalid"
+prefix = "apps"
+subpath = "reference-store"
+
+# /apps/reference-store/api/runtime/status -> /api/runtime/status on the BFF.
+# /apps/reference-store/api/runtime/doctor -> /api/runtime/doctor on the BFF.
+# /apps/reference-store/api/runs -> /api/runs on the BFF (POST body retained).
+# A customized installed prefix/subpath must also be reflected in theme settings.

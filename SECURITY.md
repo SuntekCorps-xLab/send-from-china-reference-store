@@ -22,12 +22,27 @@ latest commit is not sufficient because Git history and build logs may retain it
 
 ## Dependency assurance
 
-Private release candidates use locked installs, `npm audit`, Dependabot alerts,
-and automated security updates. GitHub dependency review runs on pull requests
+Releases use locked installs, `npm audit`, Dependabot alerts, and automated
+security updates. GitHub dependency review runs on pull requests
 once the repository is public; GitHub does not provide that API to a private
 repository without Advanced Security.
 
+CI also generates a CycloneDX SBOM from the committed lockfile. See
+`docs/SUPPLY_CHAIN.md`. The SBOM must not contain credentials, private package
+registries, developer paths, or production configuration.
+
+## Search and BFF trust boundary
+
+The browser must never receive an Agent Core tenant key. Search Contract v2
+calls pass through the merchant-controlled BFF, which forwards only the
+allowlisted contract envelope and returns only public response fields.
+
+Do not add supplier URLs, cost fields, internal identifiers, raw upstream
+errors, response bodies, or server stacks to BFF responses or logs. Treat an
+unsupported contract, malformed upstream response, timeout, or degraded search
+as unavailable/degraded; never convert it to `no_match`.
+
 ## Supported Versions
 
-Until the first stable release, security fixes target the newest release
-candidate only. Production deployments remain the deployer's responsibility.
+Security fixes target the latest `1.x` release. Production deployments remain
+the deployer's responsibility.

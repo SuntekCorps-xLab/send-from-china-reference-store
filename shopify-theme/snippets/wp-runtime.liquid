@@ -1,0 +1,4 @@
+{%- assign wp_runtime_mode = settings.wp_runtime_mode | default: 'shopify_read_only' -%}
+{%- if wp_runtime_mode == 'shopify_read_only' -%}
+  <script defer src="{{ 'wp-shopify-runtime.js' | asset_url }}" data-runtime-mode="shopify_read_only" data-proxy-path="{{ settings.wp_app_proxy_path | default: '/apps/reference-store' | escape }}"></script>
+{%- endif -%}

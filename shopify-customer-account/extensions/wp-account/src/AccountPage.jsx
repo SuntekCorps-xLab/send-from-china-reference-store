@@ -3,6 +3,7 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { fetchCustomerOrders, formatFulfillmentStatus, trackingActionUrl } from "./tracking.js";
+import { descriptionPreview } from "./description-preview.js";
 
 const API = "https://example.invalid/api/account";
 
@@ -190,7 +191,7 @@ function AccountPage() {
         `/tasks/${encodeURIComponent(selected.id)}/results/${encodeURIComponent(result.id)}/governance`,
         {
           method: "POST",
-          body: JSON.stringify({ content_version: "amazon-us-en-v1" }),
+          body: JSON.stringify({ content_version: "retail-en-v1" }),
         },
       );
       await refreshGovernance(selected.id);
@@ -295,7 +296,7 @@ function AccountPage() {
             )}
             <s-text>{summary?.tasks?.active || 0} active product requests</s-text>
           </s-stack>
-          <s-text color="subdued">WP account ID: {summary?.account?.santai_customer_id || "Initializing"}</s-text>
+          <s-text color="subdued">Customer ID: {summary?.account?.customer_id || "Initializing"}</s-text>
           {paidCreditsEnabled ? (
             <s-stack direction="block" gap="small-200">
               <s-heading>Add credits with Shopify Checkout</s-heading>
@@ -692,20 +693,6 @@ function taskTone(status) {
   if (["COMPLETED", "RESULTS_READY"].includes(status)) return "success";
   if (["FAILED", "NO_MATCH", "CANCELLED"].includes(status)) return "critical";
   return "info";
-}
-
-function descriptionPreview(value) {
-  return String(value || "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim()
-    .slice(0, 800);
 }
 
 function criteriaSummary(criteria = {}) {

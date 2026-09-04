@@ -119,12 +119,12 @@
 {%- endfor -%}
 </ul>
 
-{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- assign wp_agent_core_api_base = settings.wp_agent_core_api_base | strip -%}
 <h2>For Agents</h2>
 <p>
 This site supports the Universal Commerce Protocol (UCP). Discovery: <a href="/.well-known/ucp">/.well-known/ucp</a>.
-{%- if wp_governance_api_base != blank -%}
-MCP endpoint: <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a>.
+{%- if wp_agent_core_api_base != blank -%}
+MCP endpoint: <a href="{{ wp_agent_core_api_base }}/mcp">{{ wp_agent_core_api_base }}/mcp</a>.
 {%- else -%}
 MCP endpoint: not configured.
 {%- endif -%}

@@ -3,7 +3,7 @@
 {%- assign wp_agent_url = settings.wp_shopping_agent_url | strip -%}
 {%- assign current_sort = collection.sort_by | default: collection.default_sort_by -%}
 {%- assign is_all_catalog = false -%}
-{%- if collection.handle == 'all' -%}{%- assign is_all_catalog = true -%}{%- endif -%}
+{%- if collection.handle == 'all' and settings.wp_runtime_mode == 'legacy_public' -%}{%- assign is_all_catalog = true -%}{%- endif -%}
 
 <style>
   .wp-service-launchers,.wp-account-entry,.wp-agent-view-switcher{display:none!important}
@@ -53,10 +53,10 @@
         <h1>{{ collection.title | escape }}</h1>
         {%- if collection.description != blank -%}<div class="sfc-collection-description">{{ collection.description | strip_html | escape }}</div>{%- endif -%}
       </div>
-      {%- if wp_agent_url != blank -%}
+      {%- if wp_agent_url != blank and settings.wp_runtime_mode == 'legacy_public' -%}
         <a class="sfc-collection-agent" href="{{ wp_agent_url }}?q={{ 'Help me choose from ' | append: collection.title | url_encode }}&amp;auto=1">Ask Agent about this collection</a>
       {%- else -%}
-        <button class="sfc-collection-agent" type="button" data-open-agent-drawer data-agent-brief="Help me choose from {{ collection.title | escape }}">Ask Agent about this collection</button>
+        <button class="sfc-collection-agent" type="button" data-open-agent-drawer data-agent-brief="Help me choose from {{ collection.title | escape }}"><span data-runtime-agent-label>Ask Agent</span></button>
       {%- endif -%}
     </header>
 
@@ -92,7 +92,7 @@
               <span class="sfc-collection-media">
                 {%- if product.featured_image -%}
                   {{ product.featured_image | image_url: width: 720 | image_tag: loading: 'lazy', widths: '240, 360, 480, 720', alt: '' }}
-                {%- elsif external_image_url != blank -%}
+                {%- elsif external_image_url != blank and settings.wp_runtime_mode == 'legacy_public' -%}
                   <img src="{{ external_image_url | escape }}" alt="{{ external_image_alt | escape }}" width="720" height="720" loading="lazy" referrerpolicy="no-referrer">
                 {%- else -%}
                   <span class="sfc-collection-media-empty">Image unavailable</span>

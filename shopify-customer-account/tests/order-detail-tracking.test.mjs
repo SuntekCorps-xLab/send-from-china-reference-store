@@ -63,13 +63,13 @@ test("drops unsafe tracking URLs without dropping an authoritative number", () =
   assert.equal(formatShipmentStatus("OUT_FOR_DELIVERY"), "Out for delivery");
 });
 
-test("keeps a tracking number visible while suppressing a generic SFC login link", () => {
+test("keeps a tracking number visible while suppressing a generic login link", () => {
   const order = normalizeOrder({
     id: "gid://shopify/Order/1003",
     name: "#1003",
     fulfillments: { nodes: [{
       id: "gid://shopify/Fulfillment/2003",
-      trackingInformation: [{ company: "SFC", number: "TEST-003", url: "https://sfc.worldproducts.ai" }],
+      trackingInformation: [{ company: "Fixture Carrier", number: "TEST-003", url: "https://storefront.example.test" }],
     }] },
   });
 

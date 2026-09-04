@@ -13,6 +13,20 @@ Before opening a pull request:
    behavior for unavailable services.
 4. Keep production deployment, theme activation, and merchant writes outside
    pull-request automation.
+5. Search changes must update executable contract tests. Do not copy Agent Core
+   normalization, synonyms, ranking, relaxation, or terminal-miss rules into
+   the theme or BFF. Protocol changes require a compatibility note and must
+   preserve the browser-to-BFF credential boundary.
+6. Runtime dependency changes require an SBOM/audit check and the dependency
+   review described in `docs/SUPPLY_CHAIN.md`.
 
 Security reports must follow `SECURITY.md`, not the public issue tracker.
 
+Start with a `good first issue` or `help wanted` item when available. For a new
+idea, open a feature request and relate it to `ROADMAP.md` before implementing
+it. Every accepted issue should identify the customer state transition, source
+of truth, failure behavior, and observable acceptance check.
+
+At least one named maintainer must approve every pull request. Boundary,
+dependency, workflow, and release changes require a second owner review; see
+`docs/MAINTAINERS.md`.

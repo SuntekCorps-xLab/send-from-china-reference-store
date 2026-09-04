@@ -3,16 +3,116 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, session-release/shopify-live-sandbox]
 
 permissions:
   contents: read
 
 jobs:
+  public-demo-and-bff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: storefront-bff/package-lock.json
+      - name: Install locked BFF dependencies
+        working-directory: storefront-bff
+        run: npm ci
+      - name: Audit locked BFF dependencies
+        working-directory: storefront-bff
+        run: node ../scripts/npm-audit-bounded.mjs
+      - name: Test zero-account demo, hosted candidate, and BFF
+        run: node --test demo/tests/*.test.mjs hosted-demo/test/*.test.mjs storefront-bff/test/*.test.mjs
+      - name: Bundle hosted synthetic demo without deploying
+        run: npm run hosted:dry-run
+      - name: Verify release metadata alignment
+        run: |
+          npm run test:release-tools
+          npm run verify:release-metadata
+      - name: Validate paired synthetic harness contract
+        run: npm run test:paired-e2e
+      - name: Validate three-repository contract-projection harness
+        run: npm run test:triad-contract
+
+  portable-local-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Verify portable artifact, launcher, and browser-path contracts
+        run: node --test evals/triad-v1/test/triad-contract.test.mjs demo/tests/platform.test.mjs scripts/tests/browser-path.test.mjs
+
+  shopify-read-only-browser-qa:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+    env:
+      HOME: /root
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked root dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install locked source-only account dependencies
+        run: npm ci --prefix shopify-customer-account --ignore-scripts --no-audit --no-fund
+      - name: Verify complete account preview bundle and actual text sinks
+        run: npm run verify:account-preview
+      - name: Verify Shopify read-only sandbox in three browsers
+        run: npm run qa:shopify
+      - name: Verify actual Liquid and App Proxy in bundled browser engines
+        run: |
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=chromium
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=firefox
+          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=webkit
+      - name: Upload source-only account preview evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: account-preview-verification
+          path: artifacts/account-preview/
+
+  search-contract-v2:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Verify browser-to-BFF Search Contract v2 compatibility
+        run: node --test storefront-bff/test/worker.test.mjs
+
   customer-account:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
@@ -23,7 +123,7 @@ jobs:
         run: npm ci
       - name: Audit locked dependencies
         working-directory: shopify-customer-account
-        run: npm audit --audit-level=high
+        run: node ../scripts/npm-audit-bounded.mjs
       - name: Create non-deployable test config
         working-directory: shopify-customer-account
         run: cp shopify.app.toml.example shopify.app.toml
@@ -33,6 +133,7 @@ jobs:
           mkdir -p ../artifacts
           npm test 2>&1 | tee ../artifacts/customer-account-tests.log
           npm run check -- --no-color 2>&1 | tee ../artifacts/customer-account-build.log
+          CHROME_PATH=/usr/bin/google-chrome node tests/run-workspace-browser-qa.mjs 2>&1 | tee ../artifacts/customer-account-browser-qa.log
       - name: Upload account evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -44,11 +145,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
       - name: Install Shopify CLI
         run: npm install --global @shopify/cli@4.6.0
+      - name: Install locked parser and test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit locked test dependencies
+        run: node scripts/npm-audit-bounded.mjs
       - name: Theme check
         run: shopify theme check --path shopify-theme --fail-level error
       - name: Storefront contract tests
@@ -60,11 +167,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
       - name: Scan repository
-        run: node scripts/scan-public.mjs .
+        run: |
+          node scripts/check-doc-links.mjs
+          node scripts/scan-public.mjs .
+      - name: Generate CycloneDX SBOM
+        run: npm run sbom
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reference-store-sbom
+          path: artifacts/sbom/
 
   dependency-review:
     # GitHub's dependency-review API requires Advanced Security for private
@@ -76,6 +194,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high

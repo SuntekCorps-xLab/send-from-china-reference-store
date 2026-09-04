@@ -4,42 +4,124 @@
 
 ```mermaid
 flowchart LR
-  B[Buyer] --> T[Shopify theme]
-  T --> S[Shopify catalog and cart]
-  T --> D[Shopping-agent drawer]
-  D --> A[Compatible agent API]
+  B[Buyer browser] --> T[Shopify theme]
+  T --> S[Shopify catalog + cart]
+  T --> D[Shopping Agent drawer]
+  D --> P[Storefront BFF]
+  P --> A[Agent Core]
   B --> C[Shopify Customer Account]
   C --> X[Account extensions]
-  X --> A
+  X --> M[Authenticated merchant API]
   S --> H[Shopify-hosted checkout]
-  A -. server-authorized handoff .-> S
 ```
 
 The theme owns presentation and local interaction state. Shopify remains the
 source of truth for products, variants, cart lines, customer identity, and
-checkout. The agent service may return discovery or sourcing results but must
-not make a result purchasable unless the commerce system confirms it.
+checkout. Agent Core owns agent-native discovery and governed workflow
+contracts. The BFF translates between them without exposing a tenant key.
 
-## Public agent response
+## Why the BFF is required
 
-The drawer expects JSON with an answer, optional session identifier, structured
-criteria, zero or more results, and explicit next actions. Result cards may
-contain a title, summary, reason, product URL, image URL, currency, price, and
-availability. Missing price or availability remains unknown in the UI.
+Agent Core `1.0.0` protects `/api/chat`, `/api/search`, and `/api/catalog`
+with a tenant Bearer credential. A Shopify theme is public browser code, so it
+cannot hold that credential.
 
-Operations must be explicit. A conversational refinement is not a sourcing
-write, and a sourcing preview requires confirmation before creation.
+`storefront-bff/` is a minimal Cloudflare Worker reference that:
+
+- allows only configured browser origins;
+- limits body size, message count, and result count;
+- injects the Agent Core credential only in the server-to-server request;
+- normalizes Agent Core products for the storefront cards;
+- passes through `Retry-After` for rate limits;
+- returns generic failures without upstream bodies, credentials, or stacks.
+
+Equivalent merchant-controlled server runtimes may implement the same contract.
+
+## Browser-safe endpoints
+
+The theme setting `wp_governance_api_base` points to the BFF and retains its
+identifier for backwards-compatible theme settings. Its customer-facing label
+is **Storefront agent proxy URL**.
+
+### `POST /api/chat`
+
+The drawer sends a browser session identifier, the latest 12 messages,
+structured criteria, an operation, cursor, and limit. It expects a reply,
+optional result cards, criteria, cursor, and explicit next actions. See
+`storefront-bff/test/worker.test.mjs` for a complete executable example.
+
+The BFF keeps `requested_criteria` separate from the normalized upstream
+`criteria` and `criteria_evaluation`. A browser must not infer that an input was
+enforced merely because the customer requested it.
+
+Missing price or availability remains unknown in the UI. A result is never made
+purchasable unless the commerce system confirms it.
+
+### `POST /api/search` and `POST /api/catalog`
+
+These return the compact storefront product shape used by the custom search and
+`/collections/all` surfaces. Exposing catalog enumeration is an explicit tenant
+choice; configure an Agent Core tenant with the appropriate read capability or
+replace the BFF handler with a merchant-owned catalog service.
+
+Search uses Agent Core Search Contract v2. The BFF accepts either a complete
+`search_contract` or the legacy browser convenience shape `{q, limit, cursor}`.
+Both call authenticated Agent Core `POST /api/search/v2`; the latter only wraps
+`q` as an explicit product identity. Product identity parsing, hard filters,
+soft-context ranking, relaxation, and terminal-miss semantics remain in Agent
+Core. The BFF preserves the version, trace, status, normalized intent,
+relaxations, pagination, and search scope while applying a public field
+allowlist to products and contract metadata.
+
+See [`SEARCH_CONTRACT_V2_INTEGRATION.md`](SEARCH_CONTRACT_V2_INTEGRATION.md) for
+request examples, cursor handling, error mapping, and mock/live verification.
+
+## Agent-native endpoint
+
+The separate theme setting `wp_agent_core_api_base` is used only on
+machine-readable agent pages. It links to Agent Core `/mcp`; it is never used by
+the buyer's browser drawer to transmit a secret.
+
+## Sourcing lifecycle contract
+
+The catalog-first flow must reach a server-declared terminal miss before the UI
+offers sourcing. Agent Core exposes bounded search, scoped access, idempotent
+creation, task status, and paginated results. The expected lifecycle is:
+
+```text
+QUEUED -> SOURCING -> GOVERNING -> RESULTS_READY
+```
+
+`NO_MATCH`, `FAILED`, and `CANCELLED` are valid terminal states. A retry must
+preserve its idempotency key; tasks must remain bound to the authenticated
+customer; a sourcing result must not imply purchasability.
+
+The terminal `confirm_search` response supplies a short-lived `search_id`.
+Creation must reuse the exact query and criteria, include that `search_id`, set
+`confirmed=true`, and use `plan_id=preview`. A search proof can create at most
+one task. Public fixture results are `illustrative_only`; they are not evidence
+that the request criteria were satisfied.
+
+The public drawer offers a handoff only. Credentialed sourcing creation belongs
+behind the authenticated account boundary, not the public BFF chat route.
 
 ## Account boundary
 
 Customer Account extensions obtain identity through Shopify session tokens. A
-compatible API must verify the token, bind all records to the authenticated
-shop and customer subject, reject cross-customer identifiers, and apply durable
+compatible merchant API must verify the token, bind records to the shop and
+customer subject, reject cross-customer identifiers, and apply durable
 idempotency to every write.
+
+This repository ships an installable order-tracking extension that reads from
+Shopify's Customer Account API. The `wp-account` and `wp-ask` directories are
+source-only UI adapter examples: they have no active manifest, are excluded
+from the default app build, and depend on a merchant API that is not included
+here. Their `example.invalid` endpoints must be replaced only after that API
+implements the controls above.
 
 ## Configuration boundary
 
-Store-specific API hosts, app identifiers, proxy routes, and theme settings are
-deployment configuration. The checked-in examples are intentionally
-non-deployable. Production secrets belong only in platform secret stores.
-
+Store-specific hosts, app identifiers, proxy routes, and theme settings are
+deployment configuration. Checked-in examples use `example.invalid` and are
+intentionally non-deployable. Production secrets belong only in platform secret
+stores.

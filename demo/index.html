@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Send From China — Reference Store Demo</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#workbench"><span>CN</span><strong>Send From China<small>Reference Store Demo</small></strong></a>
+    <form class="search" data-catalog-search>
+      <input aria-label="Search the read-only catalog" placeholder="Search the read-only catalog">
+      <button aria-label="Open search workbench">→</button>
+    </form>
+    <nav aria-label="Primary navigation">
+      <a href="#catalog">Catalog</a>
+      <button type="button" data-open-agent>💬 Ask Agent</button>
+      <a href="#connections">Connections</a>
+      <a class="cart" href="#runs">Runs</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="runtime-banner" role="status" aria-live="polite" data-runtime-ready="false" data-connected="false">
+      <span class="runtime-dot" aria-hidden="true"></span>
+      <strong data-runtime-label>Checking runtime…</strong>
+      <span data-runtime-connection>Connection not yet verified</span>
+      <span>Last verified: <time data-runtime-checked>Checking…</time></span>
+      <span>Quota: <b data-runtime-quota>Checking…</b></span>
+      <em data-runtime-writes>Writes disabled</em>
+    </div>
+
+    <section class="sandbox-console" id="workbench" aria-labelledby="workbench-title">
+      <div class="sandbox-heading">
+        <p class="eyebrow">🧪 Read-only workbench</p>
+        <h2 id="workbench-title">Search once. Inspect one frozen response.</h2>
+        <p>The browser calls this repository’s BFF only. The active server runtime decides whether facts are synthetic or Shopify-verified.</p>
+      </div>
+
+      <div class="mode-options" role="list" aria-label="Server-selected runtime mode">
+        <div class="mode-option" data-mode-option="synthetic_local_sandbox" role="listitem">
+          <span>🧪</span>
+          <div><strong>Synthetic</strong><small>Offline fixtures · illustrative facts</small></div>
+        </div>
+        <div class="mode-option" data-mode-option="shopify_read_only" role="listitem">
+          <span>🔗</span>
+          <div><strong>Shopify read-only</strong><small>Development store · server-held authorization</small></div>
+        </div>
+      </div>
+
+      <aside class="demo-contract-notice" role="note" aria-label="Synthetic demo behavior">
+        <strong>🧭 Synthetic behavior is deterministic.</strong>
+        <span>In local synthetic mode, <code>/api/chat</code> and <code>/api/search</code> use fixed fixture scenarios and keyword routing—not AI inference. Connected modes use the configured server integration.</span>
+      </aside>
+
+      <form class="workbench-form" data-run-form aria-label="Run a read-only product search">
+        <label for="workbench-query">What should the catalog search for?</label>
+        <div>
+          <input id="workbench-query" data-run-query maxlength="300" required value="A practical desk gift under $40">
+          <button type="submit" data-run-button disabled>Run read-only search</button>
+        </div>
+        <small>The request carries a query only—never a runtime choice or credential.</small>
+      </form>
+
+      <ul class="sandbox-boundaries" aria-label="Read-only truth boundaries">
+        <li><span>🔒</span><strong data-runtime-writes>Writes disabled</strong></li>
+        <li><span>🧾</span><strong>Non-transactional</strong></li>
+        <li><span>🚫</span><strong>Not purchasable here</strong></li>
+        <li><span>🚚</span><strong>No shipping rates</strong></li>
+      </ul>
+
+      <section class="workbench-output" aria-labelledby="workbench-output-title">
+        <header><h3 id="workbench-output-title">Workbench result</h3><span>Exact BFF run projection</span></header>
+        <p class="run-alert" data-run-alert role="status" hidden></p>
+        <div data-workbench-results>
+          <section class="run-empty"><strong>No run yet</strong><p>Wait for runtime verification, then run a bounded read-only search.</p></section>
+        </div>
+      </section>
+
+      <details class="connection-panel" id="connections">
+        <summary>Settings / Connections <span>status and authorization guidance only</span></summary>
+        <div class="connection-grid">
+          <section><small>Connection</small><strong data-runtime-connection>Connection not yet verified</strong></section>
+          <section><small>Last verified</small><strong data-runtime-checked>Checking…</strong></section>
+          <section><small>Quota</small><strong data-runtime-quota>Checking…</strong></section>
+          <section><small>Boundary</small><strong data-runtime-writes>Writes disabled</strong></section>
+        </div>
+        <p data-authorization-status>Authorization status is being verified by the BFF.</p>
+        <p data-connected-activation>To start the connected local sandbox, close this server and run <code>npm run demo:platform</code>. The runtime is selected server-side; this page never accepts a credential or changes modes.</p>
+        <p>This screen is read-only and accepts no secrets. Configure credentials only in the BFF environment or its secret provider.</p>
+        <code data-runtime-contract>Checking closed runtime contract…</code>
+      </details>
+
+      <details class="run-receipt" id="runs">
+        <summary>Runs receipt <span>exact frozen BFF response</span></summary>
+        <pre data-runs-receipt>{
+  "status": "not_run"
+}</pre>
+        <p>The Workbench, desktop drawer, mobile sheet, and this receipt consume the same active run object.</p>
+      </details>
+    </section>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Catalog truth with a guarded handoff</p>
+        <h1>Find the right product from China.</h1>
+        <p class="lede">Browse the illustrative catalog, then use the read-only workbench for a synthetic fixture or a Shopify-verified product snapshot.</p>
+        <div class="hero-actions">
+          <button class="primary" type="button" data-open-agent data-query="A practical desk gift under $40">Ask the Shopping Agent ↗</button>
+          <a href="#catalog">Browse illustrative products ↓</a>
+        </div>
+        <ul class="proof"><li>✓ Catalog-first</li><li>✓ Explicit provenance</li><li>✓ Writes disabled</li></ul>
+        <div class="agent-pipeline" aria-label="Read-only request pipeline"><span>01 Query</span><i></i><span>02 Verify</span><i></i><span>03 Read result</span></div>
+      </div>
+      <div class="brief-card">
+        <div class="tabs"><strong>Search products</strong><span>Read-only agent</span></div>
+        <label>What are you looking for?</label>
+        <div class="field"><span>A practical desk gift under $40</span><button type="button" data-open-agent data-query="A practical desk gift under $40">Search</button></div>
+        <p>The server-selected mode is shown before any query runs. A failed Live connection remains a failed Shopify read-only state.</p>
+        <div class="mini-links"><span>Synthetic is illustrative</span><span>Shopify facts are timestamped</span></div>
+      </div>
+    </section>
+
+    <section class="catalog" id="catalog">
+      <div class="section-head">
+        <div><p class="eyebrow">Synthetic governed catalog</p><h2>Illustrative products</h2></div>
+        <p>These local cards demonstrate presentation only. They do not assert Shopify price, availability, product publication, or delivery.</p>
+      </div>
+      <div class="product-grid">
+        <article><div class="product-art wood">🪵<b>Natural materials</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Walnut desk organizer</h3><p>Compact compartments for a calm workspace.</p><strong>Illustrative price · $29</strong></article>
+        <article><div class="product-art lamp">💡<b>Small-space light</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Compact reading light</h3><p>Warm adjustable light with a minimal footprint.</p><strong>Illustrative price · $34</strong></article>
+        <article><div class="product-art cup">☕<b>Gift ready</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Ceramic pour-over set</h3><p>A simple coffee ritual in a compact set.</p><strong>Illustrative price · $42</strong></article>
+        <article><div class="product-art cable">🔌<b>Cable control</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Magnetic cable anchors</h3><p>Reusable anchors for a cleaner desk setup.</p><strong>Illustrative price · $12</strong></article>
+      </div>
+    </section>
+  </main>
+
+  <div class="backdrop" hidden data-close-agent></div>
+  <aside class="drawer" hidden aria-label="Shopping Agent" aria-modal="true" role="dialog">
+    <header>
+      <span class="history">READ-ONLY</span>
+      <div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill" data-drawer-mode>CHECKING RUNTIME</span></div>
+      <button class="close" type="button" data-close-agent aria-label="Close">×</button>
+    </header>
+    <div class="conversation">
+      <section class="welcome">
+        <p class="eyebrow">One response, three views</p>
+        <h2>Search the active catalog mode.</h2>
+        <p>The drawer becomes the mobile sheet at narrow widths. Both render the same frozen BFF run used by the Workbench and receipt.</p>
+        <div class="capability-grid">
+          <span><b>🔎 Mode</b><em data-runtime-label>Checking</em></span>
+          <span><b>🧠 Connection</b><em data-core-status>Checking</em></span>
+          <span><b>✋ Boundary</b><em data-runtime-writes>Writes disabled</em></span>
+        </div>
+        <p class="scenario-intro"><strong>Sample read-only queries</strong><span>Samples never select or force a runtime mode.</span></p>
+        <button type="button" data-starter="A practical desk gift under $40">🎁 A practical desk gift under $40</button>
+        <button type="button" data-starter="Compact lighting for a small apartment">💡 Compact lighting for a small apartment</button>
+        <button type="button" data-starter="A sustainable ceramic gift">♻️ A sustainable ceramic gift</button>
+      </section>
+      <section class="drawer-output" aria-labelledby="drawer-output-title">
+        <h3 id="drawer-output-title">Active run</h3>
+        <p class="run-alert" data-run-alert role="status" hidden></p>
+        <div data-drawer-results>
+          <section class="run-empty"><strong>No run yet</strong><p>The first accepted run will appear here without browser-side reconstruction.</p></section>
+        </div>
+      </section>
+    </div>
+    <form class="composer" data-run-form>
+      <div class="composer-heading"><label for="drawer-query">Search query</label><span>Server mode: <strong data-runtime-label>Checking</strong></span></div>
+      <div><textarea id="drawer-query" data-run-query maxlength="300" rows="1" required placeholder="Describe what you need"></textarea><button type="submit" data-run-button disabled aria-label="Run read-only search">↑</button></div>
+      <small>Read-only query · no purchase, fulfillment, or write action</small>
+    </form>
+  </aside>
+  <script type="module" src="demo.js"></script>
+</body>
+</html>

@@ -180,7 +180,7 @@
 
   function renderOverview() {
     var summary = state.summary || {};
-    var accountId = summary.account && summary.account.santai_customer_id;
+    var accountId = summary.account && summary.account.customer_id;
     if (nodes.accountId) nodes.accountId.textContent = accountId ? "Customer ID " + compactId(accountId) : "Shopify account connected";
     renderRequestProgress();
     renderConversations();
@@ -257,16 +257,9 @@
     var value = String(status || "QUEUED").toUpperCase();
     var stages = {
       QUEUED: { index: 0, label: "Brief received", detail: "Your requirements are saved.", isActive: true },
-      PIPO_SUBMITTING: { index: 0, label: "Request recorded", detail: "Submitting the sourcing brief", isActive: true },
-      PIPO_SUBMITTED: { index: 0, label: "Request recorded", detail: "The sourcing brief was accepted", isActive: true },
       SOURCING: { index: 1, label: "Finding candidates", detail: "Candidate search in progress", isActive: true },
-      PIPO_PROCESSING: { index: 1, label: "Finding candidates", detail: "Candidate search in progress", isActive: true },
       REVIEW_REQUIRED: { index: 1, label: "Reviewing candidates", detail: "Candidate review in progress", isActive: true },
       GOVERNING: { index: 2, label: "Preparing products", detail: "Product details are being prepared", isActive: true },
-      STORYLAB_SUBMITTED: { index: 2, label: "Preparing products", detail: "Product preparation was submitted", isActive: true },
-      STORYLAB_RUNNING: { index: 2, label: "Preparing products", detail: "Product details are being prepared", isActive: true },
-      DCD_PENDING: { index: 2, label: "Preparing products", detail: "Prepared product data is being verified", isActive: true },
-      DCD_READY: { index: 2, label: "Preparing products", detail: "Prepared product data is ready", isActive: true },
       SHOPIFY_DRAFT: { index: 2, label: "Preparing products", detail: "The product page is being prepared", isActive: true },
       RESULTS_READY: { index: 3, label: "Results ready", detail: "Prepared products are shown in this conversation", isActive: false },
       WP_RESULT_READY: { index: 3, label: "Results ready", detail: "Prepared products are shown in this conversation", isActive: false },
@@ -1532,7 +1525,7 @@
       await api("/tasks/" + encodeURIComponent(state.selectedTask.id)
         + "/results/" + encodeURIComponent(result.id) + "/governance", {
         method: "POST",
-        body: JSON.stringify({ content_version: "amazon-us-en-v1" }),
+        body: JSON.stringify({ content_version: "retail-en-v1" }),
       });
       await openTask(state.selectedTask);
       showNotice("Product preparation started. Progress and the final result will return to this conversation.", "success");
@@ -1767,16 +1760,9 @@
   function taskStatusLabel(value) {
     var labels = {
       QUEUED: "Request received",
-      PIPO_SUBMITTING: "Submitting request",
-      PIPO_SUBMITTED: "Request received",
       SOURCING: "Finding products",
-      PIPO_PROCESSING: "Finding products",
       REVIEW_REQUIRED: "Reviewing candidates",
       GOVERNING: "Checking product details",
-      STORYLAB_SUBMITTED: "Preparing products",
-      STORYLAB_RUNNING: "Preparing products",
-      DCD_PENDING: "Checking product details",
-      DCD_READY: "Product details ready",
       SHOPIFY_DRAFT: "Preparing product page",
       RESULTS_READY: "Matches ready",
       WP_RESULT_READY: "Matches ready",

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/paired-e2e/v0/journey.schema.json",
+  "title": "Send From China paired E2E v0 dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_version",
+    "provenance",
+    "description",
+    "journeys"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "send-from-china-paired-e2e-dataset/v0"
+    },
+    "dataset_version": {
+      "type": "string",
+      "pattern": "^paired-e2e-v0\\.[0-9]+\\.[0-9]+$"
+    },
+    "provenance": {
+      "const": "public_synthetic"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 500
+    },
+    "journeys": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "title",
+          "category",
+          "action",
+          "execution_path",
+          "fixture",
+          "expected_status"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^paired_v0_[0-9]{2}_[a-z0-9_]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 120
+          },
+          "category": {
+            "enum": ["capability", "http", "mcp", "bff", "security", "boundary"]
+          },
+          "action": {
+            "enum": [
+              "capability_discovery",
+              "sandbox_status",
+              "http_v2_results",
+              "http_v2_no_match",
+              "http_v2_needs_clarification",
+              "http_v2_degraded",
+              "mcp_discovery",
+              "mcp_search",
+              "bff_chat_results",
+              "bff_chat_no_match",
+              "bff_search_results",
+              "bff_search_no_match",
+              "origin_rejection",
+              "authentication_rejection",
+              "credential_isolation",
+              "purchase_link_separation",
+              "cursor_pagination",
+              "cursor_refine_rejection",
+              "agent_core_no_write",
+              "storefront_no_write"
+            ]
+          },
+          "execution_path": {
+            "enum": ["paired_loopback", "in_process_bff_synthetic_state"]
+          },
+          "fixture": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "expected_status": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          }
+        }
+      }
+    }
+  }
+}

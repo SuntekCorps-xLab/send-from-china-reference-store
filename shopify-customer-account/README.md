@@ -1,116 +1,61 @@
-# WP Customer Account
+# Shopify Customer Account surfaces
 
-This Shopify app surface adds one authenticated workspace to the new customer
-account:
+This directory deliberately separates one installable extension from two
+source-only adapter examples. A clean build must not imply that an account
+backend is included when it is not.
 
-- **WP Workspace**: customer-scoped order and tracking details, credit balance,
-  saved conversations, sourcing tasks, governed product results, and revocable
-  Agent keys.
+## Shipped extension
 
-Shopify Customer Accounts is the registration and sign-in system. WP does not
-ask the buyer to create a second password: the first authenticated Workspace
-request verifies Shopify's session token and creates an opaque WP profile for
-that customer. The storefront may offer an anonymous catalog conversation,
-while the signed-in Workspace is the canonical private surface for persistent
-conversation history.
+`extensions/wp-order-tracking/` is the only extension with an active Shopify
+manifest. It reads the signed-in customer's orders and fulfillment tracking
+from Shopify's Customer Account API. It does not send names, addresses, raw
+orders, or payment data to Agent Core.
 
-Every signed-in message carries a stable client message ID. A first-message
-retry restores the conversation instead of creating a duplicate. Dynamic
-sourcing tasks are linked to that conversation, and candidate batches plus
-governance previews return to its message timeline. A different Shopify
-customer cannot address the conversation by guessing its ID.
+The tracking surface:
 
-The same extension also adds a static tracking notice to the order list and a
-tracking panel beneath each fulfillment. These surfaces read order history and
-tracking information directly from Shopify's Customer Account API. They do not
-send names, addresses, or raw order payloads to the WP Worker.
+- keeps fulfillments and tracking numbers scoped to their Shopify order;
+- accepts only HTTPS action URLs;
+- suppresses generic storefront or login roots that are not order-scoped;
+- leaves missing tracking information unknown instead of inventing a number.
 
-The extension never receives or stores card data. Credit packs will use normal
-Shopify Checkout. The Worker grants credits only after a verified
-`orders/paid` webhook matches a configured credit-product variant, and reverses
-them only from a verified refund event.
+## Source-only adapters
 
-The resulting customer flow is:
+`extensions/wp-account/` and `extensions/wp-ask/` are UI adapter examples for a
+saved workspace and authenticated request flow. They intentionally have no
+active `shopify.extension.toml`, are not included in the default Shopify app
+build, and use non-routable `example.invalid` endpoints.
 
-```text
-Sign in / Create account (Shopify)
-  -> WP Workspace profile bootstrap
-  -> saved conversation
-  -> optional Shopify credit checkout
-  -> sourcing/governance task
-  -> candidates and governed product preview in the same conversation
-```
+This repository does **not** include the merchant API required by those
+adapters. Before activating either example, implement a merchant-controlled
+service that:
 
-## Link the Shopify app
+1. verifies every Shopify Customer Account session token;
+2. binds records to both the shop and customer subject;
+3. rejects cross-customer conversation, task, result, and key identifiers;
+4. applies durable idempotency to every write;
+5. validates webhook authenticity before granting or reversing any credit;
+6. keeps Agent Core credentials and merchant secrets out of browser code;
+7. documents retention, deletion, audit logging, abuse controls, and incident
+   response.
 
-The repository deliberately excludes every store-specific
-`shopify.app.*.toml` file because the live app association is local Shopify CLI
-state. Link the workspace to the approved app, preserve the generated local
-file, and compare its required scopes, webhook subscriptions, and app proxy
-with `shopify.app.toml.example`. The example is a contract template, not a
-deployable production identity. From this directory:
-
-```powershell
-shopify app config link
-npm.cmd install
-npm.cmd run dev
-```
-
-Choose the custom app installed on the main production store
-(`<main-store>.myshopify.com`). The same app's Client ID and Secret must be
-configured as Worker secrets so the Worker can verify Customer Account Session
-Tokens. Never place the Secret in this directory; supply store-specific
-identifiers through deployment configuration.
-
-Before production deployment, request/approve:
-
-1. Customer Account UI extension network access.
-2. The `read_customers` scope and protected customer data access required for
-   the signed customer GID (`sub`).
-3. The `WP Workspace` full-page entry in the checkout and accounts editor.
-4. Credit pack variant IDs and prices, then configure
-   `WP_CREDIT_PRODUCTS_JSON` on the Worker.
-5. `orders/paid` and `refunds/create` webhook subscriptions pointing to the
-   Worker webhook routes.
-
-The Workspace exposes a Checkout button only when an approved credit product is
-configured and the explicit paid-credit switch is enabled. Without both, it
-fails closed and reports paid top-up as unavailable. Credits are granted only
-after the verified webhook flow described above; opening Checkout is not a
-credit event.
-
-Example non-secret configuration shape (the variant IDs must come from the
-actual Shopify credit products):
-
-```json
-[
-  {
-    "shop": "<main-store>.myshopify.com",
-    "plan_id": "focused",
-    "title": "Focused search",
-    "variant_id": "SHOPIFY_VARIANT_ID",
-    "credits": 5
-  }
-]
-```
-
-Credit recognition is variant-ID-only. A matching SKU is deliberately not
-accepted because SKUs are merchant-controlled and might be duplicated. It is
-also shop-scoped; a Variant ID from another store cannot credit this account.
+Treat the adapter code as a contract and UX reference, not as proof that these
+server-side controls exist.
 
 ## Build verification
 
-In an already linked development workspace, run:
+Requirements: Node.js 22+ and Shopify CLI through the locked development
+dependency.
 
-```powershell
-npm.cmd ci
-npm.cmd test
-npm.cmd run check -- --no-color
+For a clean checkout, create the ignored, non-deployable test configuration:
+
+```bash
+cp shopify.app.toml.example shopify.app.toml
+npm ci
+npm test
+npm run check -- --no-color
 ```
 
-For a clean source archive that deliberately has no private Shopify CLI state,
-copy the sanitized contract template first. Do this only when
-`shopify.app.toml` does not already exist:
+PowerShell:
 
 ```powershell
 Copy-Item shopify.app.toml.example shopify.app.toml
@@ -119,13 +64,30 @@ npm.cmd test
 npm.cmd run check -- --no-color
 ```
 
-The placeholder Client ID and `example.invalid` callback are intentionally not
-a deployable app identity. Delete the generated local file after verification,
-or replace it by running `shopify app config link` for an approved app. Never
-commit it.
+The build compiles `wp-order-tracking`. Tests also check safety contracts in the
+source-only adapters and the storefront workspace, but they do not turn those
+examples into deployable extensions or supply their backend.
 
-The commands run the unit and contract tests plus Shopify's official app build
-for the tracking extension. A build does not deploy or add pages to the
-customer-account editor. Worker routes and account-state implementation live
-in `../governance-worker`; its README documents local verification and runtime
-configuration.
+From the repository root, `npm run verify:account-preview` bundles the complete
+source-only `wp-account` entry with its locked dependencies and checks the
+gzip-compressed 64 KiB size limit. It also renders the two actual preview
+components with synthetic input in Chromium and checks their text-only output.
+Install both root and customer-account locked dependencies first. The local
+check needs the pinned Playwright Chromium engine, or an explicit `CHROME_PATH`.
+Bundle metadata and synthetic verification receipts go to ignored
+`artifacts/account-preview/`. This check does not activate the adapter or prove
+a Shopify-hosted runtime, account backend, App Proxy, or protected operation.
+
+`shopify.app.toml.example` contains a placeholder client ID and
+`example.invalid` URLs. It cannot identify or deploy to a real app. Delete the
+generated local file after verification, or replace it with configuration
+created by `shopify app config link` for a development app you control. Never
+commit the generated file or an app secret.
+
+## Activating an adapter
+
+Activation is an integration project, not a file rename. Create a new extension
+manifest through Shopify CLI, point the adapter at your reviewed merchant API,
+request only the required scopes and network access, and verify the complete
+flow in a development store. Keep deployment and activation outside pull-request
+automation.

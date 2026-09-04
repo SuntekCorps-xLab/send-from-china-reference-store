@@ -2289,10 +2289,39 @@
     "name": "Send From China APIs",
     "settings": [
       {
+        "type": "select",
+        "id": "wp_runtime_mode",
+        "label": "Agent runtime",
+        "default": "shopify_read_only",
+        "options": [
+          {
+            "value": "shopify_read_only",
+            "label": "Shopify read only (App Proxy)"
+          },
+          {
+            "value": "legacy_public",
+            "label": "Legacy public BFF"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "wp_app_proxy_path",
+        "label": "Same-origin App Proxy path",
+        "default": "/apps/reference-store",
+        "info": "Path only. Match the installed Shopify App Proxy prefix and subpath. Never enter credentials or an upstream URL."
+      },
+      {
         "type": "text",
         "id": "wp_governance_api_base",
-        "label": "Governance API base URL",
-        "info": "Example: https://your-governance-worker.example.workers.dev"
+        "label": "Storefront agent proxy URL",
+        "info": "Browser-safe BFF for catalog, search, and chat. Never point the theme directly at credentialed Agent Core."
+      },
+      {
+        "type": "text",
+        "id": "wp_agent_core_api_base",
+        "label": "Agent Core public URL",
+        "info": "Optional agent-facing discovery URL. The MCP endpoint is /mcp."
       },
       {
         "type": "text",

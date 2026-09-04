@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/triad-contract-projection/v2/artifact.schema.json",
+  "title": "Sanitized synthetic contract-projection aggregate artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_scope", "full_triad_e2e",
+    "authorizes_release", "authorizes_live_preview", "observation_scope",
+    "non_fetch_network_observation", "vm_execution_boundary", "repositories", "aggregate"
+  ],
+  "properties": {
+    "schema_version": { "const": "send-from-china-triad-contract-projection-artifact/v2" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "claim_scope": { "const": "synthetic_contract_projection" },
+    "full_triad_e2e": { "const": false },
+    "authorizes_release": { "const": false },
+    "authorizes_live_preview": { "const": false },
+    "observation_scope": { "const": "global_fetch_only" },
+    "non_fetch_network_observation": { "const": "not_observed" },
+    "vm_execution_boundary": { "const": "trusted_pinned_mini_source_not_security_sandbox" },
+    "repositories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mini_suntek", "agent_core", "reference_store"],
+      "properties": {
+        "mini_suntek": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "agent_core": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "reference_store": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "journey_count", "attempted_count", "passed_count", "failed_count",
+        "assertion_count", "first_failure_ordinal", "guarded_fetch_allowed_request_count",
+        "guarded_fetch_non_loopback_request_count", "production_record_count",
+        "guarded_fetch_commerce_write_count", "guarded_fetch_denied_endpoint_count",
+        "guarded_fetch_redirect_count"
+      ],
+      "properties": {
+        "status": { "enum": ["contract_passed", "contract_failed"] },
+        "journey_count": { "const": 20 },
+        "attempted_count": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "passed_count": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "failed_count": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "assertion_count": { "type": "integer", "minimum": 0 },
+        "first_failure_ordinal": { "type": ["integer", "null"], "minimum": 1, "maximum": 20 },
+        "guarded_fetch_allowed_request_count": { "type": "integer", "minimum": 0 },
+        "guarded_fetch_non_loopback_request_count": { "const": 0 },
+        "production_record_count": { "const": 0 },
+        "guarded_fetch_commerce_write_count": { "const": 0 },
+        "guarded_fetch_denied_endpoint_count": { "const": 0 },
+        "guarded_fetch_redirect_count": { "const": 0 }
+      }
+    }
+  }
+}

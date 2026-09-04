@@ -1,3 +1,9 @@
+{% assign wp_runtime_mode = settings.wp_runtime_mode | default: 'shopify_read_only' %}
+{% if wp_runtime_mode == 'shopify_read_only' %}
+{% render 'wp-shell' %}
+{% render 'wp-shell-topbar' %}
+<section class="wp-runtime-panel"><h1>Custom sourcing unavailable</h1><p>This preview supports catalog reads only. Saved requests and sourcing require a connected service with those capabilities.</p><p data-runtime-status role="status">Checking Shopify connection…</p><button type="button" data-open-agent-drawer>Check Agent connection</button></section>
+{% else %}
 {% render 'wp-shell' %}
 {{ 'wp-workspace.css' | asset_url | stylesheet_tag }}
 
@@ -117,6 +123,8 @@
 </div>
 
 {%- if customer -%}<script src="{{ 'wp-workspace.js' | asset_url }}" defer></script>{%- endif -%}
+
+{% endif %}
 
 {% schema %}
 {"name":"Sourcing request","settings":[],"presets":[{"name":"Sourcing request"}]}

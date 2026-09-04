@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a customer journey, integration, accessibility, or developer-experience improvement.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Start with the user problem and name the source of truth. Do not include
+        merchant credentials, customer data, private endpoints, or production responses.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User or developer problem
+    validations:
+      required: true
+  - type: textarea
+    id: journey
+    attributes:
+      label: Proposed state transition
+      description: What does the user see before, during, after, and when the dependency fails?
+    validations:
+      required: true
+  - type: dropdown
+    id: truth
+    attributes:
+      label: Source of truth
+      options:
+        - Synthetic local demo
+        - Agent Core through the server-side BFF
+        - Shopify storefront or cart
+        - Shopify Customer Account
+        - Merchant-owned adapter
+        - Documentation or developer tooling
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety boundary
+      options:
+        - label: The proposal preserves server-side credentials and does not present illustrative data as a verified product, price, shipping rate, or order state.
+          required: true

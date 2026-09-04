@@ -31,6 +31,23 @@ test("store-specific theme data and deployable app identity are excluded", () =>
   assert.doesNotMatch(example, /\.workers\.dev|\.myshopify\.com|client_secret|shpss_|shpat_|shptka_/i);
 });
 
+test("only order tracking is an active customer-account extension", () => {
+  assert.equal(existsSync(resolve(repositoryRoot,
+    "shopify-customer-account/extensions/wp-order-tracking/shopify.extension.toml")), true);
+  assert.equal(existsSync(resolve(repositoryRoot,
+    "shopify-customer-account/extensions/wp-account/shopify.extension.toml")), false);
+  assert.equal(existsSync(resolve(repositoryRoot,
+    "shopify-customer-account/extensions/wp-ask/shopify.extension.toml")), false);
+  assert.equal(existsSync(resolve(repositoryRoot,
+    "shopify-customer-account/extensions/wp-account/shopify.extension.toml.disabled")), false);
+
+  const rootReadme = read("README.md");
+  const accountReadme = read("shopify-customer-account/README.md");
+  assert.match(rootReadme, /source-only adapter examples/i);
+  assert.match(accountReadme, /does \*\*not\*\* include the merchant API/i);
+  assert.match(accountReadme, /only extension with an active Shopify\s+manifest/i);
+});
+
 test("the agent drawer requires configuration and keeps sourcing explicit", () => {
   const drawer = read("shopify-theme/assets/wp-agent-drawer.js");
   const snippet = read("shopify-theme/snippets/wp-agent-drawer.liquid");
@@ -38,9 +55,24 @@ test("the agent drawer requires configuration and keeps sourcing explicit", () =
   assert.match(drawer, /Shopping Agent API is not configured/);
   assert.match(drawer, /data-agent-start-sourcing/);
   assert.match(drawer, /target\.searchParams\.set\("handoff_id"/);
-  assert.match(drawer, /window\.location\.assign\(target\.href\)/);
+  assert.match(drawer, /var destination = target\.href/);
+  assert.match(drawer, /if \(!signedIn\) \{[\s\S]*?destination = login\.href/);
+  assert.match(drawer, /window\.location\.assign\(destination\)/);
   assert.match(snippet, /settings\.wp_governance_api_base/);
   assert.doesNotMatch(drawer + snippet, /wp-governance\.htfu\.workers\.dev/i);
+});
+
+test("the workspace preserves the authenticated sourcing lifecycle contract", () => {
+  const workspace = read("shopify-theme/assets/wp-workspace.js");
+  assert.match(workspace, /queueDynamicRequest\(/);
+  assert.match(workspace, /idempotency_key:\s*taskKey\(/);
+  assert.match(workspace, /method:\s*"POST"/);
+  assert.match(workspace, /"QUEUED"|QUEUED:/);
+  assert.match(workspace, /SOURCING:/);
+  assert.match(workspace, /GOVERNING:/);
+  assert.match(workspace, /RESULTS_READY:/);
+  assert.match(workspace, /\["NO_MATCH", "FAILED", "CANCELLED"\]/);
+  assert.doesNotMatch(workspace, /DEMO_AGENT_TOKEN|Authorization:\s*["'`]Bearer/i);
 });
 
 test("search and collection avoid fixed catalog-total claims", () => {

@@ -1,0 +1,11 @@
+name = "my-shopify-agent-bff"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+AGENT_CORE_BASE_URL = "https://agent-core.example.invalid"
+AGENT_CORE_PAGE_SIZE = "20"
+STOREFRONT_ORIGIN = "https://store.example.invalid"
+ALLOWED_ORIGINS = "https://store.example.invalid,http://localhost:4173"
+
+# Set AGENT_CORE_TENANT_KEY only with the platform secret manager.

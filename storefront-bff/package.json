@@ -1,0 +1,17 @@
+{
+  "name": "@send-from-china/storefront-bff",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

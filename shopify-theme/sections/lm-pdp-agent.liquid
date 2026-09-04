@@ -390,10 +390,10 @@ This product can be added to cart via a single URL. Agents should pass this to t
 <li><strong>Full product page (human view):</strong> <a href="{{ canonical_url }}">{{ canonical_url }}</a></li>
 <li><strong>Product JSON data:</strong> <a href="{{ canonical_url }}.json">{{ canonical_url }}.json</a></li>
 <li><strong>UCP discovery:</strong> <a href="/.well-known/ucp">/.well-known/ucp</a></li>
-{%- assign wp_governance_api_base = settings.wp_governance_api_base | strip -%}
+{%- assign wp_agent_core_api_base = settings.wp_agent_core_api_base | strip -%}
 {%- assign wp_shipping_api_base = settings.wp_shipping_api_base | strip -%}
-{%- if wp_governance_api_base != blank -%}
-<li><strong>MCP endpoint:</strong> <a href="{{ wp_governance_api_base }}/api/ucp/mcp">{{ wp_governance_api_base }}/api/ucp/mcp</a></li>
+{%- if wp_agent_core_api_base != blank -%}
+<li><strong>MCP endpoint:</strong> <a href="{{ wp_agent_core_api_base }}/mcp">{{ wp_agent_core_api_base }}/mcp</a></li>
 {%- else -%}
 <li><strong>MCP endpoint:</strong> Not configured for this storefront</li>
 {%- endif -%}

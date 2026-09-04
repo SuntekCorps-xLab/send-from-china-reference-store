@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { inlineClassicScripts } from "./helpers/inline-scripts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const THEMES = ["shopify-theme"];
@@ -54,7 +55,9 @@ for (const theme of THEMES) {
     assert.doesNotMatch(search, /Add to compare|Selected for comparison|data-search-shortlist/i);
     assert.match(search, /document\.createElement\("article"\)/);
     assert.doesNotMatch(search, /<main(?:\s|>)/i);
-    const inlineScript = search.match(/{%- if search\.performed -%}\s*<script>([\s\S]*?)<\/script>/)?.[1];
+    const searchScripts = inlineClassicScripts(search);
+    assert.equal(searchScripts.length, 1, "search has exactly one inline interaction script");
+    const [inlineScript] = searchScripts;
     assert.ok(inlineScript, "search interaction script is present");
     assert.doesNotThrow(() => new Function(inlineScript.replace(/{{ wp_agent_url \| json }}/g, '"https://example.com/ask"')));
   });
@@ -69,7 +72,7 @@ for (const theme of THEMES) {
     assert.match(source, /aria-live="polite"/);
     assert.match(source, /new AbortController\(\)/);
     assert.match(source, /signal: controller\.signal/);
-    const scripts = [...source.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+    const scripts = inlineClassicScripts(source);
     assert.ok(scripts.length >= 2, "PDP interaction scripts are present");
     for (const script of scripts) {
       assert.doesNotThrow(() => new Function(script));
@@ -98,6 +101,26 @@ for (const theme of THEMES) {
     ]) {
       const source = read(theme, relativePath);
       assert.doesNotMatch(source, /worldproducts_agent|"alternateName": "Landmark"/);
+    }
+  });
+
+  test(`${theme}: browser traffic and agent-native discovery use separate endpoints`, () => {
+    const settings = read(theme, "config/settings_schema.json");
+    const drawer = read(theme, "assets/wp-agent-drawer.js");
+    assert.match(settings, /"id": "wp_governance_api_base"/);
+    assert.match(settings, /"id": "wp_agent_core_api_base"/);
+    assert.match(settings, /Never point the theme directly at credentialed Agent Core/);
+    assert.doesNotMatch(drawer, /authorization|bearer/i);
+    for (const relativePath of [
+      "sections/lm-home-agent.liquid",
+      "sections/lm-search-agent.liquid",
+      "sections/lm-collection-agent.liquid",
+      "sections/lm-pdp-agent.liquid",
+    ]) {
+      const source = read(theme, relativePath);
+      assert.match(source, /wp_agent_core_api_base/);
+      assert.match(source, /\/mcp/);
+      assert.doesNotMatch(source, /api\/ucp\/mcp/);
     }
   });
 

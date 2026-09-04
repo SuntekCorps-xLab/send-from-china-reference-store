@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveInstalledChromiumPath } from "../../scripts/browser-path.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const themeRoot = path.join(repoRoot, "shopify-theme");
@@ -17,7 +19,7 @@ if (process.argv.includes("--serve")) {
   }
   const fixture = await startFixture(assets, port);
   console.log(`WP Workspace preview: ${fixture.origin}/workspace`);
-  console.log("Local fixture only: no Shopify, PIPO, StoryLab, DCD, or payment write is enabled.");
+  console.log("Local fixture only: no Shopify, private provider, or payment write is enabled.");
   await new Promise(resolve => {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
@@ -26,7 +28,7 @@ if (process.argv.includes("--serve")) {
   process.exit(0);
 }
 
-const chromePath = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const chromePath = await resolveInstalledChromiumPath();
 const artifactDir = path.join(repoRoot, "shopify-customer-account", "qa-artifacts", "workspace");
 const profileDir = await mkdtemp(path.join(os.tmpdir(), "wp-workspace-qa-"));
 const assets = await loadAssets();
@@ -118,8 +120,8 @@ async function runRequestDetailDesktopCase(cdp, server) {
   assert(state.activityOpen === false, "desktop: request activity must start collapsed");
   assert(state.deeperVisible === true, "desktop: paid continuation is missing after initial results");
   assert(state.requestCards === 3, `desktop: expected exactly 3 initial matches, received ${state.requestCards}`);
-  assert(state.text.includes("Unlock all 4 matches"), "desktop: full result unlock is missing");
-  assert(state.text.includes("complete saved 1688 candidate pool"),
+  assert(state.text.includes("Prepare more products"), "desktop: additional product preparation is missing");
+  assert(state.text.includes("verified matches") && state.text.includes("available to prepare"),
     "desktop: saved candidate-pool boundary is missing");
   assert(state.text.includes("Starter search credits"), "desktop: paid deeper-search offer is missing");
   const audit = await auditPage(cdp, 1440, [
@@ -328,7 +330,7 @@ async function runSavedRequestCase(cdp, server) {
     "Your prepared product preview is ready",
   ]);
   assert(!audit.text.includes("Product preparation started"), "desktop: stale preparation copy remained after completion");
-  assert(!/(?:PIPO|StoryLab|DCD|JWT|paid search plan)/i.test(audit.text), "desktop: internal pipeline copy leaked");
+  assert(!/(?:internal provider|private pipeline|JWT|paid search plan)/i.test(audit.text), "desktop: private implementation copy leaked");
   assert(audit.text.includes("no charge will be attempted"), "desktop: free pilot boundary is missing");
   const screenshot = await saveScreenshot(cdp, "desktop-saved-request.png");
   return { name: "desktop-saved-request", viewport: "1440x1000", products: audit.products, screenshot };
@@ -361,7 +363,7 @@ async function runAgentAccessCase(cdp, server) {
     "Catalog search stays public",
     "Agent access revoked",
   ]);
-  assert(!/(?:PIPO|StoryLab|DCD|JWT)/i.test(audit.text), "agent: internal pipeline copy leaked");
+  assert(!/(?:internal provider|private pipeline|JWT)/i.test(audit.text), "agent: private implementation copy leaked");
   const screenshot = await saveScreenshot(cdp, "desktop-agent-access.png");
   return { name: "desktop-agent-access", viewport: "1024x900", screenshot };
 }
@@ -512,7 +514,7 @@ async function runNewConversationCase(cdp, server) {
     "Usually ready within 10 minutes",
   ]);
   assert(audit.text.includes("free previews remain today"), "mobile: pilot quota is missing");
-  assert(!/(?:PIPO|StoryLab|DCD|JWT|Add credits)/i.test(audit.text), "mobile: internal or disabled commercial copy leaked");
+  assert(!/(?:internal provider|private pipeline|JWT|Add credits)/i.test(audit.text), "mobile: private or disabled commercial copy leaked");
   const screenshot = await saveScreenshot(cdp, "mobile-new-conversation.png");
   return { name: "mobile-new-conversation", viewport: "390x844", products: audit.products, screenshot };
 }
@@ -956,7 +958,7 @@ function summary(state) {
       }
     : { enabled: false, reason: "CREDIT_PRODUCTS_NOT_CONFIGURED", products: [] };
   return {
-    account: { santai_customer_id: "stc_fictional_browser_qa", shop: "fixture.myshopify.com" },
+    account: { customer_id: "customer_fictional_browser_qa", shop: "fixture.myshopify.com" },
     credits: { available: 0, reserved: 0 },
     tasks: {
       total: state.tasks.length,
