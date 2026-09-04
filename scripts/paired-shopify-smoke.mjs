@@ -57,6 +57,8 @@ function checkRuntime(runtime) {
     non_transactional: true, purchasable: false, shipping_rates: false,
     commerce_writes: false, credential_exposed: false,
   });
+  assert.ok(runtime.components);
+  assert.equal(runtime.components.reference_store.commit, runtime.components.storefront_bff.commit);
 }
 
 export async function runPairedShopifySmoke({ args = process.argv.slice(2) } = {}) {
@@ -158,6 +160,18 @@ export async function runPairedShopifySmoke({ args = process.argv.slice(2) } = {
     coreOrigin = new URL(sandbox.baseUrl).origin;
     coreToken = String(sandbox.token || "");
     if (coreToken) FORBIDDEN.push(coreToken);
+    const deploymentDescriptor = JSON.stringify({
+      components: {
+        agent_core: { commit: repositories.agent_core.commit, version: "1.2.0" },
+        reference_store: {
+          commit: repositories.reference_store.commit,
+          tree: repositories.reference_store.tree,
+          version: "1.1.0",
+        },
+        storefront_bff: { commit: repositories.reference_store.commit, version: "1.0.0" },
+      },
+      schema_version: "reference-store-deployment-descriptor/v1",
+    });
     const env = {
       AGENT_CORE_SANDBOX_URL: sandbox.baseUrl,
       ...(coreToken ? { AGENT_CORE_SANDBOX_TOKEN: coreToken } : {}),
@@ -167,6 +181,9 @@ export async function runPairedShopifySmoke({ args = process.argv.slice(2) } = {
       SHOPIFY_APP_PROXY_SHOP: fixtures.FIXTURE_STORE,
       STOREFRONT_ORIGIN: STOREFRONT,
       ALLOWED_ORIGINS: STOREFRONT,
+      BFF_DEPLOYMENT_DESCRIPTOR: deploymentDescriptor,
+      BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE: "A".repeat(86),
+      BFF_DEPLOYMENT_SIGNING_KEY_ID: "synthetic-paired-no-release",
     };
     const proxyCall = async (route, body, { invalidSignature = false } = {}) => {
       const url = new URL(signedProxyUrl(route, fixtures.FIXTURE_STORE));

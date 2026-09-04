@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-live-app-proxy-receipt.v1.schema.json",
+  "title": "Sanitized real Shopify App Proxy read-only acceptance receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "gate_status", "claim_scope", "expected_components", "observed_components",
+    "deployment_attestation", "shopify", "inputs", "execution", "safety", "boundaries", "journeys"
+  ],
+  "properties": {
+    "schema_version": { "const": "reference-store-live-app-proxy-receipt/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "gate_status": { "enum": ["passed", "failed"] },
+    "claim_scope": { "const": "real_unpublished_shopify_app_proxy_read_only" },
+    "expected_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_store", "agent_core", "storefront_bff"],
+      "properties": {
+        "reference_store": { "$ref": "#/$defs/repositoryComponent" },
+        "agent_core": { "$ref": "#/$defs/serviceComponent" },
+        "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
+      }
+    },
+    "observed_components": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/components" }
+      ]
+    },
+    "deployment_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "signing_key_id", "public_key_sha256", "descriptor_sha256"],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "signing_key_id": { "$ref": "#/$defs/version" },
+        "public_key_sha256": { "$ref": "#/$defs/sha256" },
+        "descriptor_sha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] }
+      }
+    },
+    "shopify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permanent_shop_domain_sha256", "storefront_origin_sha256", "unpublished_theme_id"],
+      "properties": {
+        "permanent_shop_domain_sha256": { "$ref": "#/$defs/sha256" },
+        "storefront_origin_sha256": { "$ref": "#/$defs/sha256" },
+        "unpublished_theme_id": { "type": "string", "pattern": "^[0-9]{6,20}$" }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cases_sha256", "case_count"],
+      "properties": {
+        "cases_sha256": { "$ref": "#/$defs/sha256" },
+        "case_count": { "const": 10 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser", "attempted_count", "passed_count", "failed_count",
+        "first_failure_case_id", "failure_code"
+      ],
+      "properties": {
+        "browser": { "enum": ["chromium", "firefox", "webkit"] },
+        "attempted_count": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "passed_count": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "failed_count": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "first_failure_case_id": {
+          "type": ["string", "null"],
+          "pattern": "^case_[0-9a-f]{16,32}$"
+        },
+        "failure_code": { "type": ["string", "null"], "pattern": "^[a-z0-9_]{3,80}$" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cross_origin_api_requests", "legacy_route_requests", "unexpected_api_requests",
+        "browser_write_requests", "forbidden_browser_header_requests",
+        "browser_storage_credential_hits", "browser_storage_query_hits", "browser_persistent_storage_hits",
+        "console_errors", "page_errors"
+      ],
+      "properties": {
+        "cross_origin_api_requests": { "type": "integer", "minimum": 0 },
+        "legacy_route_requests": { "type": "integer", "minimum": 0 },
+        "unexpected_api_requests": { "type": "integer", "minimum": 0 },
+        "browser_write_requests": { "type": "integer", "minimum": 0 },
+        "forbidden_browser_header_requests": { "type": "integer", "minimum": 0 },
+        "browser_storage_credential_hits": { "type": "integer", "minimum": 0 },
+        "browser_storage_query_hits": { "type": "integer", "minimum": 0 },
+        "browser_persistent_storage_hits": { "type": "integer", "minimum": 0 },
+        "console_errors": { "type": "integer", "minimum": 0 },
+        "page_errors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actual_shopify_app_proxy_verified", "live_shopify_connection_verified",
+        "synthetic_fallback_count", "successful_commerce_write_count", "raw_query_record_count",
+        "raw_response_record_count", "cookie_record_count", "signature_record_count", "token_record_count"
+      ],
+      "properties": {
+        "actual_shopify_app_proxy_verified": { "type": "boolean" },
+        "live_shopify_connection_verified": { "type": "boolean" },
+        "synthetic_fallback_count": { "type": "integer", "minimum": 0 },
+        "successful_commerce_write_count": { "type": "integer", "minimum": 0 },
+        "raw_query_record_count": { "const": 0 },
+        "raw_response_record_count": { "const": 0 },
+        "cookie_record_count": { "const": 0 },
+        "signature_record_count": { "const": 0 },
+        "token_record_count": { "const": 0 }
+      }
+    },
+    "journeys": {
+      "type": "object",
+      "maxProperties": 10,
+      "propertyNames": { "pattern": "^case_[0-9a-f]{16,32}$" },
+      "patternProperties": {
+        "^case_[0-9a-f]{16,32}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "result_count", "latency_ms"],
+          "properties": {
+            "status": { "const": "passed" },
+            "result_count": { "type": "integer", "minimum": 1, "maximum": 20 },
+            "latency_ms": { "type": "integer", "minimum": 0, "maximum": 120000 }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "gate_status": { "const": "passed" } } },
+      "then": {
+        "properties": {
+          "observed_components": { "$ref": "#/$defs/components" },
+          "deployment_attestation": {
+            "properties": {
+              "verified": { "const": true },
+              "descriptor_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          },
+          "execution": {
+            "properties": {
+              "attempted_count": { "const": 10 },
+              "passed_count": { "const": 10 },
+              "failed_count": { "const": 0 },
+              "first_failure_case_id": { "type": "null" },
+              "failure_code": { "type": "null" }
+            }
+          },
+          "safety": {
+            "properties": {
+              "cross_origin_api_requests": { "const": 0 },
+              "legacy_route_requests": { "const": 0 },
+              "unexpected_api_requests": { "const": 0 },
+              "browser_write_requests": { "const": 0 },
+              "forbidden_browser_header_requests": { "const": 0 },
+              "browser_storage_credential_hits": { "const": 0 },
+              "browser_storage_query_hits": { "const": 0 },
+              "browser_persistent_storage_hits": { "const": 0 },
+              "console_errors": { "const": 0 },
+              "page_errors": { "const": 0 }
+            }
+          },
+          "boundaries": {
+            "properties": {
+              "actual_shopify_app_proxy_verified": { "const": true },
+              "live_shopify_connection_verified": { "const": true },
+              "synthetic_fallback_count": { "const": 0 },
+              "successful_commerce_write_count": { "const": 0 },
+              "raw_query_record_count": { "const": 0 },
+              "raw_response_record_count": { "const": 0 },
+              "cookie_record_count": { "const": 0 },
+              "signature_record_count": { "const": 0 },
+              "token_record_count": { "const": 0 }
+            }
+          },
+          "journeys": { "minProperties": 10, "maxProperties": 10 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "repositoryComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "serviceComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "version"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_store", "agent_core", "storefront_bff"],
+      "properties": {
+        "reference_store": { "$ref": "#/$defs/repositoryComponent" },
+        "agent_core": { "$ref": "#/$defs/serviceComponent" },
+        "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
+      }
+    }
+  }
+}

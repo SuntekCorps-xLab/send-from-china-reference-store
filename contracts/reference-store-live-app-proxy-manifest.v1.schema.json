@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-live-app-proxy-manifest.v1.schema.json",
+  "title": "Content-addressed live App Proxy gate evidence manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "receipt_file", "receipt_bytes", "receipt_sha256", "cases_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "reference-store-live-app-proxy-manifest/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "receipt_file": { "const": "receipt.json" },
+    "receipt_bytes": { "type": "integer", "minimum": 1 },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" },
+    "cases_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

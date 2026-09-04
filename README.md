@@ -21,7 +21,7 @@
 | Start | Best for | Boundary |
 | --- | --- | --- |
 | **[Try the hosted synthetic storefront](docs/HOSTED_SYNTHETIC_DEMO.md)** | A zero-account browser preview of the storefront, agent drawer, read-only run receipt, and failure states | Deterministic public fixtures only; no merchant, credential, purchase, shipping quote, or write. The public URL is added only after the exact candidate is deployed and reviewed. |
-| **[Connect Shopify through the server-side BFF](storefront-bff/README.md)** | A merchant-owned Shopify development store or storefront integration | The browser calls a same-origin BFF; Shopify and Agent Core credentials remain server-side. Real connectivity is not claimed until the operator completes the documented 10/10 App Proxy gate. |
+| **[Connect Shopify through the server-side BFF](storefront-bff/README.md)** | A merchant-owned Shopify development store or storefront integration | The browser calls a same-origin BFF; Shopify and Agent Core credentials remain server-side. Real connectivity is not claimed until the operator completes the documented [10/10 App Proxy gate](docs/SHOPIFY_APP_PROXY_LIVE_GATE.md). |
 
 The hosted candidate and local demo render the same public assets and closed
 synthetic contracts. If no reviewed hosted URL is listed in the

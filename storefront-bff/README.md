@@ -39,6 +39,9 @@ runtime routes use a separate, explicit sandbox boundary:
 | `BFF_QUOTA_LIMIT` | No | Per-isolate in-memory request limit; defaults to 120 |
 | `BFF_QUOTA_WINDOW_SECONDS` | No | In-memory quota window; defaults to 60 seconds |
 | `BFF_CONCURRENCY_LIMIT` | No | Per-isolate in-memory concurrency limit; defaults to 8 |
+| `BFF_DEPLOYMENT_DESCRIPTOR` | No | Canonical closed JSON binding Reference Store, BFF, and accepted Core commits/versions |
+| `BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE` | No | Base64url Ed25519 signature created by the release control plane over the canonical descriptor |
+| `BFF_DEPLOYMENT_SIGNING_KEY_ID` | No | Public identifier for the release signing key; the external gate pins its public key independently |
 
 `local` accepts runtime requests only when the request URL host is exactly
 `127.0.0.1`. It is intended for the local demo server, which is responsible for
@@ -51,6 +54,13 @@ also guard the retained legacy `/api/*` routes; Shopify read-only runtime mode
 disables those legacy routes so only the closed runtime API is available.
 `/health` remains public.
 
+The canonical descriptor, its signature, and key ID are mandatory for runtime
+routes. Missing, malformed, noncanonical, or internally inconsistent values fail
+closed before any upstream request. Status returns the closed `components` plus
+the signature attestation; doctor and every run carry them as well. The external
+acceptance gate verifies the Ed25519 signature using a public key loaded from a
+separate evidence boundary. The BFF never receives the release private key.
+
 Credentials are server-only. They must not be placed in Liquid, theme settings,
 URLs, query strings, browser storage, requests to these routes, or response
 bodies. Configure at most one Sandbox credential. A Hosted HTTPS origin with a
@@ -60,6 +70,10 @@ cannot switch a synthetic process to Shopify.
 
 See the [staging App Proxy wiring guide](../docs/SHOPIFY_APP_PROXY_STAGING.md)
 for the same-origin Liquid prefix, Worker routing, and credential-free examples.
+After staging is installed, use the separate
+[real App Proxy 10/10 gate](../docs/SHOPIFY_APP_PROXY_LIVE_GATE.md). The normal
+paired smoke is injected coverage and must not be represented as that Live
+acceptance result.
 
 ## Routes
 
@@ -77,7 +91,10 @@ for the same-origin Liquid prefix, Worker routing, and credential-free examples.
 status remains visible as `connected: false`; it is never relabeled or replaced
 with synthetic data. `GET /api/runtime/doctor` returns the same projection with
 closed server-side deployment, connection, mode, credential-isolation, and
-write-boundary checks.
+write-boundary checks. The published closed schemas are
+[`reference-store-runtime-status.v1.schema.json`](../contracts/reference-store-runtime-status.v1.schema.json),
+[`reference-store-runtime-doctor.v1.schema.json`](../contracts/reference-store-runtime-doctor.v1.schema.json),
+and [`reference-store-read-run.v1.schema.json`](../contracts/reference-store-read-run.v1.schema.json).
 
 `POST /api/runs` accepts `{ "query": "..." }` (with optional `limit` and opaque
 `cursor`). It obtains status first and performs search only when that exact

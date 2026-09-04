@@ -10,3 +10,8 @@ BFF_RUNTIME_MODE = "synthetic_local_sandbox"
 BFF_DEPLOYMENT_MODE = "local"
 STOREFRONT_ORIGIN = "https://store.example.invalid"
 ALLOWED_ORIGINS = "https://store.example.invalid,http://127.0.0.1:4173"
+# Explicit unsigned-looking non-release fixture. The external live gate will not
+# accept this signature or key id.
+BFF_DEPLOYMENT_DESCRIPTOR = '{"components":{"agent_core":{"commit":"0000000000000000000000000000000000000000","version":"synthetic-local"},"reference_store":{"commit":"0000000000000000000000000000000000000000","tree":"0000000000000000000000000000000000000000","version":"synthetic-local"},"storefront_bff":{"commit":"0000000000000000000000000000000000000000","version":"synthetic-local"}},"schema_version":"reference-store-deployment-descriptor/v1"}'
+BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+BFF_DEPLOYMENT_SIGNING_KEY_ID = "synthetic-local-no-release"

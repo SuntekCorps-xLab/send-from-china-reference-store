@@ -21,6 +21,12 @@ BFF_UPSTREAM_TIMEOUT_MS = "5000"
 BFF_QUOTA_LIMIT = "40"
 BFF_QUOTA_WINDOW_SECONDS = "60"
 BFF_CONCURRENCY_LIMIT = "4"
+# Canonical signed deployment descriptor projected by status, doctor and every
+# run. The release gate independently verifies the Ed25519 signature with an
+# external pinned public key. Empty values fail closed before upstream access.
+BFF_DEPLOYMENT_DESCRIPTOR = ""
+BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE = ""
+BFF_DEPLOYMENT_SIGNING_KEY_ID = ""
 
 # Secret bindings, deliberately absent from this file:
 # SHOPIFY_APP_PROXY_SECRET: the staging app's shared secret.

@@ -19,6 +19,18 @@ const STOREFRONT = "https://sandbox-store.example.invalid";
 const FIXTURE_SHOP = "reference-liquid-fixture.myshopify.com";
 const CHECKED = "2026-09-02T00:00:00.000Z";
 const VERIFIED = "2026-09-02T00:00:01.000Z";
+const COMPONENT_ENV = Object.freeze({
+  BFF_DEPLOYMENT_DESCRIPTOR: JSON.stringify({
+    components: {
+      agent_core: { commit: "3".repeat(40), version: "1.2.0-test" },
+      reference_store: { commit: "1".repeat(40), tree: "2".repeat(40), version: "1.1.0-test" },
+      storefront_bff: { commit: "1".repeat(40), version: "1.0.0-test" },
+    },
+    schema_version: "reference-store-deployment-descriptor/v1",
+  }),
+  BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE: "A".repeat(86),
+  BFF_DEPLOYMENT_SIGNING_KEY_ID: "synthetic-liquid-no-release",
+});
 
 function statusFixture(scenario) {
   if (scenario === "synthetic_mismatch") {
@@ -175,9 +187,10 @@ export async function startLiquidPreview() {
           BFF_RUNTIME_MODE: "shopify_read_only", BFF_DEPLOYMENT_MODE: "shopify_app_proxy",
           SHOPIFY_APP_PROXY_SECRET: SERVER_ONLY_SENTINELS[1], SHOPIFY_APP_PROXY_SHOP: FIXTURE_SHOP,
           SHOPIFY_APP_PROXY_PATH_PREFIX: PROXY_PREFIX,
-          STOREFRONT_ORIGIN: STOREFRONT, ALLOWED_ORIGINS: origin,
-          BFF_QUOTA_LIMIT: "10000",
-        });
+           STOREFRONT_ORIGIN: STOREFRONT, ALLOWED_ORIGINS: origin,
+           BFF_QUOTA_LIMIT: "10000",
+           ...COMPONENT_ENV,
+         });
         record.status = bffResponse.status;
         record.response = await bffResponse.text();
         return send(response, record.status, record.response);
