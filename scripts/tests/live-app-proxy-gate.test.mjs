@@ -66,7 +66,7 @@ function caseManifest() {
   return {
     schema_version: "reference-store-live-app-proxy-cases/v1",
     cases: Array.from({ length: 10 }, (_, index) => ({
-      case_id: `known_${String(index + 1).padStart(2, "0")}`,
+      case_id: `case_${(index + 1).toString(16).padStart(16, "0")}`,
       query: `private known query ${index + 1}`,
       expected_handle: `expected-product-${index + 1}`,
     })),
@@ -305,6 +305,15 @@ test("case contract requires exactly ten unique, closed, sanitized known cases",
   const control = caseManifest();
   control.cases[0].query = "desk\norganizer";
   assert.throws(() => validateCases(control), LiveGateError);
+  const disclosed = caseManifest();
+  disclosed.cases[0].query = disclosed.cases[0].case_id;
+  assert.throws(() => validateCases(disclosed), LiveGateError);
+  const duplicateQuery = caseManifest();
+  duplicateQuery.cases[9].query = `  ${duplicateQuery.cases[0].query.toUpperCase()}  `.trim();
+  assert.throws(() => validateCases(duplicateQuery), LiveGateError);
+  const descriptiveId = caseManifest();
+  descriptiveId.cases[0].case_id = "private_known_query";
+  assert.throws(() => validateCases(descriptiveId), LiveGateError);
 });
 
 test("config seals external inputs, repository identity, versions and process secret absence", async () => {
@@ -318,6 +327,17 @@ test("config seals external inputs, repository identity, versions and process se
       environment: { ...fixture.environment, SHOPIFY_APP_PROXY_SECRET: "must-not-enter-browser-harness" },
       nodeVersion: "22.23.2",
     }), (error) => error.code === "browser_harness_secret_present");
+    for (const name of [
+      "shopify_app_proxy_secret",
+      "agent_core_runtime_credential",
+      "SHOPIFY_SERVICE_PASSWORD",
+    ]) {
+      await assert.rejects(() => loadLiveGateConfig({
+        ...fixture,
+        environment: { ...fixture.environment, [name]: "must-not-enter-browser-harness" },
+        nodeVersion: "22.23.2",
+      }), (error) => error.code === "browser_harness_secret_present");
+    }
     await assert.rejects(() => loadLiveGateConfig({
       ...fixture,
       environment: { ...fixture.environment, REFERENCE_STORE_EXPECTED_BFF_COMMIT: CORE_COMMIT },
@@ -521,7 +541,7 @@ test("synthetic response, missing expected product and browser boundary activity
     }),
   });
   assert.equal(missing.gate_status, "failed");
-  assert.equal(missing.execution.first_failure_case_id, "known_01");
+  assert.equal(missing.execution.first_failure_case_id, "case_0000000000000001");
   assert.equal(missing.execution.failure_code, "live_case_expected_product_missing");
 
   const unsafe = await executeLiveGate({

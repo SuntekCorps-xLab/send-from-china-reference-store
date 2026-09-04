@@ -24,7 +24,7 @@ const HASH = /^[0-9a-f]{40}$/u;
 const DIGEST = /^[0-9a-f]{64}$/u;
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const ED25519_SIGNATURE = /^[A-Za-z0-9_-]{86}$/u;
-const CASE_ID = /^[a-z0-9][a-z0-9_-]{2,63}$/u;
+const CASE_ID = /^case_[0-9a-f]{16,32}$/u;
 const HANDLE = /^[a-z0-9][a-z0-9-]{0,99}$/u;
 const FORBIDDEN_PROCESS_SECRETS = Object.freeze([
   "SHOPIFY_APP_PROXY_SECRET",
@@ -227,13 +227,20 @@ export function validateCases(value) {
   if (!exactKeys(value, ["schema_version", "cases"]) || value.schema_version !== CASE_SCHEMA
     || !Array.isArray(value.cases) || value.cases.length !== 10) fail("invalid_live_case_manifest");
   const seen = new Set();
+  const seenQueries = new Set();
   const cases = value.cases.map((item) => {
+    const normalizedQuery = typeof item.query === "string"
+      ? item.query.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase()
+      : "";
     if (!exactKeys(item, ["case_id", "query", "expected_handle"])
       || !CASE_ID.test(item.case_id) || seen.has(item.case_id)
       || typeof item.query !== "string" || item.query !== item.query.trim()
       || item.query.length < 2 || item.query.length > 300 || /[\u0000-\u001f\u007f]/u.test(item.query)
+      || normalizedQuery === item.case_id || normalizedQuery === item.expected_handle
+      || seenQueries.has(normalizedQuery)
       || !HANDLE.test(item.expected_handle)) fail("invalid_live_case_manifest");
     seen.add(item.case_id);
+    seenQueries.add(normalizedQuery);
     return Object.freeze({ ...item });
   });
   return Object.freeze(cases);
@@ -247,11 +254,10 @@ export async function loadLiveGateConfig({
 } = {}) {
   if (String(nodeVersion).split(".")[0] !== "22") fail("node_22_required");
   if (environment.REFERENCE_STORE_LIVE_GATE_CONFIRM !== CONFIRMATION) fail("live_gate_not_confirmed");
-  for (const name of FORBIDDEN_PROCESS_SECRETS) {
-    if (String(environment[name] || "").trim()) fail("browser_harness_secret_present");
-  }
   for (const [name, value] of Object.entries(environment)) {
-    if (/^(?:SHOPIFY|AGENT_CORE).*(?:TOKEN|SECRET|INVITE|KEY)$/u.test(name)
+    const normalizedName = name.toUpperCase();
+    if ((FORBIDDEN_PROCESS_SECRETS.includes(normalizedName)
+      || /^(?:SHOPIFY|AGENT_CORE).*?(?:TOKEN|SECRET|INVITE|KEY|CREDENTIAL|PASSWORD)$/u.test(normalizedName))
       && String(value || "").trim()) fail("browser_harness_secret_present");
   }
   const browser = required(environment, "REFERENCE_STORE_LIVE_BROWSER");

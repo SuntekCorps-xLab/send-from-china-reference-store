@@ -58,8 +58,9 @@ Before the run, an administrator must provide and independently record:
    must return that closed observed identity object.
 7. A private external cases file conforming to
    [`reference-store-live-app-proxy-cases.v1.schema.json`](../contracts/reference-store-live-app-proxy-cases.v1.schema.json).
-   It must contain exactly ten unique case IDs, private known queries, and the
-   expected public Shopify handle for each query.
+   It must contain exactly ten opaque `case_<16-32 lowercase hex>` IDs, ten
+   unique private known queries, and the expected public Shopify handle for
+   each query. Case IDs must never contain or repeat query text.
 
 Do not use the operating store, publish a theme, add a write scope, or relax a
 failed identity check to make the gate pass.

@@ -73,7 +73,7 @@
         "failed_count": { "type": "integer", "minimum": 0, "maximum": 1 },
         "first_failure_case_id": {
           "type": ["string", "null"],
-          "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$"
+          "pattern": "^case_[0-9a-f]{16,32}$"
         },
         "failure_code": { "type": ["string", "null"], "pattern": "^[a-z0-9_]{3,80}$" }
       }
@@ -128,7 +128,7 @@
         "additionalProperties": false,
         "required": ["case_id", "status", "result_count", "latency_ms"],
         "properties": {
-          "case_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+          "case_id": { "type": "string", "pattern": "^case_[0-9a-f]{16,32}$" },
           "status": { "const": "passed" },
           "result_count": { "type": "integer", "minimum": 1, "maximum": 20 },
           "latency_ms": { "type": "integer", "minimum": 0, "maximum": 120000 }
