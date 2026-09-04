@@ -153,6 +153,30 @@ test("one parsed run is recursively frozen and sent by identity to every rendere
   assert.throws(() => { run.search.results[0].title = "Browser reconstruction"; }, TypeError);
 });
 
+test("a second accepted run replaces the first active run in every projection", () => {
+  const received = { workbench: [], drawer: [], receipt: [] };
+  const store = createRunStore({
+    renderWorkbench(value) { received.workbench.push(value); },
+    renderDrawer(value) { received.drawer.push(value); },
+    renderReceipt(value) { received.receipt.push(value); },
+  });
+  const first = runFixture();
+  const second = runFixture({
+    products: [productFixture({ suffix: "-second" })],
+  });
+
+  store.setActiveRun(first);
+  store.setActiveRun(second);
+
+  assert.equal(store.getActiveRun(), second);
+  for (const projection of Object.values(received)) {
+    assert.equal(projection.length, 2);
+    assert.equal(projection[0], first);
+    assert.equal(projection[1], second);
+  }
+  assert.equal(store.getLastRenderIdentity().all, true);
+});
+
 test("read runs reject malicious product URLs and cross-store result sets", () => {
   for (const productUrl of [
     "javascript:alert(1)",

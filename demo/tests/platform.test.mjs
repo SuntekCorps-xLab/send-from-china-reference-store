@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
+import { mkdtemp, rm, symlink } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import {
   candidateAgentCoreDirectories,
+  isDirectInvocation,
   resolveAgentCoreDirectory,
   startPlatform,
 } from "../../scripts/demo-platform.mjs";
+
+const repositoryRoot = path.resolve(import.meta.dirname, "..", "..");
 
 test("the platform preflight honors an explicit Agent Core directory before environment or siblings", async () => {
   const cwd = path.resolve("fixture-workspace", "reference-store");
@@ -34,6 +40,48 @@ test("the platform preflight checks public-clone and workspace sibling names", (
     path.resolve(repoRoot, "..", "send-from-china-agent-core"),
     path.resolve(repoRoot, "..", "github-agent-core"),
   ]);
+});
+
+test("direct invocation compares canonical entrypoint identities", async () => {
+  const physical = path.join(repositoryRoot, "scripts", "demo-platform.mjs");
+  const alias = path.join(repositoryRoot, "junction-alias", "scripts", "demo-platform.mjs");
+  const canonicalize = async (value) => value.includes("junction-alias") ? physical : value;
+  assert.equal(await isDirectInvocation(alias, physical, canonicalize), true);
+  assert.equal(await isDirectInvocation(path.join(repositoryRoot, "other.mjs"), physical, canonicalize), false);
+});
+
+test("the platform CLI fails visibly instead of succeeding silently through a directory alias", async (context) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "reference-platform-entry-"));
+  const alias = path.join(temporary, "reference-store-alias");
+  try {
+    await symlink(repositoryRoot, alias, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    await rm(temporary, { recursive: true, force: true });
+    if (error?.code === "EPERM") {
+      context.diagnostic("directory alias creation is not permitted for this Windows test identity");
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    const missingCore = path.join(temporary, "missing-agent-core");
+    const child = spawnSync(process.execPath, [
+      path.join(alias, "scripts", "demo-platform.mjs"),
+      "--agent-core",
+      missingCore,
+    ], {
+      cwd: alias,
+      encoding: "utf8",
+      timeout: 10_000,
+      windowsHide: true,
+    });
+    assert.equal(child.status, 1, child.stderr || child.stdout);
+    assert.match(child.stderr, /Unable to start the local platform sandbox/u);
+    assert.match(child.stderr, /Agent Core sandbox entry was not found/u);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });
 
 test("the platform runtime closes the storefront before Agent Core and cleanup is idempotent", async () => {

@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -189,7 +189,34 @@ async function runCli() {
   process.once("SIGTERM", () => void stop());
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function normalizedIdentity(value) {
+  const normalized = path.normalize(value);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+async function canonicalEntrypoint(value, canonicalize = realpath) {
+  const resolved = path.resolve(value);
+  try {
+    return normalizedIdentity(await canonicalize(resolved));
+  } catch {
+    return normalizedIdentity(resolved);
+  }
+}
+
+export async function isDirectInvocation(
+  argvEntry = process.argv[1],
+  moduleEntry = fileURLToPath(import.meta.url),
+  canonicalize = realpath,
+) {
+  if (!argvEntry) return false;
+  const [requested, loaded] = await Promise.all([
+    canonicalEntrypoint(argvEntry, canonicalize),
+    canonicalEntrypoint(moduleEntry, canonicalize),
+  ]);
+  return requested === loaded;
+}
+
+if (await isDirectInvocation()) {
   runCli().catch((error) => {
     process.stderr.write(`Unable to start the local platform sandbox: ${error?.message || "unknown_error"}\n`);
     process.exitCode = 1;

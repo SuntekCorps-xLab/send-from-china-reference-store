@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveInstalledChromiumPath } from "../../scripts/browser-path.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const themeRoot = path.join(repoRoot, "shopify-theme");
@@ -26,7 +28,7 @@ if (process.argv.includes("--serve")) {
   process.exit(0);
 }
 
-const chromePath = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const chromePath = await resolveInstalledChromiumPath();
 const artifactDir = path.join(repoRoot, "shopify-customer-account", "qa-artifacts", "workspace");
 const profileDir = await mkdtemp(path.join(os.tmpdir(), "wp-workspace-qa-"));
 const assets = await loadAssets();

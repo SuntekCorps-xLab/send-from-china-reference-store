@@ -57,16 +57,26 @@ experience demo.
 git clone https://github.com/SuntekCorps-xLab/send-from-china-reference-store.git
 cd send-from-china-reference-store
 npm ci
-npm run verify
 npm run demo
 ```
 
 Open **http://127.0.0.1:4173**, click **Ask Agent**, and submit a request such as
 `a practical desk gift under $40`.
 
-`npm run verify` is the zero-account release check and now covers both the
-drawer and customer-account workspace browser QA. With Agent Core checked out
-beside this repository, `npm run verify:paired` also runs the versioned
+The 60-second preview requires Node.js 22 or later. The separate, fail-closed
+release check also requires an installed Chrome-family browser and the pinned
+Playwright Firefox/WebKit engines described in
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md):
+
+```bash
+npm run verify
+```
+
+Set `CHROME_PATH` when Chrome, Chromium, Edge, or Brave is not installed in a
+standard system location. `npm run verify` covers both the drawer and
+customer-account workspace browser QA; it never downloads or substitutes a
+missing browser. With Agent Core checked out beside this repository,
+`npm run verify:paired` also runs the versioned
 [20-journey paired E2E release harness](evals/paired-v0/README.md). It records
 the exact Git SHA of both checkouts and the dataset hash in a sanitized ignored
 artifact. The paired check remains synthetic, blocks non-loopback network
@@ -97,8 +107,12 @@ Reference Store, and it cannot activate Live Preview.
 | Shopify development-store read-only | Storefront demo BFF → Agent Core Sandbox → Shopify Storefront API | Server environment or secret provider only | Published product, verified price, `availableForSale`, and same-store product URL truth; no writes or transaction claims |
 | Production commerce | Merchant-owned Shopify and service adapters | Merchant-managed | Variants, cart, checkout, identity, and any real shipping integration |
 
-Run `npm run demo:platform` with Agent Core checked out beside this repository
-to start the connected local sandbox. See the
+Run `npm run demo:platform` with Agent Core checked out in a sibling directory
+named exactly `send-from-china-agent-core` (or the supported workspace alias
+`github-agent-core`) to start the connected local sandbox. Use
+`npm run demo:platform -- --agent-core ../another-checkout` or set the
+server-only `AGENT_CORE_DIR` environment variable to select another directory.
+See the
 [Demo and Sandbox Guide](docs/DEMO_AND_SANDBOX.md) for mode boundaries,
 scenario expectations, and bring-your-own runtime setup.
 
@@ -134,7 +148,7 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 | --- | --- | --- |
 | **Preview in a hosted browser surface** | [`hosted-demo/`](hosted-demo) + [`docs/HOSTED_SYNTHETIC_DEMO.md`](docs/HOSTED_SYNTHETIC_DEMO.md) | A reviewed deployment URL, or the documented local Worker preview |
 | **Preview the UX** | `npm run demo` | Node.js 22+ |
-| **Run the connected local sandbox** | `npm run demo:platform` + [`docs/DEMO_AND_SANDBOX.md`](docs/DEMO_AND_SANDBOX.md) | Both public repositories checked out locally |
+| **Run the connected local sandbox** | `npm run demo:platform` + [`docs/DEMO_AND_SANDBOX.md`](docs/DEMO_AND_SANDBOX.md) | Agent Core in an expected sibling directory, or selected with `--agent-core` / `AGENT_CORE_DIR` |
 | **Test both public repos together** | [`docs/PAIRED_LOCAL_QUICKSTART.md`](docs/PAIRED_LOCAL_QUICKSTART.md) | Node.js 22+; no hosted account |
 | **Install the storefront** | [`shopify-theme/`](shopify-theme) | Shopify development store + CLI |
 | **Connect live agent capabilities** | [`storefront-bff/`](storefront-bff) + [Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) | Cloudflare account or an equivalent BFF runtime |
