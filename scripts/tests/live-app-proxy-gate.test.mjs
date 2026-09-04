@@ -308,9 +308,18 @@ test("case contract requires exactly ten unique, closed, sanitized known cases",
   const disclosed = caseManifest();
   disclosed.cases[0].query = disclosed.cases[0].case_id;
   assert.throws(() => validateCases(disclosed), LiveGateError);
+  const crossCaseDisclosed = caseManifest();
+  crossCaseDisclosed.cases[0].query = crossCaseDisclosed.cases[1].case_id;
+  assert.throws(() => validateCases(crossCaseDisclosed), LiveGateError);
   const duplicateQuery = caseManifest();
   duplicateQuery.cases[9].query = `  ${duplicateQuery.cases[0].query.toUpperCase()}  `.trim();
   assert.throws(() => validateCases(duplicateQuery), LiveGateError);
+  const invisibleDuplicate = caseManifest();
+  invisibleDuplicate.cases[9].query = `${invisibleDuplicate.cases[0].query}\u200b`;
+  assert.throws(() => validateCases(invisibleDuplicate), LiveGateError);
+  const duplicateHandle = caseManifest();
+  duplicateHandle.cases[9].expected_handle = duplicateHandle.cases[0].expected_handle;
+  assert.throws(() => validateCases(duplicateHandle), LiveGateError);
   const descriptiveId = caseManifest();
   descriptiveId.cases[0].case_id = "private_known_query";
   assert.throws(() => validateCases(descriptiveId), LiveGateError);
@@ -331,6 +340,10 @@ test("config seals external inputs, repository identity, versions and process se
       "shopify_app_proxy_secret",
       "agent_core_runtime_credential",
       "SHOPIFY_SERVICE_PASSWORD",
+      "SHOPIFY_TOKEN_BACKUP",
+      "SHOPIFY_API_KEY_V2",
+      "AGENT_CORE_SECRET_JSON",
+      "AGENT_CORE_PASSWORD_FILE",
     ]) {
       await assert.rejects(() => loadLiveGateConfig({
         ...fixture,
@@ -662,4 +675,19 @@ test("published case and receipt schemas recursively close every declared object
     };
     visit(schema);
   }
+});
+
+test("published passed-receipt schema encodes all runtime safety and live-boundary invariants", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const schema = JSON.parse(await readFile(path.join(
+    root, "contracts", "reference-store-live-app-proxy-receipt.v1.schema.json",
+  ), "utf8"));
+  const passed = schema.allOf[0].then.properties;
+  assert.deepEqual(Object.values(passed.safety.properties).map((entry) => entry.const), Array(10).fill(0));
+  assert.equal(passed.boundaries.properties.actual_shopify_app_proxy_verified.const, true);
+  assert.equal(passed.boundaries.properties.live_shopify_connection_verified.const, true);
+  for (const name of [
+    "synthetic_fallback_count", "successful_commerce_write_count", "raw_query_record_count",
+    "raw_response_record_count", "cookie_record_count", "signature_record_count", "token_record_count",
+  ]) assert.equal(passed.boundaries.properties[name].const, 0);
 });

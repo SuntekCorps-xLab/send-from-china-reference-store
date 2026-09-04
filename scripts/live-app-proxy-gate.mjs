@@ -226,21 +226,26 @@ export function validatePreviewIdentity({ previewUrl, shopDomain, themeId }) {
 export function validateCases(value) {
   if (!exactKeys(value, ["schema_version", "cases"]) || value.schema_version !== CASE_SCHEMA
     || !Array.isArray(value.cases) || value.cases.length !== 10) fail("invalid_live_case_manifest");
-  const seen = new Set();
-  const seenQueries = new Set();
-  const cases = value.cases.map((item) => {
-    const normalizedQuery = typeof item.query === "string"
-      ? item.query.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase()
-      : "";
+  const caseIds = new Set();
+  for (const item of value.cases) {
     if (!exactKeys(item, ["case_id", "query", "expected_handle"])
-      || !CASE_ID.test(item.case_id) || seen.has(item.case_id)
+      || !CASE_ID.test(item.case_id) || caseIds.has(item.case_id)
       || typeof item.query !== "string" || item.query !== item.query.trim()
       || item.query.length < 2 || item.query.length > 300 || /[\u0000-\u001f\u007f]/u.test(item.query)
-      || normalizedQuery === item.case_id || normalizedQuery === item.expected_handle
-      || seenQueries.has(normalizedQuery)
       || !HANDLE.test(item.expected_handle)) fail("invalid_live_case_manifest");
-    seen.add(item.case_id);
+    caseIds.add(item.case_id);
+  }
+  const seenQueries = new Set();
+  const seenHandles = new Set();
+  const cases = value.cases.map((item) => {
+    const normalizedQuery = item.query.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+    if (/[\p{Cc}\p{Cf}\p{Cs}]/u.test(item.query)
+      || caseIds.has(normalizedQuery) || normalizedQuery === item.expected_handle
+      || seenQueries.has(normalizedQuery) || seenHandles.has(item.expected_handle)) {
+      fail("invalid_live_case_manifest");
+    }
     seenQueries.add(normalizedQuery);
+    seenHandles.add(item.expected_handle);
     return Object.freeze({ ...item });
   });
   return Object.freeze(cases);
@@ -257,7 +262,7 @@ export async function loadLiveGateConfig({
   for (const [name, value] of Object.entries(environment)) {
     const normalizedName = name.toUpperCase();
     if ((FORBIDDEN_PROCESS_SECRETS.includes(normalizedName)
-      || /^(?:SHOPIFY|AGENT_CORE).*?(?:TOKEN|SECRET|INVITE|KEY|CREDENTIAL|PASSWORD)$/u.test(normalizedName))
+      || /^(?:SHOPIFY|AGENT_CORE)(?:_|$)(?:[A-Z0-9]+_)*(?:TOKEN|SECRET|INVITE|KEY|CREDENTIALS?|PASSWORD)(?:_|$)/u.test(normalizedName))
       && String(value || "").trim()) fail("browser_harness_secret_present");
   }
   const browser = required(environment, "REFERENCE_STORE_LIVE_BROWSER");

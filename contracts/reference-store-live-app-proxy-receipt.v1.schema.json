@@ -157,6 +157,33 @@
               "failure_code": { "type": "null" }
             }
           },
+          "safety": {
+            "properties": {
+              "cross_origin_api_requests": { "const": 0 },
+              "legacy_route_requests": { "const": 0 },
+              "unexpected_api_requests": { "const": 0 },
+              "browser_write_requests": { "const": 0 },
+              "forbidden_browser_header_requests": { "const": 0 },
+              "browser_storage_credential_hits": { "const": 0 },
+              "browser_storage_query_hits": { "const": 0 },
+              "browser_persistent_storage_hits": { "const": 0 },
+              "console_errors": { "const": 0 },
+              "page_errors": { "const": 0 }
+            }
+          },
+          "boundaries": {
+            "properties": {
+              "actual_shopify_app_proxy_verified": { "const": true },
+              "live_shopify_connection_verified": { "const": true },
+              "synthetic_fallback_count": { "const": 0 },
+              "successful_commerce_write_count": { "const": 0 },
+              "raw_query_record_count": { "const": 0 },
+              "raw_response_record_count": { "const": 0 },
+              "cookie_record_count": { "const": 0 },
+              "signature_record_count": { "const": 0 },
+              "token_record_count": { "const": 0 }
+            }
+          },
           "journeys": { "minItems": 10, "maxItems": 10 }
         }
       }
