@@ -4,17 +4,30 @@
 
 ### A real Shopify storefront with an agent beside the shopping journey — not instead of it.
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-c64b1a?style=for-the-badge)](#-project-status)
+[![Latest stable release](https://img.shields.io/github/v/release/SuntekCorps-xLab/send-from-china-reference-store?display_name=tag&sort=semver&style=for-the-badge&label=release)](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/SuntekCorps-xLab/send-from-china-reference-store/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/SuntekCorps-xLab/send-from-china-reference-store/actions/workflows/ci.yml)
 [![Shopify](https://img.shields.io/badge/Shopify-theme-142b2f?style=for-the-badge&logo=shopify&logoColor=white)](shopify-theme)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Worker_BFF-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](storefront-bff)
 [![License](https://img.shields.io/badge/license-Apache--2.0-6b7c70?style=for-the-badge)](LICENSE)
 
-[⚡ 60-second demo](#-see-it-in-60-seconds) · [🧪 Demo + sandbox](docs/DEMO_AND_SANDBOX.md) · [🧭 Choose a setup](#-choose-your-path) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🗺️ Roadmap](ROADMAP.md) · [🔐 Security](SECURITY.md)
+[🌐 Hosted synthetic demo](docs/HOSTED_SYNTHETIC_DEMO.md) · [⚡ 60-second local demo](#-see-it-in-60-seconds) · [🔌 Server-side BFF](storefront-bff/README.md) · [🧪 Demo + sandbox](docs/DEMO_AND_SANDBOX.md) · [🏗️ Architecture](#%EF%B8%8F-how-the-pieces-fit) · [🧠 Agent Core](https://github.com/SuntekCorps-xLab/send-from-china-agent-core) · [🔐 Security](SECURITY.md)
 
 <img src="docs/images/storefront-live.svg" alt="Animated walkthrough of normal catalog shopping followed by a contextual Shopping Agent and verified Shopify handoff" width="100%">
 
 </div>
+
+## 🚦 Start here: two honest paths
+
+| Start | Best for | Boundary |
+| --- | --- | --- |
+| **[Try the hosted synthetic storefront](docs/HOSTED_SYNTHETIC_DEMO.md)** | A zero-account browser preview of the storefront, agent drawer, read-only run receipt, and failure states | Deterministic public fixtures only; no merchant, credential, purchase, shipping quote, or write. The public URL is added only after the exact candidate is deployed and reviewed. |
+| **[Connect Shopify through the server-side BFF](storefront-bff/README.md)** | A merchant-owned Shopify development store or storefront integration | The browser calls a same-origin BFF; Shopify and Agent Core credentials remain server-side. Real connectivity is not claimed until the operator completes the documented 10/10 App Proxy gate. |
+
+The hosted candidate and local demo render the same public assets and closed
+synthetic contracts. If no reviewed hosted URL is listed in the
+[hosted-demo guide](docs/HOSTED_SYNTHETIC_DEMO.md), run the exact experience
+locally with `npm run demo`; that absence must never be presented as a Live
+Shopify integration.
 
 ## ✨ Why this project exists
 
@@ -78,6 +91,7 @@ Reference Store, and it cannot activate Live Preview.
 
 | Mode | Data source | Credential | What it proves |
 | --- | --- | --- | --- |
+| Hosted synthetic storefront | Deterministic public fixtures in a deployment-disabled Worker candidate | None | The same responsive UI and closed read-only contracts without an account; not Shopify connectivity |
 | Zero-account demo | Four deterministic local scenarios | None | Drawer states, responsive layout, sanitized contracts, and explicit truth labels |
 | Connected local sandbox | Storefront demo BFF → local Agent Core sandbox | Short-lived local token stored only in the server process | The public repositories and guarded HTTP contract working together on synthetic data |
 | Shopify development-store read-only | Storefront demo BFF → Agent Core Sandbox → Shopify Storefront API | Server environment or secret provider only | Published product, verified price, `availableForSale`, and same-store product URL truth; no writes or transaction claims |
@@ -118,6 +132,7 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 
 | I want to… | Start here | What you need |
 | --- | --- | --- |
+| **Preview in a hosted browser surface** | [`hosted-demo/`](hosted-demo) + [`docs/HOSTED_SYNTHETIC_DEMO.md`](docs/HOSTED_SYNTHETIC_DEMO.md) | A reviewed deployment URL, or the documented local Worker preview |
 | **Preview the UX** | `npm run demo` | Node.js 22+ |
 | **Run the connected local sandbox** | `npm run demo:platform` + [`docs/DEMO_AND_SANDBOX.md`](docs/DEMO_AND_SANDBOX.md) | Both public repositories checked out locally |
 | **Test both public repos together** | [`docs/PAIRED_LOCAL_QUICKSTART.md`](docs/PAIRED_LOCAL_QUICKSTART.md) | Node.js 22+; no hosted account |
@@ -222,6 +237,7 @@ Link an app you control before running `npm run dev`.
 
 ```text
 demo/                       Zero-account interactive experience preview
+hosted-demo/                Deployment-disabled Worker wrapper for the same synthetic demo
 storefront-bff/             Cloudflare Worker adapter; keeps Agent Core keys server-side
 shopify-theme/              Installable storefront theme and browser/contract tests
 shopify-customer-account/   Workspace and order-tracking UI extensions
@@ -238,10 +254,14 @@ alphabetically.
 
 ## 🧪 Project status
 
-Current version: **`1.0.0`**.
+Release candidate version: **`1.1.0`**. A stable version is not claimed until
+the exact commit is tagged and the GitHub Release contains its verification
+evidence.
 
 This is an integration reference, not a copy of the hosted Send From China
-service. Pair it with Agent Core **`1.0.0`** for the current stable contract.
+service. The `1.1.x` candidate consumes Agent Core Search Contract `2.0`; use
+the exact accepted Agent Core revision recorded by the paired release artifact,
+not an unpinned branch name.
 The included local paths use synthetic data and non-billable preview behavior.
 Only the order-tracking Customer Account extension is installable by default;
 the saved-workspace sources require a separately implemented merchant API.
@@ -252,6 +272,8 @@ completion, and payment require merchant-owned services and policy.
 
 - [Architecture and API contracts](docs/ARCHITECTURE.md)
 - [Demo and connected local sandbox](docs/DEMO_AND_SANDBOX.md)
+- [Hosted synthetic demo candidate](docs/HOSTED_SYNTHETIC_DEMO.md)
+- [Release 1.1.0 candidate notes](docs/RELEASE_1_1_0.md)
 - [Search Contract v2 mock/live quickstart](docs/SEARCH_CONTRACT_V2_INTEGRATION.md)
 - [Hosted Platform integration](docs/HOSTED_PLATFORM_INTEGRATION.md)
 - [Paired local Agent Core integration](docs/PAIRED_LOCAL_QUICKSTART.md)

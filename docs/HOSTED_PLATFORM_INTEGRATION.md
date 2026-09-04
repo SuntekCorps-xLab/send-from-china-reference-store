@@ -63,7 +63,7 @@ facts as evidence of live Shopify availability.
 ## Shopify Liquid and same-origin App Proxy
 
 The Shopify read-only integration is locked to Agent Core
-`d6513d7b7d78a517b87e6a001184f53ad5597126`; see the
+`9ff2de8de8582010d95d7c0632e1d126cb91f71a`; see the
 [compatibility lock](COMPATIBILITY.md#shopify-read-only-release-lock).
 Configure the public App Proxy path in the theme, for example
 `/apps/reference-store`. The browser combines that path with these three

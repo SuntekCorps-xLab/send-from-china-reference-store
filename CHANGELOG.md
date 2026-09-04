@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+## 1.1.0 - 2026-09-04
+
+- Added a deployment-disabled Cloudflare Worker candidate for a public,
+  zero-account synthetic storefront. It reuses the reviewed demo assets and
+  exposes only closed synthetic status, doctor, and read-run contracts.
+- Reworked the README first-use path around two honest choices: hosted
+  synthetic preview or a merchant-controlled server-side BFF connection.
+- Added release metadata verification, dynamic release badges, compatibility,
+  upgrade/rollback notes, and an exact-SHA paired evidence interface.
+- Added a maximum-three-attempt dependency-audit wrapper that retries only npm
+  Registry 5xx failures; real High/Critical findings remain immediately
+  blocking.
+- Preserved the fail-closed Shopify read-only boundary: no synthetic fallback,
+  browser credential, commerce write, shipping quote, or unverified Live claim.
+
 - Added a tested Shopify Agent BFF starter with a credential-free browser
   adapter and a deployment configuration that keeps Agent Core credentials in
   the server secret store.

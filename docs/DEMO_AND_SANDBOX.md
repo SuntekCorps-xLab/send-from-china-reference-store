@@ -140,13 +140,18 @@ Core snapshot. It does not prove supplier connectivity, live inventory,
 merchant catalog completeness, shipping availability, or production tenant
 isolation.
 
-## Future hosted self-service sandbox
+## Hosted synthetic storefront candidate
 
-A public hosted sandbox is intentionally a separate roadmap item. Operating it
-safely requires short-lived credentials, least-privilege scopes, tenant
-isolation, quotas, revocation, abuse monitoring, audit logs, and clear data
-retention. Until those controls exist, documentation and UI call this feature a
-**local connected sandbox**, never an anonymous production API.
+The repository includes a deployment-disabled Worker candidate in
+[`hosted-demo/`](../hosted-demo). It hosts the same browser assets and answers
+only the deterministic synthetic runtime contracts. It needs no account or
+credential and has no upstream network or commerce path.
+
+This does not turn the connected sandbox into an anonymous production API.
+Publishing a merchant-connected service still requires least-privilege scopes,
+tenant isolation, quotas, revocation, abuse monitoring, audit logs, and an
+explicit data-retention review. See the
+[hosted synthetic demo guide](HOSTED_SYNTHETIC_DEMO.md).
 
 ## Troubleshooting
 

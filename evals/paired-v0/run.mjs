@@ -13,7 +13,7 @@ import {
 import { assertAcceptedAgentCore, readPairedGit } from "../../scripts/paired-integration-smoke.mjs";
 import { loadDataset } from "./dataset.mjs";
 
-const RUNNER_VERSION = "paired-e2e-runner/v0.2.0";
+const RUNNER_VERSION = "paired-e2e-runner/v0.3.0";
 const ARTIFACT_SCHEMA_VERSION = "send-from-china-paired-e2e-artifact/v0";
 const LOOPBACK_HOSTS = new Set(["localhost", "[::1]", "127.0.0.1"]);
 const STOREFRONT_ORIGIN = "https://sandbox-store.example.invalid";
@@ -35,8 +35,10 @@ function argumentValue(args, name) {
 export function repositoryDescriptor(directory) {
   const commit = readPairedGit(directory, ["rev-parse", "HEAD"]);
   if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error("paired repository commit is invalid");
+  const tree = readPairedGit(directory, ["rev-parse", "HEAD^{tree}"]);
+  if (!/^[0-9a-f]{40}$/u.test(tree)) throw new Error("paired repository tree is invalid");
   const dirty = Boolean(readPairedGit(directory, ["status", "--porcelain", "--untracked-files=normal"]));
-  return { commit, working_tree: dirty ? "dirty" : "clean" };
+  return { commit, tree, working_tree: dirty ? "dirty" : "clean" };
 }
 
 function fetchUrl(input) {
@@ -596,7 +598,9 @@ async function runCli() {
   process.stdout.write(`PASS: paired E2E ${artifact.summary.passed_count}/${artifact.summary.total_count}\n`);
   process.stdout.write(`Dataset SHA-256: ${artifact.dataset.sha256}\n`);
   process.stdout.write(`Reference Store SHA: ${artifact.repositories.reference_store.commit}\n`);
+  process.stdout.write(`Reference Store tree: ${artifact.repositories.reference_store.tree}\n`);
   process.stdout.write(`Agent Core SHA: ${artifact.repositories.agent_core.commit}\n`);
+  process.stdout.write(`Agent Core tree: ${artifact.repositories.agent_core.tree}\n`);
   process.stdout.write(`Sanitized artifact: ${path.relative(root, output)}\n`);
 }
 
