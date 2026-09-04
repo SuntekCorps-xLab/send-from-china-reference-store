@@ -225,28 +225,30 @@ export function validatePreviewIdentity({ previewUrl, shopDomain, themeId }) {
 
 export function validateCases(value) {
   if (!exactKeys(value, ["schema_version", "cases"]) || value.schema_version !== CASE_SCHEMA
-    || !Array.isArray(value.cases) || value.cases.length !== 10) fail("invalid_live_case_manifest");
-  const caseIds = new Set();
-  for (const item of value.cases) {
-    if (!exactKeys(item, ["case_id", "query", "expected_handle"])
-      || !CASE_ID.test(item.case_id) || caseIds.has(item.case_id)
+    || !value.cases || typeof value.cases !== "object" || Array.isArray(value.cases)
+    || Object.keys(value.cases).length !== 10) fail("invalid_live_case_manifest");
+  const entries = Object.entries(value.cases);
+  const caseIds = new Set(entries.map(([caseId]) => caseId));
+  for (const [caseId, item] of entries) {
+    if (!CASE_ID.test(caseId) || !exactKeys(item, ["query", "expected_handle"])
       || typeof item.query !== "string" || item.query !== item.query.trim()
-      || item.query.length < 2 || item.query.length > 300 || /[\u0000-\u001f\u007f]/u.test(item.query)
+      || [...item.query].length < 2 || [...item.query].length > 300
       || !HANDLE.test(item.expected_handle)) fail("invalid_live_case_manifest");
-    caseIds.add(item.case_id);
   }
   const seenQueries = new Set();
   const seenHandles = new Set();
-  const cases = value.cases.map((item) => {
+  const cases = entries.map(([caseId, item]) => {
     const normalizedQuery = item.query.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
     if (/[\p{Cc}\p{Cf}\p{Cs}]/u.test(item.query)
-      || caseIds.has(normalizedQuery) || normalizedQuery === item.expected_handle
+      || [...caseIds].some((candidate) => candidate.includes(normalizedQuery)
+        || normalizedQuery.includes(candidate))
+      || normalizedQuery === item.expected_handle
       || seenQueries.has(normalizedQuery) || seenHandles.has(item.expected_handle)) {
       fail("invalid_live_case_manifest");
     }
     seenQueries.add(normalizedQuery);
     seenHandles.add(item.expected_handle);
-    return Object.freeze({ ...item });
+    return Object.freeze({ case_id: caseId, ...item });
   });
   return Object.freeze(cases);
 }
@@ -626,7 +628,7 @@ function networkIsClean(safety) {
 }
 
 export async function executeLiveGate({ config, transport, now = () => Date.now() }) {
-  const journeys = [];
+  const journeys = {};
   const safety = initialSafety();
   const observed = { synthetic_fallback_count: 0, successful_commerce_write_count: 0 };
   let failureCode = null;
@@ -660,12 +662,11 @@ export async function executeLiveGate({ config, transport, now = () => Date.now(
         );
         assertExpectedComponents(payload.runtime.components, config.components);
         assertSignedDeployment(payload.runtime, config);
-        journeys.push(Object.freeze({
-          case_id: item.case_id,
+        journeys[item.case_id] = Object.freeze({
           status: "passed",
           result_count: resultCount,
           latency_ms: Math.max(0, Math.round(now() - started)),
-        }));
+        });
       } catch (error) {
         firstFailureCaseId = item.case_id;
         throw error;
@@ -680,7 +681,7 @@ export async function executeLiveGate({ config, transport, now = () => Date.now(
   } finally {
     await transport.close().catch(() => {});
   }
-  const passed = !failureCode && journeys.length === 10 && networkIsClean(safety);
+  const passed = !failureCode && Object.keys(journeys).length === 10 && networkIsClean(safety);
   if (!passed && !failureCode) failureCode = "incomplete_live_gate";
   return Object.freeze({
     schema_version: RECEIPT_SCHEMA,
@@ -703,8 +704,8 @@ export async function executeLiveGate({ config, transport, now = () => Date.now(
     inputs: Object.freeze({ cases_sha256: config.casesSha256, case_count: 10 }),
     execution: Object.freeze({
       browser: config.browser,
-      attempted_count: journeys.length + (firstFailureCaseId ? 1 : 0),
-      passed_count: journeys.length,
+      attempted_count: Object.keys(journeys).length + (firstFailureCaseId ? 1 : 0),
+      passed_count: Object.keys(journeys).length,
       failed_count: firstFailureCaseId ? 1 : 0,
       first_failure_case_id: firstFailureCaseId,
       failure_code: failureCode,
@@ -930,18 +931,18 @@ export function validateReceiptShape(receipt, config = null) {
       .every((key) => nonnegativeInteger(receipt.boundaries[key]))
     || !["raw_query_record_count", "raw_response_record_count", "cookie_record_count", "signature_record_count", "token_record_count"]
       .every((key) => receipt.boundaries[key] === 0)
-    || !Array.isArray(receipt.journeys) || receipt.journeys.length > 10) fail("invalid_receipt_shape");
-  const seen = new Set();
-  for (const journey of receipt.journeys) {
-    if (!exactKeys(journey, ["case_id", "status", "result_count", "latency_ms"])
-      || !CASE_ID.test(journey.case_id) || seen.has(journey.case_id) || journey.status !== "passed"
+    || !receipt.journeys || typeof receipt.journeys !== "object" || Array.isArray(receipt.journeys)
+    || Object.keys(receipt.journeys).length > 10) fail("invalid_receipt_shape");
+  const journeyCaseIds = Object.keys(receipt.journeys);
+  for (const [caseId, journey] of Object.entries(receipt.journeys)) {
+    if (!CASE_ID.test(caseId) || !exactKeys(journey, ["status", "result_count", "latency_ms"])
+      || journey.status !== "passed"
       || !Number.isInteger(journey.result_count) || journey.result_count < 1 || journey.result_count > 20
       || !nonnegativeInteger(journey.latency_ms) || journey.latency_ms > 120_000) {
       fail("invalid_receipt_shape");
     }
-    seen.add(journey.case_id);
   }
-  if (receipt.execution.passed_count !== receipt.journeys.length
+  if (receipt.execution.passed_count !== journeyCaseIds.length
     || receipt.execution.attempted_count
       !== receipt.execution.passed_count + receipt.execution.failed_count
     || Boolean(receipt.execution.first_failure_case_id) !== Boolean(receipt.execution.failed_count)) {
@@ -949,7 +950,7 @@ export function validateReceiptShape(receipt, config = null) {
   }
   const passed = receipt.gate_status === "passed";
   if (passed) {
-    if (receipt.journeys.length !== 10 || seen.size !== 10
+    if (journeyCaseIds.length !== 10
       || receipt.execution.attempted_count !== 10 || receipt.execution.passed_count !== 10
       || receipt.execution.failed_count !== 0 || receipt.execution.first_failure_case_id !== null
       || receipt.execution.failure_code !== null || receipt.observed_components === null
@@ -978,7 +979,7 @@ export function validateReceiptShape(receipt, config = null) {
       || receipt.shopify.unpublished_theme_id !== config.preview.themeId
       || receipt.inputs.cases_sha256 !== config.casesSha256
       || receipt.execution.browser !== config.browser
-      || receipt.journeys.some((journey) => !expectedCaseIds.has(journey.case_id))) {
+      || journeyCaseIds.some((caseId) => !expectedCaseIds.has(caseId))) {
       fail("receipt_input_identity_mismatch");
     }
   }

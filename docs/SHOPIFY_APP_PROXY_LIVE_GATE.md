@@ -62,6 +62,8 @@ Before the run, an administrator must provide and independently record:
    unique private known queries, and ten unique expected public Shopify
    handles. Case IDs must never contain or repeat query text; query strings
    containing control, format, bidi, or surrogate code points are rejected.
+   The `cases` object is keyed by case ID so duplicate IDs cannot survive JSON
+   parsing or schema validation.
 
 Do not use the operating store, publish a theme, add a write scope, or relax a
 failed identity check to make the gate pass.

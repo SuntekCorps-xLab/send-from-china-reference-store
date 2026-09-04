@@ -8,25 +8,27 @@
   "properties": {
     "schema_version": { "const": "reference-store-live-app-proxy-cases/v1" },
     "cases": {
-      "type": "array",
-      "minItems": 10,
-      "maxItems": 10,
-      "uniqueItems": true,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["case_id", "query", "expected_handle"],
-        "properties": {
-          "case_id": { "type": "string", "pattern": "^case_[0-9a-f]{16,32}$" },
-          "query": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 300,
-            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
-          },
-          "expected_handle": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,99}$" }
+      "type": "object",
+      "minProperties": 10,
+      "maxProperties": 10,
+      "propertyNames": { "pattern": "^case_[0-9a-f]{16,32}$" },
+      "patternProperties": {
+        "^case_[0-9a-f]{16,32}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query", "expected_handle"],
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 300,
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890-\\u0891\\u08e2\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ud800-\\udfff\\ufeff\\ufff9-\\ufffb\ud804\udcbd\ud804\udccd\ud80d\udc30-\ud80d\udc3f\ud82f\udca0-\ud82f\udca3\ud834\udd73-\ud834\udd7a\udb40\udc01\udb40\udc20-\udb40\udc7f]+$"
+            },
+            "expected_handle": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,99}$" }
+          }
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

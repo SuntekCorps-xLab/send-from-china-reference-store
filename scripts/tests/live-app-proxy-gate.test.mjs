@@ -65,11 +65,13 @@ function deploymentAttestation(components, privateKey = DEPLOYMENT_PRIVATE_KEY) 
 function caseManifest() {
   return {
     schema_version: "reference-store-live-app-proxy-cases/v1",
-    cases: Array.from({ length: 10 }, (_, index) => ({
-      case_id: `case_${(index + 1).toString(16).padStart(16, "0")}`,
-      query: `private known query ${index + 1}`,
-      expected_handle: `expected-product-${index + 1}`,
-    })),
+    cases: Object.fromEntries(Array.from({ length: 10 }, (_, index) => [
+      `case_${(index + 1).toString(16).padStart(16, "0")}`,
+      {
+        query: `private known query ${index + 1}`,
+        expected_handle: `expected-product-${index + 1}`,
+      },
+    ])),
   };
 }
 
@@ -294,34 +296,52 @@ test("accepts only an exact HTTPS permanent shop and unpublished theme identity"
 test("case contract requires exactly ten unique, closed, sanitized known cases", () => {
   assert.equal(validateCases(caseManifest()).length, 10);
   const short = caseManifest();
-  short.cases.pop();
+  delete short.cases[Object.keys(short.cases)[9]];
   assert.throws(() => validateCases(short), LiveGateError);
-  const duplicate = caseManifest();
-  duplicate.cases[9].case_id = duplicate.cases[0].case_id;
-  assert.throws(() => validateCases(duplicate), LiveGateError);
+  const legacyArray = caseManifest();
+  legacyArray.cases = Object.entries(legacyArray.cases).map(([case_id, item]) => ({ case_id, ...item }));
+  assert.throws(() => validateCases(legacyArray), LiveGateError);
   const unknown = caseManifest();
-  unknown.cases[0].extra = true;
+  unknown.cases[Object.keys(unknown.cases)[0]].extra = true;
   assert.throws(() => validateCases(unknown), LiveGateError);
   const control = caseManifest();
-  control.cases[0].query = "desk\norganizer";
+  control.cases[Object.keys(control.cases)[0]].query = "desk\norganizer";
   assert.throws(() => validateCases(control), LiveGateError);
   const disclosed = caseManifest();
-  disclosed.cases[0].query = disclosed.cases[0].case_id;
+  const disclosedIds = Object.keys(disclosed.cases);
+  disclosed.cases[disclosedIds[0]].query = disclosedIds[0];
   assert.throws(() => validateCases(disclosed), LiveGateError);
   const crossCaseDisclosed = caseManifest();
-  crossCaseDisclosed.cases[0].query = crossCaseDisclosed.cases[1].case_id;
+  const crossCaseIds = Object.keys(crossCaseDisclosed.cases);
+  crossCaseDisclosed.cases[crossCaseIds[0]].query = crossCaseIds[1];
   assert.throws(() => validateCases(crossCaseDisclosed), LiveGateError);
+  const caseIdContainsQuery = caseManifest();
+  const containingIds = Object.keys(caseIdContainsQuery.cases);
+  caseIdContainsQuery.cases[containingIds[0]].query = containingIds[1].slice("case_".length);
+  assert.throws(() => validateCases(caseIdContainsQuery), LiveGateError);
+  const queryContainsCaseId = caseManifest();
+  const containedIds = Object.keys(queryContainsCaseId.cases);
+  queryContainsCaseId.cases[containedIds[0]].query = `find ${containedIds[1]} now`;
+  assert.throws(() => validateCases(queryContainsCaseId), LiveGateError);
   const duplicateQuery = caseManifest();
-  duplicateQuery.cases[9].query = `  ${duplicateQuery.cases[0].query.toUpperCase()}  `.trim();
+  const duplicateQueryIds = Object.keys(duplicateQuery.cases);
+  duplicateQuery.cases[duplicateQueryIds[9]].query
+    = `  ${duplicateQuery.cases[duplicateQueryIds[0]].query.toUpperCase()}  `.trim();
   assert.throws(() => validateCases(duplicateQuery), LiveGateError);
   const invisibleDuplicate = caseManifest();
-  invisibleDuplicate.cases[9].query = `${invisibleDuplicate.cases[0].query}\u200b`;
+  const invisibleIds = Object.keys(invisibleDuplicate.cases);
+  invisibleDuplicate.cases[invisibleIds[9]].query
+    = `${invisibleDuplicate.cases[invisibleIds[0]].query}\u200b`;
   assert.throws(() => validateCases(invisibleDuplicate), LiveGateError);
   const duplicateHandle = caseManifest();
-  duplicateHandle.cases[9].expected_handle = duplicateHandle.cases[0].expected_handle;
+  const duplicateHandleIds = Object.keys(duplicateHandle.cases);
+  duplicateHandle.cases[duplicateHandleIds[9]].expected_handle
+    = duplicateHandle.cases[duplicateHandleIds[0]].expected_handle;
   assert.throws(() => validateCases(duplicateHandle), LiveGateError);
   const descriptiveId = caseManifest();
-  descriptiveId.cases[0].case_id = "private_known_query";
+  const [originalId] = Object.keys(descriptiveId.cases);
+  descriptiveId.cases.private_known_query = descriptiveId.cases[originalId];
+  delete descriptiveId.cases[originalId];
   assert.throws(() => validateCases(descriptiveId), LiveGateError);
 });
 
@@ -375,7 +395,7 @@ test("injected 10/10 proves receipt logic without claiming a browser or network 
   assert.equal(receipt.gate_status, "passed");
   assert.deepEqual(receipt.expected_components, COMPONENTS);
   assert.deepEqual(receipt.observed_components, COMPONENTS);
-  assert.equal(receipt.journeys.length, 10);
+  assert.equal(Object.keys(receipt.journeys).length, 10);
   assert.equal(receipt.execution.passed_count, 10);
   assert.equal(receipt.boundaries.actual_shopify_app_proxy_verified, true);
   assert.deepEqual(receipt.safety, safeCounts());
@@ -612,13 +632,19 @@ test("receipt and manifest validators enforce nested closure and passed 10/10 cr
   const receipt = await executeLiveGate({ config, transport: transportFor(config.cases) });
   assert.equal(validateReceiptShape(receipt, config), receipt);
   const nine = structuredClone(receipt);
-  nine.journeys.pop();
+  delete nine.journeys[Object.keys(nine.journeys)[9]];
   nine.execution.passed_count = 9;
   nine.execution.attempted_count = 9;
   assert.throws(() => validateReceiptShape(nine, config), (error) => error.code === "invalid_receipt_shape");
-  const duplicate = structuredClone(receipt);
-  duplicate.journeys[9].case_id = duplicate.journeys[0].case_id;
-  assert.throws(() => validateReceiptShape(duplicate, config), (error) => error.code === "invalid_receipt_shape");
+  const duplicateIdArray = structuredClone(receipt);
+  const journeyEntries = Object.entries(duplicateIdArray.journeys);
+  duplicateIdArray.journeys = journeyEntries.map(([case_id, journey], index) => ({
+    case_id: index === 9 ? journeyEntries[0][0] : case_id,
+    ...journey,
+    latency_ms: index + 1,
+  }));
+  assert.throws(() => validateReceiptShape(duplicateIdArray, config),
+    (error) => error.code === "invalid_receipt_shape");
   const nestedUnknown = structuredClone(receipt);
   nestedUnknown.execution.unexpected = true;
   assert.throws(() => validateReceiptShape(nestedUnknown, config), (error) => error.code === "invalid_receipt_shape");
@@ -690,4 +716,30 @@ test("published passed-receipt schema encodes all runtime safety and live-bounda
     "synthetic_fallback_count", "successful_commerce_write_count", "raw_query_record_count",
     "raw_response_record_count", "cookie_record_count", "signature_record_count", "token_record_count",
   ]) assert.equal(passed.boundaries.properties[name].const, 0);
+});
+
+test("published schemas key cases and journeys by opaque ID and exactly mirror Unicode Cc/Cf/Cs", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const caseSchema = JSON.parse(await readFile(path.join(
+    root, "contracts", "reference-store-live-app-proxy-cases.v1.schema.json",
+  ), "utf8"));
+  const receiptSchema = JSON.parse(await readFile(path.join(
+    root, "contracts", "reference-store-live-app-proxy-receipt.v1.schema.json",
+  ), "utf8"));
+  assert.equal(caseSchema.properties.cases.type, "object");
+  assert.equal(caseSchema.properties.cases.minProperties, 10);
+  assert.equal(caseSchema.properties.cases.maxProperties, 10);
+  assert.equal(receiptSchema.properties.journeys.type, "object");
+  assert.equal(receiptSchema.allOf[0].then.properties.journeys.minProperties, 10);
+  assert.equal(receiptSchema.allOf[0].then.properties.journeys.maxProperties, 10);
+
+  const queryPattern = new RegExp(
+    Object.values(caseSchema.properties.cases.patternProperties)[0].properties.query.pattern, "u",
+  );
+  const forbidden = /[\p{Cc}\p{Cf}\p{Cs}]/u;
+  for (let codePoint = 0; codePoint <= 0x10ffff; codePoint += 1) {
+    const character = String.fromCodePoint(codePoint);
+    assert.equal(queryPattern.test(`a${character}b`), !forbidden.test(character),
+      `published query pattern diverges at U+${codePoint.toString(16).toUpperCase()}`);
+  }
 });
