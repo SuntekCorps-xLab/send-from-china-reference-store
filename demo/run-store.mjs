@@ -12,7 +12,16 @@ const RUNTIME_FIELDS = new Set([
   "checked_at",
   "error_code",
   "boundaries",
+  "components",
+  "deployment_attestation",
 ]);
+
+const COMPONENT_FIELDS = new Set(["reference_store", "agent_core", "storefront_bff"]);
+const REPOSITORY_COMPONENT_FIELDS = new Set(["commit", "tree", "version"]);
+const SERVICE_COMPONENT_FIELDS = new Set(["commit", "version"]);
+const ATTESTATION_FIELDS = new Set(["contract", "algorithm", "key_id", "descriptor_sha256", "signature"]);
+const COMMIT = /^[0-9a-f]{40}$/u;
+const VERSION = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
 const QUOTA_FIELDS = new Set([
   "limit",
@@ -174,6 +183,28 @@ function validateBoundaries(boundaries) {
     && boundaries.credential_exposed === false;
 }
 
+function validateServiceComponent(component) {
+  return exactObject(component, SERVICE_COMPONENT_FIELDS)
+    && COMMIT.test(component.commit) && VERSION.test(component.version);
+}
+
+function validateDeploymentIdentity(runtime) {
+  const components = runtime.components;
+  const attestation = runtime.deployment_attestation;
+  return exactObject(components, COMPONENT_FIELDS)
+    && exactObject(components.reference_store, REPOSITORY_COMPONENT_FIELDS)
+    && COMMIT.test(components.reference_store.commit) && COMMIT.test(components.reference_store.tree)
+    && VERSION.test(components.reference_store.version)
+    && validateServiceComponent(components.agent_core)
+    && validateServiceComponent(components.storefront_bff)
+    && components.reference_store.commit === components.storefront_bff.commit
+    && exactObject(attestation, ATTESTATION_FIELDS)
+    && attestation.contract === "reference-store-deployment-attestation/v1"
+    && attestation.algorithm === "Ed25519" && VERSION.test(attestation.key_id)
+    && /^[0-9a-f]{64}$/u.test(attestation.descriptor_sha256)
+    && /^[A-Za-z0-9_-]{86}$/u.test(attestation.signature);
+}
+
 export function validateRuntimeStatus(runtime) {
   if (!exactObject(runtime, RUNTIME_FIELDS)
     || runtime.contract !== "reference-store-runtime-status/v1"
@@ -184,7 +215,8 @@ export function validateRuntimeStatus(runtime) {
     || runtime.writes_disabled !== true
     || !validateCapabilities(runtime.capabilities)
     || !exactIsoTimestamp(runtime.checked_at)
-    || !validateBoundaries(runtime.boundaries)) fail("invalid_runtime_status");
+    || !validateBoundaries(runtime.boundaries)
+    || !validateDeploymentIdentity(runtime)) fail("invalid_runtime_status");
 
   const readCapabilities = [
     "catalog_search",

@@ -5,8 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "generated_at", "gate_status", "claim_scope", "expected_components", "shopify",
-    "inputs", "execution", "safety", "boundaries", "journeys"
+    "schema_version", "generated_at", "gate_status", "claim_scope", "expected_components", "observed_components",
+    "deployment_attestation", "shopify", "inputs", "execution", "safety", "boundaries", "journeys"
   ],
   "properties": {
     "schema_version": { "const": "reference-store-live-app-proxy-receipt/v1" },
@@ -21,6 +21,23 @@
         "reference_store": { "$ref": "#/$defs/repositoryComponent" },
         "agent_core": { "$ref": "#/$defs/serviceComponent" },
         "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
+      }
+    },
+    "observed_components": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/components" }
+      ]
+    },
+    "deployment_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "signing_key_id", "public_key_sha256", "descriptor_sha256"],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "signing_key_id": { "$ref": "#/$defs/version" },
+        "public_key_sha256": { "$ref": "#/$defs/sha256" },
+        "descriptor_sha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] }
       }
     },
     "shopify": {
@@ -67,7 +84,8 @@
       "required": [
         "cross_origin_api_requests", "legacy_route_requests", "unexpected_api_requests",
         "browser_write_requests", "forbidden_browser_header_requests",
-        "browser_storage_credential_hits", "browser_storage_query_hits", "console_errors", "page_errors"
+        "browser_storage_credential_hits", "browser_storage_query_hits", "browser_persistent_storage_hits",
+        "console_errors", "page_errors"
       ],
       "properties": {
         "cross_origin_api_requests": { "type": "integer", "minimum": 0 },
@@ -77,6 +95,7 @@
         "forbidden_browser_header_requests": { "type": "integer", "minimum": 0 },
         "browser_storage_credential_hits": { "type": "integer", "minimum": 0 },
         "browser_storage_query_hits": { "type": "integer", "minimum": 0 },
+        "browser_persistent_storage_hits": { "type": "integer", "minimum": 0 },
         "console_errors": { "type": "integer", "minimum": 0 },
         "page_errors": { "type": "integer", "minimum": 0 }
       }
@@ -117,6 +136,32 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "gate_status": { "const": "passed" } } },
+      "then": {
+        "properties": {
+          "observed_components": { "$ref": "#/$defs/components" },
+          "deployment_attestation": {
+            "properties": {
+              "verified": { "const": true },
+              "descriptor_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          },
+          "execution": {
+            "properties": {
+              "attempted_count": { "const": 10 },
+              "passed_count": { "const": 10 },
+              "failed_count": { "const": 0 },
+              "first_failure_case_id": { "type": "null" },
+              "failure_code": { "type": "null" }
+            }
+          },
+          "journeys": { "minItems": 10, "maxItems": 10 }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -138,6 +183,16 @@
       "properties": {
         "commit": { "$ref": "#/$defs/commit" },
         "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_store", "agent_core", "storefront_bff"],
+      "properties": {
+        "reference_store": { "$ref": "#/$defs/repositoryComponent" },
+        "agent_core": { "$ref": "#/$defs/serviceComponent" },
+        "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
       }
     }
   }

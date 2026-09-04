@@ -53,7 +53,9 @@ Before the run, an administrator must provide and independently record:
    `wp_app_proxy_path=/apps/reference-store` in the unpublished preview.
 6. Exact Reference Store commit/tree/version, exact deployed BFF
    commit/version, and exact Agent Core commit/version. The BFF commit must be
-   the same Reference Store commit being accepted.
+   the same Reference Store commit being accepted. Bind the same values to the
+   seven public `*_COMPONENT_*` staging variables; status, doctor, and every run
+   must return that closed observed identity object.
 7. A private external cases file conforming to
    [`reference-store-live-app-proxy-cases.v1.schema.json`](../contracts/reference-store-live-app-proxy-cases.v1.schema.json).
    It must contain exactly ten unique case IDs, private known queries, and the
@@ -75,6 +77,9 @@ $env:REFERENCE_STORE_LIVE_PREVIEW_URL = '<HTTPS unpublished theme preview URL>'
 $env:REFERENCE_STORE_EXPECTED_SHOP_DOMAIN = '<permanent-shop-domain.myshopify.com>'
 $env:REFERENCE_STORE_EXPECTED_THEME_ID = '<unpublished theme ID>'
 $env:REFERENCE_STORE_LIVE_CASES_PATH = '<absolute external path to private cases JSON>'
+$env:REFERENCE_STORE_DEPLOYMENT_PUBLIC_KEY_PATH = '<absolute external path to Ed25519 public key PEM>'
+$env:REFERENCE_STORE_DEPLOYMENT_PUBLIC_KEY_SHA256 = '<SHA-256 of public SPKI DER>'
+$env:REFERENCE_STORE_DEPLOYMENT_SIGNING_KEY_ID = '<frozen public signing key id>'
 $env:REFERENCE_STORE_LIVE_EVIDENCE_ROOT = '<new absolute external evidence directory>'
 $env:REFERENCE_STORE_EXPECTED_REFERENCE_COMMIT = '<40-character candidate commit>'
 $env:REFERENCE_STORE_EXPECTED_REFERENCE_TREE = '<40-character candidate tree>'
@@ -99,13 +104,21 @@ The gate exits zero only when all of these are true:
 - A pinned Playwright browser is available and the preview remains on the exact
   HTTPS permanent shop origin.
 - Status is connected `shopify_read_only` using
-  `shopify_storefront_graphql`; doctor is fully healthy.
+  `shopify_storefront_graphql`; doctor is fully healthy. Status, doctor, and
+  every run report component identities and an identical Ed25519 deployment
+  attestation. The signature must verify with the independently supplied pinned
+  public key, and the signed identities must exactly match the frozen commits
+  and versions. Volatile `checked_at` and quota values are validated on each
+  response but are allowed to advance between requests.
 - All ten POST runs return Search Contract v2 `results` containing the expected
   handle and explicit non-transactional, non-purchasable, write-disabled
   boundaries.
-- No legacy route, unexpected runtime route, cross-origin runtime API, browser
-  credential header, query/credential storage hit, console error, page error,
-  synthetic fallback, or commerce write is observed.
+- No legacy route, unexpected runtime route, active cross-origin resource,
+  unknown-origin passive resource, browser credential header, query/credential
+  storage hit, IndexedDB/Cache Storage/service-worker state, console error, page
+  error, synthetic fallback, or commerce write is observed. Passive images,
+  styles, fonts, and media are accepted only from the explicit Shopify CDN
+  allowlist.
 
 Missing environment, a missing browser, HTTP, a mismatched shop/theme/component
 identity, fewer than ten cases, or any boundary violation exits nonzero.
@@ -119,12 +132,15 @@ The harness creates it without clobbering existing data and writes:
 - `manifest.json`
 - `manifest.sha256`
 
-The receipt contains only case ID, pass status, result count, latency, expected
-component identities, hashed shop/origin identity, theme ID, aggregate counts,
-and safety counts. It does not contain query text, response bodies, product
+The receipt contains only case ID, pass status, result count, latency, separate
+expected and observed component identities, the verified descriptor/public-key
+hashes and key ID, hashed shop/origin identity, theme ID, aggregate counts, and
+safety counts. It does not contain the deployment signature, query text, response bodies, product
 handles, cookies, HMAC/signature values, tokens, raw headers, or the preview
 URL. The closed output contract is
 [`reference-store-live-app-proxy-receipt.v1.schema.json`](../contracts/reference-store-live-app-proxy-receipt.v1.schema.json).
+The content-addressing envelope is closed by
+[`reference-store-live-app-proxy-manifest.v1.schema.json`](../contracts/reference-store-live-app-proxy-manifest.v1.schema.json).
 
 A passing receipt is evidence for only its exact theme, Store, BFF, Core, cases
 hash, and browser. It does not authorize production deployment, theme

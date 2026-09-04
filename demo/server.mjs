@@ -35,6 +35,20 @@ const sandboxBoundaries = Object.freeze({
   commerce_writes: false,
   shipping_rates: false,
 });
+const syntheticComponentIdentity = Object.freeze({
+  BFF_DEPLOYMENT_DESCRIPTOR: JSON.stringify({
+    components: {
+      agent_core: { commit: "3".repeat(40), version: "synthetic-fixture" },
+      reference_store: {
+        commit: "1".repeat(40), tree: "2".repeat(40), version: "synthetic-fixture",
+      },
+      storefront_bff: { commit: "1".repeat(40), version: "synthetic-fixture" },
+    },
+    schema_version: "reference-store-deployment-descriptor/v1",
+  }),
+  BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE: "A".repeat(86),
+  BFF_DEPLOYMENT_SIGNING_KEY_ID: "synthetic-local-no-release",
+});
 
 function sendJson(response, body, status = 200, headers = {}) {
   response.writeHead(status, {
@@ -304,6 +318,7 @@ function connectedConfiguration(options) {
     BFF_DEPLOYMENT_MODE: "local",
     STOREFRONT_ORIGIN: String(options.storefrontOrigin || "https://sandbox-store.example.invalid"),
     ALLOWED_ORIGINS: String(options.allowedOrigins || ""),
+    ...syntheticComponentIdentity,
   };
 }
 
@@ -321,6 +336,7 @@ function shopifyConfiguration(options) {
     BFF_DEPLOYMENT_MODE: "local",
     STOREFRONT_ORIGIN: String(options.storefrontOrigin || ""),
     ALLOWED_ORIGINS: String(options.allowedOrigins || ""),
+    ...syntheticComponentIdentity,
     ...(options.bffUpstreamTimeoutMs === undefined
       ? {} : { BFF_UPSTREAM_TIMEOUT_MS: String(options.bffUpstreamTimeoutMs) }),
     ...(options.bffQuotaLimit === undefined

@@ -55,6 +55,15 @@ Before an authorized staging deployment, the operator must configure:
 The Core process owns any Shopify read credential. Never copy it into theme
 settings, Liquid, the BFF example files, screenshots, browser storage, or QA
 receipts. Keep the legacy tenant credential unset for this staging process.
+
+Before deploying, create the canonical closed `BFF_DEPLOYMENT_DESCRIPTOR` from
+the exact frozen Reference Store tree/commit/version, BFF commit/version, and
+accepted Core commit/version. Sign those exact UTF-8 bytes with the release
+control plane's Ed25519 key and set `BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE` plus
+its public `BFF_DEPLOYMENT_SIGNING_KEY_ID`. The private key never enters the
+Worker. Runtime routes fail before upstream access when this envelope is absent
+or malformed. Status, doctor, and every read run return the same closed identity
+and attestation for independent signature verification by the acceptance gate.
 Do not record proxy query strings: Shopify may add a customer identifier.
 The Worker neither uses that identifier nor accesses customer/account data.
 

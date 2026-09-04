@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-runtime-status.v1.schema.json",
+  "title": "Closed Reference Store runtime status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract", "source_contract", "mode", "connected", "credential_state", "data_source",
+    "api_version", "quota", "writes_disabled", "capabilities", "checked_at", "error_code",
+    "boundaries", "components", "deployment_attestation"
+  ],
+  "properties": {
+    "contract": { "const": "reference-store-runtime-status/v1" },
+    "source_contract": { "const": "shopify-live-sandbox-status/v1" },
+    "mode": { "enum": ["synthetic_local_sandbox", "shopify_read_only"] },
+    "connected": { "type": "boolean" },
+    "credential_state": {
+      "enum": [
+        "mock_ready", "credential_missing", "authentication_failed", "permission_required",
+        "quota_exceeded", "service_unavailable", "succeeded"
+      ]
+    },
+    "data_source": { "enum": ["synthetic_fixture", "shopify_storefront_graphql"] },
+    "api_version": { "type": ["string", "null"] },
+    "quota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "remaining", "window_seconds", "concurrency_limit", "reset_at"],
+      "properties": {
+        "limit": { "type": "integer", "minimum": 0 },
+        "remaining": { "type": "integer", "minimum": 0 },
+        "window_seconds": { "type": "integer", "minimum": 0 },
+        "concurrency_limit": { "type": "integer", "minimum": 0 },
+        "reset_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "writes_disabled": { "const": true },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["doctor", "catalog_search", "search_contract_v2", "product_detail", "storefront_health"],
+      "properties": {
+        "doctor": { "type": "boolean" },
+        "catalog_search": { "type": "boolean" },
+        "search_contract_v2": { "type": "boolean" },
+        "product_detail": { "type": "boolean" },
+        "storefront_health": { "type": "boolean" }
+      }
+    },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "error_code": { "type": ["string", "null"] },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["non_transactional", "purchasable", "shipping_rates", "commerce_writes", "credential_exposed"],
+      "properties": {
+        "non_transactional": { "const": true },
+        "purchasable": { "const": false },
+        "shipping_rates": { "const": false },
+        "commerce_writes": { "const": false },
+        "credential_exposed": { "const": false }
+      }
+    },
+    "components": { "$ref": "#/$defs/components" },
+    "deployment_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "algorithm", "key_id", "descriptor_sha256", "signature"],
+      "properties": {
+        "contract": { "const": "reference-store-deployment-attestation/v1" },
+        "algorithm": { "const": "Ed25519" },
+        "key_id": { "$ref": "#/$defs/version" },
+        "descriptor_sha256": { "$ref": "#/$defs/sha256" },
+        "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_store", "agent_core", "storefront_bff"],
+      "properties": {
+        "reference_store": {
+          "type": "object", "additionalProperties": false,
+          "required": ["commit", "tree", "version"],
+          "properties": {
+            "commit": { "$ref": "#/$defs/commit" },
+            "tree": { "$ref": "#/$defs/commit" },
+            "version": { "$ref": "#/$defs/version" }
+          }
+        },
+        "agent_core": { "$ref": "#/$defs/serviceComponent" },
+        "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
+      }
+    },
+    "serviceComponent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "version"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    }
+  }
+}

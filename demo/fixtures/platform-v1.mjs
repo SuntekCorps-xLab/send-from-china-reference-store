@@ -139,6 +139,18 @@ export function simulatedRuntimeStatus() {
       commerce_writes: false,
       credential_exposed: false,
     },
+    components: {
+      reference_store: { commit: "1".repeat(40), tree: "2".repeat(40), version: "synthetic-fixture" },
+      agent_core: { commit: "3".repeat(40), version: "synthetic-fixture" },
+      storefront_bff: { commit: "1".repeat(40), version: "synthetic-fixture" },
+    },
+    deployment_attestation: {
+      contract: "reference-store-deployment-attestation/v1",
+      algorithm: "Ed25519",
+      key_id: "synthetic-local-no-release",
+      descriptor_sha256: "4".repeat(64),
+      signature: "A".repeat(86),
+    },
   };
 }
 

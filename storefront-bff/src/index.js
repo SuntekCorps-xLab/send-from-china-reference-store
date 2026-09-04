@@ -9,6 +9,8 @@ const DEFAULT_UPSTREAM_TIMEOUT_MS = 5_000;
 const RUNTIME_STATUS_CONTRACT = "reference-store-runtime-status/v1";
 const RUNTIME_RUN_CONTRACT = "reference-store-read-run/v1";
 const RUNTIME_DOCTOR_CONTRACT = "reference-store-runtime-doctor/v1";
+const DEPLOYMENT_DESCRIPTOR_CONTRACT = "reference-store-deployment-descriptor/v1";
+const DEPLOYMENT_ATTESTATION_CONTRACT = "reference-store-deployment-attestation/v1";
 export const RUNTIME_PUBLIC_ERRORS = Object.freeze([
   "app_proxy_authentication_failed", "app_proxy_timestamp_expired", "authentication_failed",
   "credential_missing", "deployment_not_configured", "invalid_request",
@@ -52,6 +54,17 @@ const STATUS_CAPABILITY_FIELDS = new Set([
 const RUNTIME_CAPABILITY_FIELDS = Object.freeze([
   "doctor", "catalog_search", "search_contract_v2", "product_detail", "storefront_health",
 ]);
+const DEPLOYED_COMPONENT_FIELDS = new Set(["reference_store", "agent_core", "storefront_bff"]);
+const REPOSITORY_COMPONENT_FIELDS = new Set(["commit", "tree", "version"]);
+const SERVICE_COMPONENT_FIELDS = new Set(["commit", "version"]);
+const DEPLOYMENT_DESCRIPTOR_FIELDS = new Set(["components", "schema_version"]);
+const DEPLOYMENT_ATTESTATION_FIELDS = new Set([
+  "algorithm", "contract", "descriptor_sha256", "key_id", "signature",
+]);
+const GIT_OBJECT_ID = /^[0-9a-f]{40}$/u;
+const COMPONENT_VERSION = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
+const SHA256_DIGEST = /^[0-9a-f]{64}$/u;
+const ED25519_SIGNATURE = /^[A-Za-z0-9_-]{86}$/u;
 const RUNTIME_SEARCH_FIELDS = new Set([
   "contract_version", "trace_id", "status", "normalized_intent", "relaxations",
   "missing_criteria", "results", "pagination", "search_scope", "mode", "data_source",
@@ -193,6 +206,21 @@ function exactCanonicalValue(left, right) {
   return leftKeys.length === rightKeys.length
     && leftKeys.every((key) => Object.hasOwn(right, key)
       && exactCanonicalValue(left[key], right[key]));
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => (
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+    )).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function sha256Text(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function exactIsoTimestamp(value) {
@@ -347,11 +375,67 @@ export function validateSandboxStatus(value) {
     && readCapabilities.every((field) => value.capabilities[field] === false);
 }
 
-export function projectRuntimeStatus(value, expectedMode) {
+function validServiceComponent(value) {
+  return exactObjectFields(value, SERVICE_COMPONENT_FIELDS)
+    && GIT_OBJECT_ID.test(value.commit) && COMPONENT_VERSION.test(value.version);
+}
+
+function validRepositoryComponent(value) {
+  return exactObjectFields(value, REPOSITORY_COMPONENT_FIELDS)
+    && GIT_OBJECT_ID.test(value.commit) && GIT_OBJECT_ID.test(value.tree)
+    && COMPONENT_VERSION.test(value.version);
+}
+
+function validDeployedComponents(value) {
+  return exactObjectFields(value, DEPLOYED_COMPONENT_FIELDS)
+    && validRepositoryComponent(value.reference_store)
+    && validServiceComponent(value.agent_core)
+    && validServiceComponent(value.storefront_bff)
+    && value.reference_store.commit === value.storefront_bff.commit;
+}
+
+function validDeploymentAttestation(value) {
+  return exactObjectFields(value, DEPLOYMENT_ATTESTATION_FIELDS)
+    && value.contract === DEPLOYMENT_ATTESTATION_CONTRACT
+    && value.algorithm === "Ed25519"
+    && COMPONENT_VERSION.test(value.key_id)
+    && SHA256_DIGEST.test(value.descriptor_sha256)
+    && ED25519_SIGNATURE.test(value.signature);
+}
+
+async function deployedIdentity(env) {
+  const descriptorSource = String(env?.BFF_DEPLOYMENT_DESCRIPTOR || "");
+  if (descriptorSource !== descriptorSource.trim()) runtimeFailure("deployment_not_configured", 503);
+  const rawDescriptor = descriptorSource;
+  let descriptor;
+  try { descriptor = JSON.parse(rawDescriptor); } catch { runtimeFailure("deployment_not_configured", 503); }
+  if (!exactObjectFields(descriptor, DEPLOYMENT_DESCRIPTOR_FIELDS)
+    || descriptor.schema_version !== DEPLOYMENT_DESCRIPTOR_CONTRACT
+    || !validDeployedComponents(descriptor.components)
+    || rawDescriptor !== canonicalJson(descriptor)) runtimeFailure("deployment_not_configured", 503);
+  const components = Object.freeze({
+    reference_store: Object.freeze({ ...descriptor.components.reference_store }),
+    agent_core: Object.freeze({ ...descriptor.components.agent_core }),
+    storefront_bff: Object.freeze({ ...descriptor.components.storefront_bff }),
+  });
+  const attestation = Object.freeze({
+    contract: DEPLOYMENT_ATTESTATION_CONTRACT,
+    algorithm: "Ed25519",
+    key_id: String(env?.BFF_DEPLOYMENT_SIGNING_KEY_ID || "").trim(),
+    descriptor_sha256: await sha256Text(rawDescriptor),
+    signature: String(env?.BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE || "").trim(),
+  });
+  if (!validDeploymentAttestation(attestation)) runtimeFailure("deployment_not_configured", 503);
+  return Object.freeze({ components, attestation });
+}
+
+export function projectRuntimeStatus(value, expectedMode, identity) {
   if (!validateSandboxStatus(value)) runtimeFailure("invalid_upstream_contract", 502);
   if (!RUNTIME_MODES.has(expectedMode) || value.mode !== expectedMode) {
     runtimeFailure("runtime_mode_mismatch", 502);
   }
+  if (!identity || !validDeployedComponents(identity.components)
+    || !validDeploymentAttestation(identity.attestation)) runtimeFailure("deployment_not_configured", 503);
   const capabilities = {};
   for (const field of RUNTIME_CAPABILITY_FIELDS) capabilities[field] = value.capabilities[field];
   return Object.freeze({
@@ -380,6 +464,8 @@ export function projectRuntimeStatus(value, expectedMode) {
       commerce_writes: false,
       credential_exposed: false,
     }),
+    components: identity.components,
+    deployment_attestation: identity.attestation,
   });
 }
 
@@ -1259,11 +1345,12 @@ function runtimeSearchContract(payload, runtime, env, effectiveLimit) {
 
 export async function getRuntimeStatus(env) {
   const expectedMode = expectedRuntimeMode(env);
+  const identity = await deployedIdentity(env);
   const source = await sandboxUpstream("/sandbox/status", { method: "GET" }, env);
   if (containsConfiguredRuntimeSecret(source, env)) {
     runtimeFailure("invalid_upstream_contract", 502);
   }
-  return projectRuntimeStatus(source, expectedMode);
+  return projectRuntimeStatus(source, expectedMode, identity);
 }
 
 export async function runServerDoctor(env) {

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-read-run.v1.schema.json",
+  "title": "Closed Reference Store read-only run response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "runtime", "search"],
+  "properties": {
+    "contract": { "const": "reference-store-read-run/v1" },
+    "runtime": { "$ref": "reference-store-runtime-status.v1.schema.json" },
+    "search": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version", "trace_id", "status", "normalized_intent", "relaxations",
+        "missing_criteria", "results", "pagination", "search_scope"
+      ],
+      "properties": {
+        "contract_version": { "const": "2.0" },
+        "trace_id": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,200}$" },
+        "status": { "enum": ["results", "needs_clarification", "no_match", "degraded"] },
+        "normalized_intent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product_identity", "hard_constraints", "soft_context", "transaction_context"],
+          "properties": {
+            "product_identity": { "$ref": "#/$defs/condition" },
+            "hard_constraints": { "$ref": "#/$defs/conditions" },
+            "soft_context": { "$ref": "#/$defs/conditions" },
+            "transaction_context": { "$ref": "#/$defs/conditions" }
+          }
+        },
+        "relaxations": {
+          "type": "array", "maxItems": 100,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["condition", "reason"],
+            "properties": {
+              "condition": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+              "from": { "$ref": "#/$defs/scalar" },
+              "to": { "$ref": "#/$defs/scalar" },
+              "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
+            }
+          }
+        },
+        "missing_criteria": {
+          "type": "array", "maxItems": 50,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+        },
+        "results": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/product" } },
+        "pagination": {
+          "type": "object", "additionalProperties": false,
+          "required": ["limit", "cursor", "next_cursor", "has_more"],
+          "properties": {
+            "limit": { "type": "integer", "minimum": 1, "maximum": 20 },
+            "cursor": { "type": ["string", "null"], "maxLength": 1000 },
+            "next_cursor": { "type": ["string", "null"], "maxLength": 1000 },
+            "has_more": { "type": "boolean" }
+          }
+        },
+        "search_scope": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached",
+            "degraded", "degraded_reason"
+          ],
+          "properties": {
+            "plan_complete": { "type": "boolean" },
+            "scope_exhausted": { "type": "boolean" },
+            "global_catalog_exhaustive": { "type": "boolean" },
+            "scan_limit_reached": { "type": "boolean" },
+            "degraded": { "type": "boolean" },
+            "degraded_reason": { "type": ["string", "null"], "maxLength": 200 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "scalar": { "type": ["string", "number", "boolean"] },
+    "conditionValue": {
+      "anyOf": [
+        { "$ref": "#/$defs/scalar" },
+        { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/$defs/scalar" } }
+      ]
+    },
+    "condition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "value", "source", "scope", "hardness"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "value": { "$ref": "#/$defs/conditionValue" },
+        "source": { "enum": ["explicit", "inferred", "default"] },
+        "scope": { "enum": ["product", "session", "transaction"] },
+        "hardness": { "enum": ["hard", "soft", "informational"] }
+      }
+    },
+    "conditions": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/condition" } },
+    "product": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "public_id", "handle", "title", "summary", "image", "price", "available_for_sale",
+        "product_url", "shopify_verified_at", "synthetic", "non_transactional", "purchasable",
+        "writes", "shipping_rates"
+      ],
+      "properties": {
+        "public_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,200}$" },
+        "handle": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,99}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "summary": { "type": "string", "maxLength": 5000 },
+        "image": { "type": "string", "maxLength": 2048 },
+        "price": {
+          "type": "object", "additionalProperties": false, "required": ["amount", "currency"],
+          "properties": {
+            "amount": { "type": "number", "minimum": 0 },
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+          }
+        },
+        "available_for_sale": { "type": "boolean" },
+        "product_url": { "type": "string", "format": "uri" },
+        "shopify_verified_at": { "type": "string", "format": "date-time" },
+        "synthetic": { "const": false },
+        "non_transactional": { "const": true },
+        "purchasable": { "const": false },
+        "writes": { "const": false },
+        "shipping_rates": { "const": false }
+      }
+    }
+  }
+}

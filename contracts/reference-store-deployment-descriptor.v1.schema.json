@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-deployment-descriptor.v1.schema.json",
+  "title": "Signed Reference Store deployment descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["components", "schema_version"],
+  "properties": {
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_core", "reference_store", "storefront_bff"],
+      "properties": {
+        "agent_core": { "$ref": "#/$defs/serviceComponent" },
+        "reference_store": { "$ref": "#/$defs/repositoryComponent" },
+        "storefront_bff": { "$ref": "#/$defs/serviceComponent" }
+      }
+    },
+    "schema_version": { "const": "reference-store-deployment-descriptor/v1" }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "repositoryComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "serviceComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "version"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    }
+  }
+}

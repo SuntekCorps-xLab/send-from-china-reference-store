@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/reference-store-runtime-doctor.v1.schema.json",
+  "title": "Closed Reference Store runtime doctor response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "ok", "runtime", "checks"],
+  "properties": {
+    "contract": { "const": "reference-store-runtime-doctor/v1" },
+    "ok": { "type": "boolean" },
+    "runtime": { "$ref": "reference-store-runtime-status.v1.schema.json" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deployment_mode", "agent_core_status", "expected_mode", "credential_isolated", "writes_disabled"],
+      "properties": {
+        "deployment_mode": { "type": "boolean" },
+        "agent_core_status": { "type": "boolean" },
+        "expected_mode": { "type": "boolean" },
+        "credential_isolated": { "type": "boolean" },
+        "writes_disabled": { "type": "boolean" }
+      }
+    }
+  }
+}

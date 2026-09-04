@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import worker, {
@@ -12,6 +12,30 @@ const VERIFIED_AT = "2026-08-31T00:00:01.000Z";
 const FAKE_TOKEN = "visibly_fake_agent_core_sandbox_token";
 const FAKE_INVITE = "visibly_fake_agent_core_sandbox_invite";
 const STOREFRONT = "https://sandbox-store.example.invalid";
+const REFERENCE_COMMIT = "1".repeat(40);
+const REFERENCE_TREE = "2".repeat(40);
+const CORE_COMMIT = "3".repeat(40);
+const COMPONENTS = Object.freeze({
+  reference_store: Object.freeze({ commit: REFERENCE_COMMIT, tree: REFERENCE_TREE, version: "1.1.0" }),
+  agent_core: Object.freeze({ commit: CORE_COMMIT, version: "1.2.0" }),
+  storefront_bff: Object.freeze({ commit: REFERENCE_COMMIT, version: "1.0.0" }),
+});
+const DEPLOYMENT_DESCRIPTOR = JSON.stringify({
+  components: {
+    agent_core: { commit: CORE_COMMIT, version: "1.2.0" },
+    reference_store: { commit: REFERENCE_COMMIT, tree: REFERENCE_TREE, version: "1.1.0" },
+    storefront_bff: { commit: REFERENCE_COMMIT, version: "1.0.0" },
+  },
+  schema_version: "reference-store-deployment-descriptor/v1",
+});
+const DEPLOYMENT_ATTESTATION = Object.freeze({
+  contract: "reference-store-deployment-attestation/v1",
+  algorithm: "Ed25519",
+  key_id: "synthetic-test-key",
+  descriptor_sha256: createHash("sha256").update(DEPLOYMENT_DESCRIPTOR).digest("hex"),
+  signature: "A".repeat(86),
+});
+const DEPLOYMENT_IDENTITY = Object.freeze({ components: COMPONENTS, attestation: DEPLOYMENT_ATTESTATION });
 
 function runtimeEnv(mode = "synthetic_local_sandbox", overrides = {}) {
   return {
@@ -19,6 +43,9 @@ function runtimeEnv(mode = "synthetic_local_sandbox", overrides = {}) {
     AGENT_CORE_SANDBOX_INVITE: FAKE_INVITE,
     BFF_RUNTIME_MODE: mode,
     BFF_DEPLOYMENT_MODE: "local",
+    BFF_DEPLOYMENT_DESCRIPTOR: DEPLOYMENT_DESCRIPTOR,
+    BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE: DEPLOYMENT_ATTESTATION.signature,
+    BFF_DEPLOYMENT_SIGNING_KEY_ID: DEPLOYMENT_ATTESTATION.key_id,
     STOREFRONT_ORIGIN: STOREFRONT,
     ALLOWED_ORIGINS: STOREFRONT,
     ...overrides,
@@ -170,15 +197,17 @@ test("strictly validates S1 status and projects only the closed BFF runtime fiel
   for (const mode of ["synthetic_local_sandbox", "shopify_read_only"]) {
     const source = statusFixture(mode);
     assert.equal(validateSandboxStatus(source), true);
-    const runtime = projectRuntimeStatus(source, mode);
+    const runtime = projectRuntimeStatus(source, mode, DEPLOYMENT_IDENTITY);
     assert.deepEqual(sortedKeys(runtime), [
       "api_version", "boundaries", "capabilities", "checked_at", "connected", "contract",
-      "credential_state", "data_source", "error_code", "mode", "quota", "source_contract",
-      "writes_disabled",
+      "components", "credential_state", "data_source", "deployment_attestation", "error_code", "mode",
+      "quota", "source_contract", "writes_disabled",
     ].sort());
     assert.equal(runtime.contract, "reference-store-runtime-status/v1");
     assert.equal(runtime.source_contract, "shopify-live-sandbox-status/v1");
     assert.equal(runtime.writes_disabled, true);
+    assert.deepEqual(runtime.components, COMPONENTS);
+    assert.deepEqual(runtime.deployment_attestation, DEPLOYMENT_ATTESTATION);
     assert.deepEqual(sortedKeys(runtime.capabilities), [
       "doctor", "catalog_search", "search_contract_v2", "product_detail", "storefront_health",
     ].sort());
@@ -194,10 +223,17 @@ test("strictly validates S1 status and projects only the closed BFF runtime fiel
   const invalid = statusFixture();
   invalid.unexpected = true;
   assert.equal(validateSandboxStatus(invalid), false);
-  assert.throws(() => projectRuntimeStatus(invalid, invalid.mode), /invalid_upstream_contract/u);
+  assert.throws(() => projectRuntimeStatus(invalid, invalid.mode, DEPLOYMENT_IDENTITY), /invalid_upstream_contract/u);
   assert.throws(
-    () => projectRuntimeStatus(statusFixture(), "shopify_read_only"),
+    () => projectRuntimeStatus(statusFixture(), "shopify_read_only", DEPLOYMENT_IDENTITY),
     /runtime_mode_mismatch/u,
+  );
+  assert.throws(
+    () => projectRuntimeStatus(statusFixture(), "synthetic_local_sandbox", {
+      ...DEPLOYMENT_IDENTITY,
+      components: { ...COMPONENTS, agent_core: { commit: "f".repeat(39), version: "1.2.0" } },
+    }),
+    /deployment_not_configured/u,
   );
 });
 
@@ -219,6 +255,7 @@ test("synthetic status, doctor, and run remain synthetic and issue only fixed sa
   const runtime = await statusResponse.json();
   assert.equal(runtime.mode, "synthetic_local_sandbox");
   assert.equal(runtime.connected, true);
+  assert.deepEqual(runtime.components, COMPONENTS);
 
   const doctorResponse = await localCall("/api/runtime/doctor", {}, env);
   assert.equal(doctorResponse.status, 200);
@@ -257,6 +294,26 @@ test("synthetic status, doctor, and run remain synthetic and issue only fixed sa
   assert.equal(publicSurface.includes(FAKE_TOKEN), false);
   assert.equal(publicSurface.includes(FAKE_INVITE), false);
   assert.equal(await seen[3].clone().json().then((body) => body.contract_version), "2.0");
+});
+
+test("runtime routes fail closed before upstream fetch when deployed component identity is absent or malformed", async (context) => {
+  let requests = 0;
+  context.mock.method(globalThis, "fetch", async () => {
+    requests += 1;
+    return jsonResponse(statusFixture());
+  });
+  for (const overrides of [
+    { BFF_DEPLOYMENT_DESCRIPTOR: "" },
+    { BFF_DEPLOYMENT_DESCRIPTOR: "{}" },
+    { BFF_DEPLOYMENT_DESCRIPTOR: `${DEPLOYMENT_DESCRIPTOR} ` },
+    { BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE: "not-a-signature" },
+    { BFF_DEPLOYMENT_SIGNING_KEY_ID: "contains whitespace" },
+  ]) {
+    const response = await localCall("/api/runtime/status", {}, runtimeEnv("synthetic_local_sandbox", overrides));
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "deployment_not_configured");
+  }
+  assert.equal(requests, 0);
 });
 
 test("uses invite auth only for hosted HTTPS and Bearer auth only for loopback", async (context) => {
