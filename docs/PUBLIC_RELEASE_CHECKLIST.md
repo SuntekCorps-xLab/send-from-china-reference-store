@@ -25,5 +25,5 @@ Record the completed settings and links in the release review.
    review evidence. Require 20/20 passing journeys, zero external network
    requests, two clean working trees, and exact commit SHAs matching the
    release candidates.
-10. Create the `v1.0.0` release from the exact reviewed commit and link its CI
+10. Create the `v1.1.0` release from the exact reviewed commit and link its CI
    and security evidence.

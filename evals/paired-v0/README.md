@@ -30,9 +30,9 @@ responses through the real Reference Store BFF validator. They do not claim
 that Agent Core produced those states in this release.
 
 The ignored artifact at `build/paired-e2e-v0/artifact.json` records the exact
-Git commit and clean/dirty status of both checkouts, dataset SHA-256, case IDs,
-pass/fail status, and assertion counts. It contains no query, request, response,
-URL, credential, product record, private data, or production data.
+Git commit, tree, and clean/dirty status of both checkouts, dataset SHA-256,
+case IDs, pass/fail status, and assertion counts. It contains no query, request,
+response, URL, credential, product record, private data, or production data.
 
 ## Interpretation boundary
 

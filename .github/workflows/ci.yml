@@ -25,9 +25,15 @@ jobs:
         run: npm ci
       - name: Audit locked BFF dependencies
         working-directory: storefront-bff
-        run: npm audit --audit-level=high
-      - name: Test zero-account demo and BFF
-        run: node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs
+        run: node ../scripts/npm-audit-bounded.mjs
+      - name: Test zero-account demo, hosted candidate, and BFF
+        run: node --test demo/tests/*.test.mjs hosted-demo/test/*.test.mjs storefront-bff/test/*.test.mjs
+      - name: Bundle hosted synthetic demo without deploying
+        run: npm run hosted:dry-run
+      - name: Verify release metadata alignment
+        run: |
+          npm run test:release-tools
+          npm run verify:release-metadata
       - name: Validate paired synthetic harness contract
         run: npm run test:paired-e2e
       - name: Validate three-repository contract-projection harness
@@ -91,7 +97,7 @@ jobs:
         run: npm ci
       - name: Audit locked dependencies
         working-directory: shopify-customer-account
-        run: npm audit --audit-level=high
+        run: node ../scripts/npm-audit-bounded.mjs
       - name: Create non-deployable test config
         working-directory: shopify-customer-account
         run: cp shopify.app.toml.example shopify.app.toml

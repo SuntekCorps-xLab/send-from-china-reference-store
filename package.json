@@ -1,6 +1,6 @@
 {
   "name": "send-from-china-reference-store",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,6 +12,7 @@
     "demo:connected": "node demo/server.mjs --mode=connected",
     "demo:platform": "node scripts/demo-platform.mjs",
     "demo:shopify": "node scripts/demo-shopify.mjs",
+    "hosted:dry-run": "node scripts/verify-hosted-demo-bundle.mjs",
     "eval:paired": "node evals/paired-v0/run.mjs",
     "eval:triad-contract": "node evals/triad-v1/run.mjs",
     "qa:drawer": "node shopify-theme/tests/run-agent-drawer-browser-qa.mjs",
@@ -22,11 +23,14 @@
     "scan": "node scripts/scan-public.mjs .",
     "smoke:integration": "node scripts/integration-smoke.mjs",
     "smoke:paired": "node scripts/paired-integration-smoke.mjs",
-    "test": "node --test demo/tests/*.test.mjs storefront-bff/test/*.test.mjs shopify-theme/tests/*.test.mjs shopify-customer-account/tests/*.test.mjs starters/shopify-agent-bff/test/*.test.mjs",
+    "test": "node --test demo/tests/*.test.mjs hosted-demo/test/*.test.mjs storefront-bff/test/*.test.mjs shopify-theme/tests/*.test.mjs shopify-customer-account/tests/*.test.mjs starters/shopify-agent-bff/test/*.test.mjs",
+    "test:hosted-demo": "node --test hosted-demo/test/*.test.mjs",
+    "test:release-tools": "node --test scripts/tests/*.test.mjs",
     "test:paired-e2e": "node --test evals/paired-v0/test/*.test.mjs",
     "test:triad-contract": "node --test evals/triad-v1/test/*.test.mjs",
     "verify:browser": "npm run qa:drawer && npm run qa:workspace",
-    "verify": "npm run test && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run check:links && npm run scan",
+    "verify": "npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run check:links && npm run verify:release-metadata && npm run scan",
+    "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "verify:paired": "npm run verify && npm run smoke:paired && npm run test:paired-e2e && npm run eval:paired && npm run smoke:shopify-paired",
     "qa:liquid": "node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --all",
     "smoke:shopify-paired": "node scripts/paired-shopify-smoke.mjs"

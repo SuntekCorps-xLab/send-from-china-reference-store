@@ -34,14 +34,16 @@ test("the release artifact contains only sanitized case outcomes and provenance"
     dataset: { dataset_version: "paired-e2e-v0.1.0", journeys: outcomes },
     datasetHash: "a".repeat(64),
     repositories: {
-      reference_store: { commit: "b".repeat(40), working_tree: "clean" },
-      agent_core: { commit: "c".repeat(40), working_tree: "clean" },
+      reference_store: { commit: "b".repeat(40), tree: "d".repeat(40), working_tree: "clean" },
+      agent_core: { commit: "c".repeat(40), tree: "e".repeat(40), working_tree: "clean" },
     },
     outcomes,
     externalNetworkRequests: 0,
   });
   const serialized = JSON.stringify(artifact);
   assert.equal(artifact.summary.passed_count, 20);
+  assert.match(artifact.repositories.reference_store.tree, /^[0-9a-f]{40}$/u);
+  assert.match(artifact.repositories.agent_core.tree, /^[0-9a-f]{40}$/u);
   assert.deepEqual(Object.keys(artifact.journeys[0]), ["case_id", "status", "assertion_count"]);
   for (const forbidden of ["raw_response", "request_body", "response_body", "tenant_key", "must-not-appear"]) {
     assert.equal(serialized.includes(forbidden), false);
