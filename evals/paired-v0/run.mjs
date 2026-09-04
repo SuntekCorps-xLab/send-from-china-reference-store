@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -11,9 +10,10 @@ import {
   resolveAgentCoreDirectory,
   startPlatform,
 } from "../../scripts/demo-platform.mjs";
+import { assertAcceptedAgentCore, readPairedGit } from "../../scripts/paired-integration-smoke.mjs";
 import { loadDataset } from "./dataset.mjs";
 
-const RUNNER_VERSION = "paired-e2e-runner/v0.1.0";
+const RUNNER_VERSION = "paired-e2e-runner/v0.2.0";
 const ARTIFACT_SCHEMA_VERSION = "send-from-china-paired-e2e-artifact/v0";
 const LOOPBACK_HOSTS = new Set(["localhost", "[::1]", "127.0.0.1"]);
 const STOREFRONT_ORIGIN = "https://sandbox-store.example.invalid";
@@ -32,19 +32,10 @@ function argumentValue(args, name) {
   return "";
 }
 
-function git(directory, args) {
-  const result = spawnSync("git", ["-c", `safe.directory=${directory}`, "-C", directory, ...args], {
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.status !== 0) throw new Error("unable to read paired repository provenance");
-  return String(result.stdout || "").trim();
-}
-
 export function repositoryDescriptor(directory) {
-  const commit = git(directory, ["rev-parse", "HEAD"]);
+  const commit = readPairedGit(directory, ["rev-parse", "HEAD"]);
   if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error("paired repository commit is invalid");
-  const dirty = Boolean(git(directory, ["status", "--porcelain", "--untracked-files=normal"]));
+  const dirty = Boolean(readPairedGit(directory, ["status", "--porcelain", "--untracked-files=normal"]));
   return { commit, working_tree: dirty ? "dirty" : "clean" };
 }
 
@@ -520,16 +511,24 @@ export function createArtifact({ dataset, datasetHash, repositories, outcomes, e
   };
 }
 
+export function resolvePairedArtifactPath(value) {
+  const output = path.resolve(root, value);
+  const withinBuild = path.relative(path.resolve(root, "build"), output);
+  if (!withinBuild || withinBuild.startsWith("..") || path.isAbsolute(withinBuild)) {
+    throw new Error("paired_artifact_must_stay_in_reference_build");
+  }
+  return output;
+}
 export async function runPairedE2e(options = {}) {
   const args = options.args || [];
-  const output = path.resolve(root, options.output || argumentValue(args, "--output") || "build/paired-e2e-v0/artifact.json");
+  const output = resolvePairedArtifactPath(options.output || argumentValue(args, "--output") || "build/paired-e2e-v0/artifact.json");
   const { bytes, dataset } = await loadDataset();
   const datasetHash = createHash("sha256").update(bytes).digest("hex");
   const agentCoreDirectory = options.agentCoreDirectory
     || await resolveAgentCoreDirectory({ args, cwd: root });
   const repositories = {
     reference_store: repositoryDescriptor(root),
-    agent_core: repositoryDescriptor(agentCoreDirectory),
+    agent_core: await assertAcceptedAgentCore(agentCoreDirectory),
   };
   const network = installNetworkGuard();
   let runtime;
@@ -570,6 +569,7 @@ export async function runPairedE2e(options = {}) {
   } finally {
     await runtime?.close().catch(() => {});
     network.restore();
+    await assertAcceptedAgentCore(agentCoreDirectory);
   }
 
   const artifact = createArtifact({

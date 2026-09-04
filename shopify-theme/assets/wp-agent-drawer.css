@@ -246,3 +246,27 @@ html.wp-agent-is-open,html.wp-agent-is-open body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .wp-agent-layer * { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Runtime controls remain visible while the transcript scrolls. */
+.wp-runtime-panel { padding: 12px 18px; border-top: 1px solid #d8deda; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.wp-runtime-panel p { margin: 0 0 6px; }
+.wp-runtime-panel button { min-height: 36px; max-width: 100%; padding: 6px 10px; white-space: normal; color: #142b2f; background: #fff; border: 1px solid #667572; border-radius: 4px; }
+.wp-runtime-panel button:disabled { color: #344b4e; background: #f4f3ee; }
+[data-runtime-mode="shopify_read_only"] .wp-agent-conversation { display: flex; flex-direction: column; overflow: hidden; }
+[data-runtime-mode="shopify_read_only"] .wp-agent-transcript { flex: 1; min-height: 0; overflow-y: auto; overflow-wrap: anywhere; }
+[data-runtime-mode="shopify_read_only"] .wp-agent-composer { flex: 0 0 auto; }
+[data-runtime-mode="shopify_read_only"] .wp-agent-product { min-width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .wp-agent-layer *, .wp-agent-layer *::before, .wp-agent-layer *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+.wp-agent-layer .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

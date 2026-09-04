@@ -6,6 +6,9 @@ import path from "node:path";
 import storefrontBff from "../storefront-bff/src/index.js";
 import {
   simulatedChat,
+  simulatedRun,
+  simulatedRuntimeDoctor,
+  simulatedRuntimeStatus,
   simulatedSearch,
   simulatedStatus,
 } from "./fixtures/platform-v1.mjs";
@@ -44,7 +47,11 @@ function sendJson(response, body, status = 200, headers = {}) {
 }
 
 function sendText(response, body, status = 200, contentType = "text/plain; charset=utf-8") {
-  response.writeHead(status, { ...securityHeaders, "content-type": contentType });
+  response.writeHead(status, {
+    ...securityHeaders,
+    "content-type": contentType,
+    "cache-control": "no-store",
+  });
   response.end(body);
 }
 
@@ -290,16 +297,45 @@ function connectedConfiguration(options) {
   return {
     AGENT_CORE_BASE_URL: baseUrl,
     AGENT_CORE_TENANT_KEY: token,
+    AGENT_CORE_SANDBOX_URL: baseUrl,
+    AGENT_CORE_SANDBOX_TOKEN: token,
     AGENT_CORE_PAGE_SIZE: String(options.agentCorePageSize || "20"),
+    BFF_RUNTIME_MODE: "synthetic_local_sandbox",
+    BFF_DEPLOYMENT_MODE: "local",
     STOREFRONT_ORIGIN: String(options.storefrontOrigin || "https://sandbox-store.example.invalid"),
     ALLOWED_ORIGINS: String(options.allowedOrigins || ""),
+  };
+}
+
+function shopifyConfiguration(options) {
+  const configuredBaseUrl = String(options.agentCoreSandboxUrl || "").trim();
+  if (!configuredBaseUrl) throw new Error("shopify_mode_requires_agent_core_sandbox");
+  const baseUrl = localAgentCoreBase(configuredBaseUrl);
+  if (!baseUrl) throw new Error("shopify_mode_requires_loopback_agent_core");
+  return {
+    AGENT_CORE_SANDBOX_URL: baseUrl,
+    ...(String(options.agentCoreSandboxToken || "").trim()
+      ? { AGENT_CORE_SANDBOX_TOKEN: String(options.agentCoreSandboxToken).trim() }
+      : {}),
+    BFF_RUNTIME_MODE: "shopify_read_only",
+    BFF_DEPLOYMENT_MODE: "local",
+    STOREFRONT_ORIGIN: String(options.storefrontOrigin || ""),
+    ALLOWED_ORIGINS: String(options.allowedOrigins || ""),
+    ...(options.bffUpstreamTimeoutMs === undefined
+      ? {} : { BFF_UPSTREAM_TIMEOUT_MS: String(options.bffUpstreamTimeoutMs) }),
+    ...(options.bffQuotaLimit === undefined
+      ? {} : { BFF_QUOTA_LIMIT: String(options.bffQuotaLimit) }),
+    ...(options.bffQuotaWindowSeconds === undefined
+      ? {} : { BFF_QUOTA_WINDOW_SECONDS: String(options.bffQuotaWindowSeconds) }),
+    ...(options.bffConcurrencyLimit === undefined
+      ? {} : { BFF_CONCURRENCY_LIMIT: String(options.bffConcurrencyLimit) }),
   };
 }
 
 async function connectedRequest(request, pathname, rawBody, env) {
   const headers = { "content-type": request.headers["content-type"] || "application/json" };
   if (request.headers.origin) headers.origin = request.headers.origin;
-  const bffResponse = await storefrontBff.fetch(new Request(`https://local-bff.example.invalid${pathname}`, {
+  const bffResponse = await storefrontBff.fetch(new Request(`http://127.0.0.1${pathname}`, {
     method: request.method,
     headers,
     body: rawBody,
@@ -330,8 +366,30 @@ async function connectedRequest(request, pathname, rawBody, env) {
   };
 }
 
+async function runtimeRequest(request, pathname, rawBody, env) {
+  const headers = { accept: "application/json" };
+  if (request.headers["content-type"]) headers["content-type"] = request.headers["content-type"];
+  if (request.headers.origin) headers.origin = request.headers.origin;
+  const init = { method: request.method, headers };
+  if (request.method !== "GET" && request.method !== "HEAD") init.body = rawBody;
+  const bffResponse = await storefrontBff.fetch(
+    new Request(`http://127.0.0.1${pathname}`, init),
+    env,
+  );
+  const payload = await jsonObject(bffResponse, 384 * 1024);
+  return {
+    body: payload || { error: "service_unavailable", expected_mode: env.BFF_RUNTIME_MODE },
+    status: payload ? bffResponse.status : 503,
+    headers: bffResponse.headers.get("retry-after")
+      ? { "retry-after": bffResponse.headers.get("retry-after") }
+      : {},
+  };
+}
+
 function normalizedMode(value) {
-  return value === "connected" || value === "connected_local_sandbox" ? "connected" : "simulated";
+  if (value === "connected" || value === "connected_local_sandbox") return "connected";
+  if (value === "shopify" || value === "shopify_read_only") return "shopify";
+  return "simulated";
 }
 
 function loopbackHost(value) {
@@ -343,6 +401,7 @@ function loopbackHost(value) {
 function createDemoServer(options = {}) {
   const mode = normalizedMode(options.mode);
   const connectedEnv = mode === "connected" ? connectedConfiguration(options) : null;
+  const runtimeEnv = mode === "shopify" ? shopifyConfiguration(options) : connectedEnv;
   const readiness = connectedEnv ? readinessController(connectedEnv, options) : null;
 
   const server = createServer(async (request, response) => {
@@ -352,7 +411,19 @@ function createDemoServer(options = {}) {
         sendJson(response, { ok: true, service: "send-from-china-reference-demo", mode });
         return;
       }
+      if (url.search && ["/api/runtime/status", "/api/runtime/doctor", "/api/runs"].includes(url.pathname)) {
+        sendJson(response, {
+          error: "invalid_request",
+          expected_mode: mode === "shopify" ? "shopify_read_only" : "synthetic_local_sandbox",
+        }, 400);
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/status") {
+        if (mode === "shopify") {
+          const result = await runtimeRequest(request, "/api/runtime/status", undefined, runtimeEnv);
+          sendJson(response, result.body, result.status, result.headers);
+          return;
+        }
         const status = mode === "connected"
           ? publicConnectedStatus(await readiness.check())
           : simulatedStatus();
@@ -360,9 +431,46 @@ function createDemoServer(options = {}) {
         return;
       }
 
+      if (request.method === "GET"
+        && (url.pathname === "/api/runtime/status" || url.pathname === "/api/runtime/doctor")) {
+        if (mode === "simulated") {
+          sendJson(response, url.pathname.endsWith("/doctor")
+            ? simulatedRuntimeDoctor() : simulatedRuntimeStatus());
+          return;
+        }
+        const result = await runtimeRequest(request, url.pathname, undefined, runtimeEnv);
+        sendJson(response, result.body, result.status, result.headers);
+        return;
+      }
+
+      if (url.pathname === "/api/runs") {
+        if (request.method !== "POST") {
+          sendJson(response, { error: "not_found" }, 404);
+          return;
+        }
+        const rawBody = await requestBody(request);
+        if (mode === "simulated") {
+          const result = simulatedRun(parseJson(rawBody));
+          if (!result) {
+            sendJson(response, { error: "invalid_request", expected_mode: "synthetic_local_sandbox" }, 400);
+            return;
+          }
+          sendJson(response, result);
+          return;
+        }
+        const result = await runtimeRequest(request, url.pathname, rawBody, runtimeEnv);
+        sendJson(response, result.body, result.status, result.headers);
+        return;
+      }
+
       const apiRoutes = new Set(["/api/chat", "/api/search"]);
       if (apiRoutes.has(url.pathname)) {
         if (request.method !== "POST") {
+          sendJson(response, { error: "not_found" }, 404);
+          return;
+        }
+        if (mode === "shopify") {
+          request.resume();
           sendJson(response, { error: "not_found" }, 404);
           return;
         }
@@ -412,7 +520,7 @@ function createDemoServer(options = {}) {
         response.writeHead(200, {
           ...securityHeaders,
           "content-type": types[path.extname(relative)] || "application/octet-stream",
-          "cache-control": "no-cache",
+          "cache-control": "no-store",
         });
         response.end(request.method === "HEAD" ? undefined : file);
       } catch {
@@ -427,8 +535,12 @@ function createDemoServer(options = {}) {
   return {
     server,
     readiness,
+    async checkRuntime() {
+      if (mode === "simulated") return { body: simulatedRuntimeStatus(), status: 200 };
+      return runtimeRequest({ method: "GET", headers: {} }, "/api/runtime/status", undefined, runtimeEnv);
+    },
     setAllowedOrigins(value) {
-      if (connectedEnv) connectedEnv.ALLOWED_ORIGINS = String(value || "");
+      if (runtimeEnv) runtimeEnv.ALLOWED_ORIGINS = String(value || "");
     },
   };
 }
@@ -458,6 +570,9 @@ export async function startDemo(options = {}) {
   const host = loopbackHost(options.host || ["127", "0", "0", "1"].join("."));
   const port = Number(options.port ?? 4173);
   const mode = normalizedMode(options.mode);
+  if (mode === "shopify" && host !== "127.0.0.1") {
+    throw new Error("shopify_demo_requires_127_0_0_1");
+  }
   const originHost = host === "::1" ? "[::1]" : host;
   const controller = createDemoServer({
     ...options,
@@ -476,6 +591,15 @@ export async function startDemo(options = {}) {
     if (!readiness.verified) {
       await closeServer(server);
       throw new Error(`connected_sandbox_not_ready:${readiness.reason}`);
+    }
+  }
+  if (mode === "shopify" && options.verifyRuntime === true) {
+    const status = await controller.checkRuntime();
+    if (status.status !== 200 || status.body?.mode !== "shopify_read_only"
+      || status.body?.connected !== true) {
+      await closeServer(server);
+      const reason = status.body?.error || status.body?.credential_state || "service_unavailable";
+      throw new Error(`shopify_sandbox_not_ready:${reason}`);
     }
   }
   let closed = false;
@@ -505,9 +629,14 @@ async function runCli() {
     host: String(process.env.DEMO_HOST || "127.0.0.1"),
     agentCoreBaseUrl: process.env.AGENT_CORE_BASE_URL,
     agentCoreToken: process.env.AGENT_CORE_TENANT_KEY,
+    agentCoreSandboxUrl: process.env.AGENT_CORE_SANDBOX_URL,
+    agentCoreSandboxToken: process.env.AGENT_CORE_SANDBOX_TOKEN,
     storefrontOrigin: process.env.STOREFRONT_ORIGIN,
   });
-  process.stdout.write(`Reference Store ${mode === "connected" ? "connected local sandbox" : "offline demo"}: ${runtime.baseUrl}\n`);
+  const label = mode === "connected"
+    ? "connected local sandbox"
+    : mode === "shopify" ? "Shopify read-only sandbox" : "offline demo";
+  process.stdout.write(`Reference Store ${label}: ${runtime.baseUrl}\n`);
 
   let stopping = false;
   const stop = async () => {
@@ -528,6 +657,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       message = "Connected demo mode accepts only a loopback Agent Core URL. Use storefront-bff/ for hosted deployments.";
     } else if (error?.message === "demo_requires_loopback_host") {
       message = "The demo is local-only and may bind only to 127.0.0.1, localhost, or ::1.";
+    } else if (error?.message === "shopify_mode_requires_agent_core_sandbox") {
+      message = "Shopify mode requires AGENT_CORE_SANDBOX_URL in the server environment.";
+    } else if (error?.message === "shopify_mode_requires_loopback_agent_core") {
+      message = "The offline Shopify demo accepts only a loopback Agent Core Sandbox URL.";
+    } else if (error?.message === "shopify_demo_requires_127_0_0_1") {
+      message = "The local Shopify demo must bind to 127.0.0.1.";
     } else {
       message = `Reference Store demo failed: ${error?.message || "unknown_error"}`;
     }

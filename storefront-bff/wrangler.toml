@@ -4,6 +4,9 @@ compatibility_date = "2026-08-01"
 
 [vars]
 AGENT_CORE_BASE_URL = "https://agent-core.example.invalid"
+AGENT_CORE_SANDBOX_URL = "http://127.0.0.1:8787"
 AGENT_CORE_PAGE_SIZE = "20"
+BFF_RUNTIME_MODE = "synthetic_local_sandbox"
+BFF_DEPLOYMENT_MODE = "local"
 STOREFRONT_ORIGIN = "https://store.example.invalid"
-ALLOWED_ORIGINS = "https://store.example.invalid,http://localhost:4173"
+ALLOWED_ORIGINS = "https://store.example.invalid,http://127.0.0.1:4173"

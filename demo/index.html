@@ -3,71 +3,130 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
   <title>Send From China — Reference Store Demo</title>
   <link rel="stylesheet" href="demo.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#"><span>CN</span><strong>Send From China<small>Reference Store Demo</small></strong></a>
-    <form class="search" data-catalog-search><input aria-label="Search the catalog" placeholder="Search the catalog"><button aria-label="Search">→</button></form>
-    <nav><a href="#catalog">Shop</a><button data-open-agent>💬 Ask Agent</button><a href="#">Orders</a><a class="cart" href="#">Cart (0)</a></nav>
+    <a class="brand" href="#workbench"><span>CN</span><strong>Send From China<small>Reference Store Demo</small></strong></a>
+    <form class="search" data-catalog-search>
+      <input aria-label="Search the read-only catalog" placeholder="Search the read-only catalog">
+      <button aria-label="Open search workbench">→</button>
+    </form>
+    <nav aria-label="Primary navigation">
+      <a href="#catalog">Catalog</a>
+      <button type="button" data-open-agent>💬 Ask Agent</button>
+      <a href="#connections">Connections</a>
+      <a class="cart" href="#runs">Runs</a>
+    </nav>
   </header>
 
   <main>
-    <div class="runtime-banner" role="status" aria-live="polite">
-      <span class="runtime-dot"></span>
-      <strong data-runtime-label>Checking local runtime…</strong>
-      <em>Illustrative · Non-purchasable · No shipping rates · No commerce writes</em>
+    <div class="runtime-banner" role="status" aria-live="polite" data-runtime-ready="false" data-connected="false">
+      <span class="runtime-dot" aria-hidden="true"></span>
+      <strong data-runtime-label>Checking runtime…</strong>
+      <span data-runtime-connection>Connection not yet verified</span>
+      <span>Last verified: <time data-runtime-checked>Checking…</time></span>
+      <span>Quota: <b data-runtime-quota>Checking…</b></span>
+      <em data-runtime-writes>Writes disabled</em>
     </div>
 
-    <section class="sandbox-console" aria-labelledby="sandbox-title">
+    <section class="sandbox-console" id="workbench" aria-labelledby="workbench-title">
       <div class="sandbox-heading">
-        <p class="eyebrow">🧪 Developer sandbox</p>
-        <h2 id="sandbox-title">Choose a truthful test journey.</h2>
-        <p>Every path is safe to inspect in the browser. The active runtime—not a UI toggle—decides where results come from.</p>
+        <p class="eyebrow">🧪 Read-only workbench</p>
+        <h2 id="workbench-title">Search once. Inspect one frozen response.</h2>
+        <p>The browser calls this repository’s BFF only. The active server runtime decides whether facts are synthetic or Shopify-verified.</p>
       </div>
-      <div class="mode-options" role="list" aria-label="Available runtime modes">
-        <div class="mode-option" data-mode-option="synthetic_demo" role="listitem">
-          <span>🧪</span><div><strong>Simulated demo</strong><small>Local synthetic fixtures · zero account</small></div>
+
+      <div class="mode-options" role="list" aria-label="Server-selected runtime mode">
+        <div class="mode-option" data-mode-option="synthetic_local_sandbox" role="listitem">
+          <span>🧪</span>
+          <div><strong>Synthetic</strong><small>Offline fixtures · illustrative facts</small></div>
         </div>
-        <div class="mode-option" data-mode-option="connected_local_sandbox" role="listitem">
-          <span>🔗</span><div><strong>Connected sandbox</strong><small>Local BFF · server-held Agent Core key</small></div>
+        <div class="mode-option" data-mode-option="shopify_read_only" role="listitem">
+          <span>🔗</span>
+          <div><strong>Shopify read-only</strong><small>Development store · server-held authorization</small></div>
         </div>
       </div>
-      <div class="scenario-picker" aria-labelledby="scenario-title">
-        <div><strong id="scenario-title" data-query-mode-title>Scenario lab</strong><small data-query-mode-copy>Pick a bounded contract state</small></div>
-        <button class="is-selected" type="button" data-open-scenario="catalog_match" aria-pressed="true">✅ Catalog match</button>
-        <button type="button" data-open-scenario="terminal_miss" aria-pressed="false">🔎 Terminal miss</button>
-        <button type="button" data-open-scenario="needs_clarification" aria-pressed="false">💬 Needs detail</button>
-        <button type="button" data-open-scenario="degraded" aria-pressed="false">🛟 Safe failure</button>
-      </div>
-      <ul class="sandbox-boundaries" aria-label="Sandbox truth boundaries">
-        <li><span>🧬</span><strong>Synthetic / illustrative</strong></li>
-        <li><span>🛒</span><strong>Not purchasable</strong></li>
-        <li><span>🚚</span><strong>No shipping quote</strong></li>
-        <li><span>✋</span><strong>No write path</strong></li>
+
+      <aside class="demo-contract-notice" role="note" aria-label="Synthetic demo behavior">
+        <strong>🧭 Synthetic behavior is deterministic.</strong>
+        <span>In local synthetic mode, <code>/api/chat</code> and <code>/api/search</code> use fixed fixture scenarios and keyword routing—not AI inference. Connected modes use the configured server integration.</span>
+      </aside>
+
+      <form class="workbench-form" data-run-form aria-label="Run a read-only product search">
+        <label for="workbench-query">What should the catalog search for?</label>
+        <div>
+          <input id="workbench-query" data-run-query maxlength="300" required value="A practical desk gift under $40">
+          <button type="submit" data-run-button disabled>Run read-only search</button>
+        </div>
+        <small>The request carries a query only—never a runtime choice or credential.</small>
+      </form>
+
+      <ul class="sandbox-boundaries" aria-label="Read-only truth boundaries">
+        <li><span>🔒</span><strong data-runtime-writes>Writes disabled</strong></li>
+        <li><span>🧾</span><strong>Non-transactional</strong></li>
+        <li><span>🚫</span><strong>Not purchasable here</strong></li>
+        <li><span>🚚</span><strong>No shipping rates</strong></li>
       </ul>
+
+      <section class="workbench-output" aria-labelledby="workbench-output-title">
+        <header><h3 id="workbench-output-title">Workbench result</h3><span>Exact BFF run projection</span></header>
+        <p class="run-alert" data-run-alert role="status" hidden></p>
+        <div data-workbench-results>
+          <section class="run-empty"><strong>No run yet</strong><p>Wait for runtime verification, then run a bounded read-only search.</p></section>
+        </div>
+      </section>
+
+      <details class="connection-panel" id="connections">
+        <summary>Settings / Connections <span>status and authorization guidance only</span></summary>
+        <div class="connection-grid">
+          <section><small>Connection</small><strong data-runtime-connection>Connection not yet verified</strong></section>
+          <section><small>Last verified</small><strong data-runtime-checked>Checking…</strong></section>
+          <section><small>Quota</small><strong data-runtime-quota>Checking…</strong></section>
+          <section><small>Boundary</small><strong data-runtime-writes>Writes disabled</strong></section>
+        </div>
+        <p data-authorization-status>Authorization status is being verified by the BFF.</p>
+        <p>This screen is read-only and accepts no secrets. Configure credentials only in the BFF environment or its secret provider.</p>
+        <code data-runtime-contract>Checking closed runtime contract…</code>
+      </details>
+
+      <details class="run-receipt" id="runs">
+        <summary>Runs receipt <span>exact frozen BFF response</span></summary>
+        <pre data-runs-receipt>{
+  "status": "not_run"
+}</pre>
+        <p>The Workbench, desktop drawer, mobile sheet, and this receipt consume the same active run object.</p>
+      </details>
     </section>
+
     <section class="hero">
       <div>
-        <p class="eyebrow">Catalog, guidance, and custom sourcing</p>
+        <p class="eyebrow">Catalog truth with a guarded handoff</p>
         <h1>Find the right product from China.</h1>
-        <p class="lede">Browse normally, then ask a contextual shopping agent when filters are not enough. The catalog stays visible and checkout stays with Shopify.</p>
-        <div class="hero-actions"><button class="primary" data-open-agent>Ask the Shopping Agent ↗</button><a href="#catalog">Browse demo products ↓</a></div>
-        <ul class="proof"><li>✓ Catalog-first</li><li>✓ Explicit sourcing consent</li><li>✓ Shopify checkout boundary</li></ul>
-        <div class="agent-pipeline" aria-label="Agent request pipeline"><span>01 Intent</span><i></i><span>02 Policy</span><i></i><span>03 Results</span></div>
+        <p class="lede">Browse the illustrative catalog, then use the read-only workbench for a synthetic fixture or a Shopify-verified product snapshot.</p>
+        <div class="hero-actions">
+          <button class="primary" type="button" data-open-agent data-query="A practical desk gift under $40">Ask the Shopping Agent ↗</button>
+          <a href="#catalog">Browse illustrative products ↓</a>
+        </div>
+        <ul class="proof"><li>✓ Catalog-first</li><li>✓ Explicit provenance</li><li>✓ Writes disabled</li></ul>
+        <div class="agent-pipeline" aria-label="Read-only request pipeline"><span>01 Query</span><i></i><span>02 Verify</span><i></i><span>03 Read result</span></div>
       </div>
       <div class="brief-card">
-        <div class="tabs"><strong>Search products</strong><span>Ask Agent</span></div>
+        <div class="tabs"><strong>Search products</strong><span>Read-only agent</span></div>
         <label>What are you looking for?</label>
-        <div class="field"><span>A practical desk gift under $40</span><button data-open-agent>Search</button></div>
-        <p>Search is free. Custom sourcing is a separate, confirmed action.</p>
-        <div class="mini-links"><span>Browse catalog →</span><span>How guidance works ↓</span></div>
+        <div class="field"><span>A practical desk gift under $40</span><button type="button" data-open-agent data-query="A practical desk gift under $40">Search</button></div>
+        <p>The server-selected mode is shown before any query runs. A failed Live connection remains a failed Shopify read-only state.</p>
+        <div class="mini-links"><span>Synthetic is illustrative</span><span>Shopify facts are timestamped</span></div>
       </div>
     </section>
 
     <section class="catalog" id="catalog">
-      <div class="section-head"><div><p class="eyebrow">Synthetic governed catalog</p><h2>Illustrative products</h2></div><p>These local cards demonstrate presentation only. They do not assert availability, purchase eligibility, or a shipping rate.</p></div>
+      <div class="section-head">
+        <div><p class="eyebrow">Synthetic governed catalog</p><h2>Illustrative products</h2></div>
+        <p>These local cards demonstrate presentation only. They do not assert Shopify price, availability, product publication, or delivery.</p>
+      </div>
       <div class="product-grid">
         <article><div class="product-art wood">🪵<b>Natural materials</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Walnut desk organizer</h3><p>Compact compartments for a calm workspace.</p><strong>Illustrative price · $29</strong></article>
         <article><div class="product-art lamp">💡<b>Small-space light</b></div><span>SYNTHETIC · NOT PURCHASABLE</span><h3>Compact reading light</h3><p>Warm adjustable light with a minimal footprint.</p><strong>Illustrative price · $34</strong></article>
@@ -79,31 +138,39 @@
 
   <div class="backdrop" hidden data-close-agent></div>
   <aside class="drawer" hidden aria-label="Shopping Agent" aria-modal="true" role="dialog">
-    <header><button class="history" type="button">☰ History</button><div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill" data-drawer-mode>CHECKING LOCAL MODE</span></div><button class="close" type="button" data-close-agent aria-label="Close">×</button></header>
-    <div class="conversation" data-conversation>
-      <section class="welcome"><p class="eyebrow">Shopping guidance</p><h2>What would you like help finding?</h2><p>Describe the use case, budget, material, recipient, or destination. Use offline fixtures for zero-account review, or the local connected sandbox to exercise the guarded Agent Core contract.</p>
-        <div class="capability-grid"><span><b>🧪 Result class</b>Illustrative only</span><span><b>🧠 Agent Core</b><em data-core-status>Checking</em></span><span><b>🚚 Carrier rates</b>Not included</span></div>
-        <p class="scenario-intro"><strong data-query-intro-title>Run a known contract state</strong><span data-query-intro-copy>These prompts select behavior; they do not trigger a purchase or sourcing task.</span></p>
-        <button type="button" data-starter data-scenario="catalog_match">✅ Catalog match · practical gift under $40</button>
-        <button type="button" data-starter data-scenario="terminal_miss">🔎 Terminal miss · verify no silent sourcing</button>
-        <button type="button" data-starter data-scenario="needs_clarification">💬 Needs detail · ask before claiming a match</button>
-        <button type="button" data-starter data-scenario="degraded">🛟 Safe failure · keep the boundary visible</button>
-      </section>
-      <details class="contract-inspector" data-inspector>
-        <summary><span>🔬 Sanitized contract inspector</span><small data-inspector-status>Waiting for a scenario</small></summary>
-        <div class="inspector-grid">
-          <section><h3>Browser request</h3><pre data-inspector-request>{
-  "messages": [],
-  "scenario": "catalog_match"
-}</pre></section>
-          <section><h3>Browser-safe response</h3><pre data-inspector-response>{
-  "status": "not_run"
-}</pre></section>
+    <header>
+      <span class="history">READ-ONLY</span>
+      <div><small>PRODUCT CONCIERGE</small><strong>Shopping Agent</strong><span class="mode-pill" data-drawer-mode>CHECKING RUNTIME</span></div>
+      <button class="close" type="button" data-close-agent aria-label="Close">×</button>
+    </header>
+    <div class="conversation">
+      <section class="welcome">
+        <p class="eyebrow">One response, three views</p>
+        <h2>Search the active catalog mode.</h2>
+        <p>The drawer becomes the mobile sheet at narrow widths. Both render the same frozen BFF run used by the Workbench and receipt.</p>
+        <div class="capability-grid">
+          <span><b>🔎 Mode</b><em data-runtime-label>Checking</em></span>
+          <span><b>🧠 Connection</b><em data-core-status>Checking</em></span>
+          <span><b>✋ Boundary</b><em data-runtime-writes>Writes disabled</em></span>
         </div>
-        <p>Only allowlisted contract fields appear here. Credentials, tenant configuration, upstream headers, and raw provider payloads never enter this inspector.</p>
-      </details>
+        <p class="scenario-intro"><strong>Sample read-only queries</strong><span>Samples never select or force a runtime mode.</span></p>
+        <button type="button" data-starter="A practical desk gift under $40">🎁 A practical desk gift under $40</button>
+        <button type="button" data-starter="Compact lighting for a small apartment">💡 Compact lighting for a small apartment</button>
+        <button type="button" data-starter="A sustainable ceramic gift">♻️ A sustainable ceramic gift</button>
+      </section>
+      <section class="drawer-output" aria-labelledby="drawer-output-title">
+        <h3 id="drawer-output-title">Active run</h3>
+        <p class="run-alert" data-run-alert role="status" hidden></p>
+        <div data-drawer-results>
+          <section class="run-empty"><strong>No run yet</strong><p>The first accepted run will appear here without browser-side reconstruction.</p></section>
+        </div>
+      </section>
     </div>
-    <form class="composer"><div class="composer-heading"><label for="message">Message the Shopping Agent</label><span><span data-query-kind>Scenario</span>: <strong data-scenario-label>Catalog match</strong></span></div><div><textarea id="message" rows="1" placeholder="Describe what you need"></textarea><button aria-label="Send">↑</button></div><small>Enter to send · Shift + Enter for a new line · No purchase or sourcing action</small></form>
+    <form class="composer" data-run-form>
+      <div class="composer-heading"><label for="drawer-query">Search query</label><span>Server mode: <strong data-runtime-label>Checking</strong></span></div>
+      <div><textarea id="drawer-query" data-run-query maxlength="300" rows="1" required placeholder="Describe what you need"></textarea><button type="submit" data-run-button disabled aria-label="Run read-only search">↑</button></div>
+      <small>Read-only query · no purchase, fulfillment, or write action</small>
+    </form>
   </aside>
   <script type="module" src="demo.js"></script>
 </body>

@@ -1,9 +1,10 @@
 # Demo and Sandbox Guide
 
-This repository exposes two deliberately different local experiences. Both use
-synthetic data, return illustrative and non-purchasable results, omit shipping
-rates, and have no commerce write path. Neither mode is a hosted Send From
-China account or a production API trial.
+This repository exposes synthetic local experiences plus a separately started
+Shopify development-store read-only sandbox. Every mode is non-transactional,
+omits shipping-rate promises, and has no commerce write path. The Shopify path
+is documented in the
+[Shopify development-store read-only sandbox](SHOPIFY_READ_ONLY_SANDBOX.md).
 
 ## Pick the mode that answers your question
 
@@ -11,6 +12,7 @@ China account or a production API trial.
 | --- | --- | --- | --- |
 | Simulated demo | `npm run demo` | Browser → local deterministic fixtures | Reviewing UI states with no second repository, account, or key |
 | Connected local sandbox | `npm run demo:platform` | Browser → Reference Store demo BFF → local Agent Core sandbox | Proving the public repositories and their guarded HTTP contract work together |
+| Shopify development-store read-only | `npm run demo:shopify` | Browser → Reference Store BFF → Agent Core Sandbox → Shopify Storefront API | Verifying published product, price, `availableForSale`, and same-store product URL truth without writes |
 | Bring-your-own verified local sandbox | `npm run demo:connected` | Browser → Reference Store demo BFF → a separately operated loopback sandbox | Advanced testing when an operator provides both the verified sandbox runtime and a test-tenant token |
 
 The mode is selected when the server starts. The mode cards in the page are

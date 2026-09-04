@@ -1,2 +1,11 @@
 # Copy to .dev.vars for local development. Never commit .dev.vars.
 AGENT_CORE_TENANT_KEY="example_local_tenant_key_replace_me"
+# Optional only when the selected local Agent Core Sandbox requires Bearer auth.
+AGENT_CORE_SANDBOX_TOKEN="example_local_sandbox_token_replace_me"
+# Hosted HTTPS Agent Core Sandbox uses this server-only invite instead of Bearer auth.
+# Never configure both sandbox credentials in the same BFF environment.
+# AGENT_CORE_SANDBOX_INVITE="example_hosted_sandbox_invite_replace_me"
+# Shopify App Proxy deployments must set these server-side and set
+# BFF_DEPLOYMENT_MODE=shopify_app_proxy plus an exact ALLOWED_ORIGINS value.
+# SHOPIFY_APP_PROXY_SECRET="replace_with_server_secret"
+# SHOPIFY_APP_PROXY_SHOP="reference-sandbox.myshopify.com"

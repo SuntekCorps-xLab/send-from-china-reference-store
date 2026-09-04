@@ -59,3 +59,35 @@ and cart state before checkout.
 
 Do not use product descriptions, model prose, catalog estimates, or supplier
 facts as evidence of live Shopify availability.
+
+## Shopify Liquid and same-origin App Proxy
+
+The Shopify read-only integration is locked to Agent Core
+`d6513d7b7d78a517b87e6a001184f53ad5597126`; see the
+[compatibility lock](COMPATIBILITY.md#shopify-read-only-release-lock).
+Configure the public App Proxy path in the theme, for example
+`/apps/reference-store`. The browser combines that path with these three
+routes only:
+
+| Browser request | Purpose |
+| --- | --- |
+| `GET /api/runtime/status` | Discover server-selected mode, connection, credential state, and capabilities. |
+| `GET /api/runtime/doctor` | Check the closed connection and credential-isolation report. |
+| `POST /api/runs` | Submit one read-only search contract and receive the public run receipt. |
+
+Shopify forwards signed proxy requests to the merchant BFF. The BFF verifies
+the configured shop, fresh timestamp, HMAC, and allowlisted origin before
+calling the exact compatible Core. Shopify and Core credentials live only in
+server secret bindings. Theme settings, browser storage, query parameters, and
+Liquid must never hold them or select a runtime mode.
+
+Live and Agent actions become available only after the server reports a
+connected runtime with the matching read capability. A missing credential or
+unavailable service is displayed as that state. Sourcing needs its own positive
+capability and stays unavailable in the read-only deployment; the generic
+sourcing workflow above does not authorize it. An upstream failure never enables
+legacy routes or synthetic fallback under a Live label.
+
+The [read-only sandbox guide](SHOPIFY_READ_ONLY_SANDBOX.md) separates local
+injected coverage from the protected staging and dedicated development-store
+checks still required for a Live release.

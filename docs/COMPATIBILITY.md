@@ -14,3 +14,21 @@ If a configured Agent Core does not advertise or implement Search Contract v2,
 the current BFF returns `search_contract_not_supported`. Operators must upgrade
 Agent Core or deliberately remain on the previous Reference Store release;
 silent protocol downgrade is not supported.
+
+## Shopify read-only release lock
+
+The Shopify Liquid/App Proxy candidate is paired with Agent Core commit
+`d6513d7b7d78a517b87e6a001184f53ad5597126`. Its
+`contracts/shopify-live-sandbox-status.v1.schema.json` SHA-256 is
+`30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211`
+(`shopify-live-sandbox-status/v1`, Storefront API `2026-07`).
+The same immutable lock is enforced by
+[`scripts/paired-integration-smoke.mjs`](../scripts/paired-integration-smoke.mjs)
+and the 20-journey paired runner, before loading and after closing Core.
+
+In `shopify_read_only`, the Liquid browser surface uses only the same-origin
+App Proxy prefix plus `GET /api/runtime/status`,
+`GET /api/runtime/doctor`, and `POST /api/runs`. It must never downgrade to
+`/api/chat`, `/api/search`, `/api/catalog`, or a synthetic result.
+Synthetic paired checks retain their existing legacy/HTTP/MCP contracts as a
+separate regression suite; they are not evidence of Shopify connectivity.

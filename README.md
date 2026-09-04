@@ -80,12 +80,18 @@ Reference Store, and it cannot activate Live Preview.
 | --- | --- | --- | --- |
 | Zero-account demo | Four deterministic local scenarios | None | Drawer states, responsive layout, sanitized contracts, and explicit truth labels |
 | Connected local sandbox | Storefront demo BFF → local Agent Core sandbox | Short-lived local token stored only in the server process | The public repositories and guarded HTTP contract working together on synthetic data |
+| Shopify development-store read-only | Storefront demo BFF → Agent Core Sandbox → Shopify Storefront API | Server environment or secret provider only | Published product, verified price, `availableForSale`, and same-store product URL truth; no writes or transaction claims |
 | Production commerce | Merchant-owned Shopify and service adapters | Merchant-managed | Variants, cart, checkout, identity, and any real shipping integration |
 
 Run `npm run demo:platform` with Agent Core checked out beside this repository
 to start the connected local sandbox. See the
 [Demo and Sandbox Guide](docs/DEMO_AND_SANDBOX.md) for mode boundaries,
 scenario expectations, and bring-your-own runtime setup.
+
+Run `npm run demo:shopify` only with a separately authorized development store.
+It is an explicit read-only server mode and never silently falls back to
+synthetic data. See the
+[Shopify read-only sandbox guide](docs/SHOPIFY_READ_ONLY_SANDBOX.md).
 
 The repository does not include a carrier-rate service. Any interface that
 shows real freight must obtain package, origin, destination, and service-level
@@ -120,6 +126,13 @@ into checkout. Shopify still verifies variant, inventory, price, and cart.
 | **Copy a minimal BFF integration** | [`starters/shopify-agent-bff/`](starters/shopify-agent-bff/README.md) | The paired local demo first; reviewed server credentials only for live use |
 | **Add Shopify-native order tracking** | [`shopify-customer-account/`](shopify-customer-account) | Shopify app + Customer Account extensions |
 | **Understand custom files quickly** | [`docs/CUSTOMIZATION_MAP.md`](docs/CUSTOMIZATION_MAP.md) | Five minutes |
+
+> **Synthetic demo behavior:** local `npm run demo` responses from `/api/chat`
+> and `/api/search` are deterministic fixtures selected by fixed scenarios and
+> keyword routing; they do not use AI inference. Use the connected sandbox when
+> validating real Agent Core integration behavior. The local search route is
+> intentionally implemented so both chat and Search Contract v2 presentation
+> can be tested without an account.
 
 ## 🏗️ How the pieces fit
 
