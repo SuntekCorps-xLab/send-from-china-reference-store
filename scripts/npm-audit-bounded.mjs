@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const MAX_ATTEMPTS = 3;
 export const DELAYS_MS = Object.freeze([5_000, 15_000]);
-export const AUDIT_TIMEOUT_MS = 180_000;
+export const AUDIT_TIMEOUT_MS = 420_000;
 
 export function isRegistryServerError(output) {
   const text = String(output || "");

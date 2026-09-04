@@ -18,7 +18,7 @@ silent protocol downgrade is not supported.
 ## Shopify read-only release lock
 
 The Shopify Liquid/App Proxy candidate is paired with Agent Core commit
-`9ff2de8de8582010d95d7c0632e1d126cb91f71a`. Its
+`ca07d540c7535ea7b9e84164b02f4d48caa11853`. Its
 `contracts/shopify-live-sandbox-status.v1.schema.json` SHA-256 is
 `30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211`
 (`shopify-live-sandbox-status/v1`, Storefront API `2026-07`).
