@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const MAX_ATTEMPTS = 3;
 export const DELAYS_MS = Object.freeze([5_000, 15_000]);
-export const AUDIT_TIMEOUT_MS = 420_000;
+export const AUDIT_TIMEOUT_MS = 150_000;
 
 export function isRegistryServerError(output) {
   const text = String(output || "");
@@ -69,10 +69,18 @@ export async function runAudit({
     if (result.status === 0) return 0;
 
     if (result.error?.code === "ETIMEDOUT") {
+      if (attempt === MAX_ATTEMPTS) {
+        stderr.write(
+          `npm audit timed out after ${AUDIT_TIMEOUT_MS}ms on attempt ${attempt}/${MAX_ATTEMPTS}; vulnerability status is unknown and the gate remains failed.\n`,
+        );
+        return 1;
+      }
+      const delay = DELAYS_MS[attempt - 1];
       stderr.write(
-        `npm audit timed out after ${AUDIT_TIMEOUT_MS}ms; vulnerability status is unknown and the gate remains failed.\n`,
+        `npm audit timed out after ${AUDIT_TIMEOUT_MS}ms; retrying attempt ${attempt + 1}/${MAX_ATTEMPTS} after ${delay}ms.\n`,
       );
-      return 1;
+      await sleep(delay);
+      continue;
     }
 
     const transientRegistryFailure = isRegistryTransientError(`${out}\n${err}`);

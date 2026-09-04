@@ -165,7 +165,7 @@ test("a retired quick-endpoint fallback after a bulk failure is retried", async 
   assert.deepEqual(delays, [5_000]);
 });
 
-test("an audit timeout fails closed with a diagnostic and is never retried", async () => {
+test("an audit timeout is retried at most three times and then fails closed", async () => {
   let calls = 0;
   const delays = [];
   const error = writer();
@@ -184,8 +184,33 @@ test("an audit timeout fails closed with a diagnostic and is never retried", asy
     stderr: error,
   });
   assert.equal(exitCode, 1);
-  assert.equal(calls, 1);
-  assert.deepEqual(delays, []);
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [5_000, 15_000]);
   assert.match(error.value, new RegExp(`timed out after ${AUDIT_TIMEOUT_MS}ms`, "u"));
+  assert.match(error.value, /attempt 3\/3/u);
   assert.match(error.value, /vulnerability status is unknown and the gate remains failed/u);
+});
+
+test("an audit timeout followed by a clean result preserves success", async () => {
+  let calls = 0;
+  const delays = [];
+  const exitCode = await runAudit({
+    spawn() {
+      calls += 1;
+      return calls === 1
+        ? {
+          status: null,
+          stdout: "",
+          stderr: "",
+          error: Object.assign(new Error("spawnSync npm ETIMEDOUT"), { code: "ETIMEDOUT" }),
+        }
+        : { status: 0, stdout: "found 0 vulnerabilities\n", stderr: "" };
+    },
+    sleep: async (milliseconds) => { delays.push(milliseconds); },
+    stdout: writer(),
+    stderr: writer(),
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(calls, 2);
+  assert.deepEqual(delays, [5_000]);
 });
