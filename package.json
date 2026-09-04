@@ -19,6 +19,7 @@
     "qa:shopify": "node demo/tests/run-shopify-browser-qa.mjs --all",
     "qa:shopify:chromium": "node demo/tests/run-shopify-browser-qa.mjs --browser=chromium",
     "qa:workspace": "node shopify-customer-account/tests/run-workspace-browser-qa.mjs",
+    "verify:account-preview": "node scripts/verify-account-preview.mjs",
     "sbom": "node scripts/generate-sboms.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "smoke:integration": "node scripts/integration-smoke.mjs",
@@ -30,7 +31,7 @@
     "test:paired-e2e": "node --test evals/paired-v0/test/*.test.mjs",
     "test:triad-contract": "node --test evals/triad-v1/test/*.test.mjs",
     "verify:browser": "npm run qa:drawer && npm run qa:workspace",
-    "verify": "npm run test:first-run && npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run check:links && npm run verify:release-metadata && npm run scan",
+    "verify": "npm run test:first-run && npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run verify:account-preview && npm run check:links && npm run verify:release-metadata && npm run scan",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "verify:paired": "npm run verify && npm run smoke:paired && npm run test:paired-e2e && npm run eval:paired && npm run smoke:shopify-paired",
     "qa:liquid": "node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --all",
@@ -38,7 +39,9 @@
   },
   "devDependencies": {
     "axe-core": "4.13.0",
-    "playwright-core": "1.59.1",
-    "liquidjs": "10.29.0"
+    "esbuild": "0.28.1",
+    "liquidjs": "10.29.0",
+    "parse5": "8.0.0",
+    "playwright-core": "1.59.1"
   }
 }

@@ -55,7 +55,9 @@ test("the agent drawer requires configuration and keeps sourcing explicit", () =
   assert.match(drawer, /Shopping Agent API is not configured/);
   assert.match(drawer, /data-agent-start-sourcing/);
   assert.match(drawer, /target\.searchParams\.set\("handoff_id"/);
-  assert.match(drawer, /window\.location\.assign\(target\.href\)/);
+  assert.match(drawer, /var destination = target\.href/);
+  assert.match(drawer, /if \(!signedIn\) \{[\s\S]*?destination = login\.href/);
+  assert.match(drawer, /window\.location\.assign\(destination\)/);
   assert.match(snippet, /settings\.wp_governance_api_base/);
   assert.doesNotMatch(drawer + snippet, /wp-governance\.htfu\.workers\.dev/i);
 });
