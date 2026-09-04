@@ -12,6 +12,29 @@ export function isRegistryServerError(output) {
     || /\b5\d\d\s+(?:Service Unavailable|Bad Gateway|Gateway Timeout|Internal Server Error)\b/iu.test(text);
 }
 
+export function isRegistryTransientError(output) {
+  const text = String(output || "");
+  if (isRegistryServerError(text)) return true;
+
+  // Retry only transport failures that npm explicitly attributes to the public
+  // audit endpoint. A generic timeout or connection error could come from a
+  // lifecycle script or another service and must remain fail closed.
+  const auditEndpoint = String.raw`https:\/\/registry\.npmjs\.org\/-\/npm\/v1\/security\/audits\/(?:quick|bulk)`;
+  return new RegExp(
+    String.raw`npm\s+(?:warn\s+)?audit\s+(?:network\s+timeout\s+at:|request\s+to)\s+${auditEndpoint}`,
+    "iu",
+  ).test(text)
+    || new RegExp(
+      String.raw`npm\s+error\s+code\s+(?:EAI_AGAIN|ECONNRESET|ETIMEDOUT)[\s\S]{0,1000}${auditEndpoint}`,
+      "iu",
+    ).test(text)
+    || (
+      /\bstatusCode:\s*400\b[\s\S]*\bInvalid package tree\b/iu.test(text)
+      && /This endpoint is being retired\./iu.test(text)
+      && new RegExp(`${auditEndpoint}[\\s\\S]*Bad Request`, "iu").test(text)
+    );
+}
+
 export function npmExecutable(platform = process.platform) {
   return platform === "win32" ? "npm.cmd" : "npm";
 }
@@ -52,10 +75,14 @@ export async function runAudit({
       return 1;
     }
 
-    const registry5xx = isRegistryServerError(`${out}\n${err}`);
-    if (!registry5xx || attempt === MAX_ATTEMPTS) return Number.isInteger(result.status) ? result.status : 1;
+    const transientRegistryFailure = isRegistryTransientError(`${out}\n${err}`);
+    if (!transientRegistryFailure || attempt === MAX_ATTEMPTS) {
+      return Number.isInteger(result.status) ? result.status : 1;
+    }
     const delay = DELAYS_MS[attempt - 1];
-    stderr.write(`npm audit Registry 5xx; retrying attempt ${attempt + 1}/${MAX_ATTEMPTS} after ${delay}ms.\n`);
+    stderr.write(
+      `npm audit transient Registry failure; retrying attempt ${attempt + 1}/${MAX_ATTEMPTS} after ${delay}ms.\n`,
+    );
     await sleep(delay);
   }
   return 1;
