@@ -65,14 +65,14 @@ export function validateBrowserInputs(shopify, liquid) {
   }
   if (liquid?.ok !== true || liquid?.live_shopify_verified !== false
     || !Array.isArray(liquid.requested_browsers)
-    || liquid.requested_browsers.join(",") !== "chrome,firefox,webkit"
+    || liquid.requested_browsers.join(",") !== "chromium,firefox,webkit"
     || !Array.isArray(liquid.browser_startups) || liquid.browser_startups.length !== 3
     || liquid.browser_startups.some((item) => item?.ok !== true)
     || !Array.isArray(liquid.cases) || liquid.cases.length !== 6) {
     throw new Error("ci_browser_liquid_result_invalid");
   }
   const expectedLiquid = new Set([
-    "chrome/1440x1000", "chrome/390x844",
+    "chromium/1440x1000", "chromium/390x844",
     "firefox/1440x1000", "firefox/390x844",
     "webkit/1440x1000", "webkit/390x844",
   ]);

@@ -29,9 +29,9 @@ function browserInputs() {
     shopify: { ok: true, cases },
     liquid: {
       ok: true, live_shopify_verified: false,
-      requested_browsers: ["chrome", "firefox", "webkit"],
-      browser_startups: ["chrome", "firefox", "webkit"].map((browser) => ({ browser, ok: true })),
-      cases: ["chrome", "firefox", "webkit"].flatMap((browser) => ["1440x1000", "390x844"].map((viewport, index) => ({
+      requested_browsers: ["chromium", "firefox", "webkit"],
+      browser_startups: ["chromium", "firefox", "webkit"].map((browser) => ({ browser, ok: true })),
+      cases: ["chromium", "firefox", "webkit"].flatMap((browser) => ["1440x1000", "390x844"].map((viewport, index) => ({
         browser,
         viewport,
         successful_runs: 2,
@@ -40,7 +40,7 @@ function browserInputs() {
           reduced_motion: true, storage_empty: true, credentials_isolated: true,
           external_requests: 0, legacy_requests: 0,
         })),
-        ...(browser === "chrome" && index === 0 ? {
+        ...(browser === "chromium" && index === 0 ? {
           additional_journeys: Array.from({ length: 6 }, () => ({
             overflow: 0, console_errors: 0, page_errors: 0, axe_serious_critical: 0,
             reduced_motion: true, storage_empty: true, credentials_isolated: true,
