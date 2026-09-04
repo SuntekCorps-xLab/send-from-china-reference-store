@@ -37,7 +37,7 @@
     messages: [],
     publicMessages: [],
     criteria: {},
-    sessionId: clientId("chat"),
+    sessionId: "",
     cursor: "",
     productContextUsed: false,
   };
@@ -175,7 +175,7 @@
     state.publicMessages = [];
     state.criteria = {};
     state.cursor = "";
-    state.sessionId = clientId("chat");
+    state.sessionId = "";
     state.productContextUsed = false;
     sourcingConfirm.hidden = true;
     renderConversation();
@@ -192,21 +192,26 @@
     sourcingConfirm.hidden = true;
     clearStatus();
     var outgoing = contextualMessage(value);
-    if (signedIn) {
-      state.messages.push({ role: "user", content: value, message_key: clientId("pending"), payload: {} });
-    } else {
-      state.publicMessages.push({ role: "user", content: outgoing });
-    }
-    renderConversation();
+    var messageAdded = false;
     setBusy(true, "Searching the catalog and checking the brief...");
     try {
+      if (signedIn) {
+        state.messages.push({ role: "user", content: value, message_key: clientId("pending"), payload: {} });
+      } else {
+        if (!state.sessionId) state.sessionId = clientId("chat");
+        state.publicMessages.push({ role: "user", content: outgoing });
+      }
+      messageAdded = true;
+      renderConversation();
       if (signedIn) await sendAccountMessage(outgoing, config);
       else await sendPublicMessage(config);
       state.productContextUsed = true;
       renderConversation();
     } catch (error) {
-      if (signedIn) state.messages.pop();
-      else state.publicMessages.pop();
+      if (messageAdded) {
+        if (signedIn) state.messages.pop();
+        else state.publicMessages.pop();
+      }
       input.value = value;
       resizeInput();
       renderConversation();
@@ -368,17 +373,22 @@
 
   function startSourcing() {
     var brief = latestUserText() || briefSummary.textContent || "Help me source a product";
-    try { window.sessionStorage.setItem("sfc:pending-agent-brief", brief); } catch (_error) {}
-    var target = new URL(workspaceUrl, window.location.origin);
-    target.searchParams.set("brief", brief.slice(0, 1000));
-    target.searchParams.set("handoff_id", clientId("handoff").replace(/-/g, ""));
-    if (signedIn) {
-      window.location.assign(target.href);
-      return;
+    try {
+      var handoffId = clientId("handoff");
+      var target = new URL(workspaceUrl, window.location.origin);
+      target.searchParams.set("brief", brief.slice(0, 1000));
+      target.searchParams.set("handoff_id", handoffId);
+      var destination = target.href;
+      if (!signedIn) {
+        var login = new URL(loginUrl, window.location.origin);
+        login.searchParams.set("return_to", target.pathname + target.search);
+        destination = login.href;
+      }
+      try { window.sessionStorage.setItem("sfc:pending-agent-brief", brief); } catch (_error) {}
+      window.location.assign(destination);
+    } catch (error) {
+      showStatus(error.message || "The Shopping Agent is temporarily unavailable.", "error");
     }
-    var login = new URL(loginUrl, window.location.origin);
-    login.searchParams.set("return_to", target.pathname + target.search);
-    window.location.assign(login.href);
   }
 
   function contextualMessage(value) {
@@ -486,7 +496,20 @@
   function safeHttps(value) { try { return new URL(String(value || "")).protocol === "https:"; } catch (_error) { return false; } }
   function plainText(value) { return new DOMParser().parseFromString(String(value || ""), "text/html").body.textContent || ""; }
   function formatDate(value) { var date = new Date(value || ""); return Number.isNaN(date.getTime()) ? "Saved conversation" : date.toLocaleString(); }
-  function clientId(prefix) { return prefix + "_" + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID().replace(/-/g, "") : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
+  function clientId(prefix) {
+    var crypto = window.crypto;
+    try {
+      if (crypto && typeof crypto.randomUUID === "function") return prefix + "_" + crypto.randomUUID().replace(/-/g, "");
+    } catch (_error) {}
+    try {
+      if (crypto && typeof crypto.getRandomValues === "function") {
+        var bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return prefix + "_" + Array.from(bytes, function (byte) { return byte.toString(16).padStart(2, "0"); }).join("");
+      }
+    } catch (_error) {}
+    throw new Error("Secure random generation is unavailable. Please use a supported secure browser and try again.");
+  }
   function link(label, href) { var output = element("a", { text: label, href: href }); return output; }
   function textNode(value, className) { return element(className === "strong" || className === "span" || className === "h3" || className === "p" || className === "summary" || className === "dt" || className === "dd" ? className : "p", { className: !["strong", "span", "h3", "p", "summary", "dt", "dd"].includes(className) ? className : "", text: value }); }
   function element(tag, options) {

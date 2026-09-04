@@ -68,6 +68,16 @@ The build compiles `wp-order-tracking`. Tests also check safety contracts in the
 source-only adapters and the storefront workspace, but they do not turn those
 examples into deployable extensions or supply their backend.
 
+From the repository root, `npm run verify:account-preview` bundles the complete
+source-only `wp-account` entry with its locked dependencies and checks the
+gzip-compressed 64 KiB size limit. It also renders the two actual preview
+components with synthetic input in Chromium and checks their text-only output.
+Install both root and customer-account locked dependencies first. The local
+check needs the pinned Playwright Chromium engine, or an explicit `CHROME_PATH`.
+Bundle metadata and synthetic verification receipts go to ignored
+`artifacts/account-preview/`. This check does not activate the adapter or prove
+a Shopify-hosted runtime, account backend, App Proxy, or protected operation.
+
 `shopify.app.toml.example` contains a placeholder client ID and
 `example.invalid` URLs. It cannot identify or deploy to a real app. Delete the
 generated local file after verification, or replace it with configuration

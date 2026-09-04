@@ -73,13 +73,36 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install locked root dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install locked source-only account dependencies
+        run: npm ci --prefix shopify-customer-account --ignore-scripts --no-audit --no-fund
+      - name: Verify complete account preview bundle and actual text sinks
+        run: npm run verify:account-preview
       - name: Verify Shopify read-only sandbox in three browsers
-        run: npm run qa:shopify
-      - name: Verify actual Liquid and App Proxy in bundled browser engines
         run: |
-          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=chromium
-          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=firefox
-          node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --browser=webkit
+          mkdir -p build/ci-evidence-input
+          node demo/tests/run-shopify-browser-qa.mjs --all > build/ci-evidence-input/shopify-browser.json
+      - name: Verify actual Liquid and App Proxy in bundled browser engines
+        run: node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --all
+      - name: Generate exact-SHA browser evidence
+        run: >-
+          node scripts/generate-ci-evidence.mjs
+          --kind browser
+          --shopify-result build/ci-evidence-input/shopify-browser.json
+          --liquid-report work/shopify-liquid-qa/report.json
+          --output artifacts/ci-evidence/browser.json
+      - name: Upload exact-SHA browser evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reference-store-browser-evidence
+          path: artifacts/ci-evidence/browser.json
+          if-no-files-found: error
+      - name: Upload source-only account preview evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: account-preview-verification
+          path: artifacts/account-preview/
 
   search-contract-v2:
     strategy:
@@ -142,6 +165,10 @@ jobs:
           node-version: "22"
       - name: Install Shopify CLI
         run: npm install --global @shopify/cli@4.6.0
+      - name: Install locked parser and test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit locked test dependencies
+        run: node scripts/npm-audit-bounded.mjs
       - name: Theme check
         run: shopify theme check --path shopify-theme --fail-level error
       - name: Storefront contract tests
@@ -164,6 +191,17 @@ jobs:
           node scripts/scan-public.mjs .
       - name: Generate CycloneDX SBOM
         run: npm run sbom
+      - name: Generate exact-SHA safety evidence
+        run: >-
+          node scripts/generate-ci-evidence.mjs
+          --kind safety
+          --output artifacts/ci-evidence/safety.json
+      - name: Upload exact-SHA safety evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reference-store-safety-evidence
+          path: artifacts/ci-evidence/safety.json
+          if-no-files-found: error
       - name: Upload SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
