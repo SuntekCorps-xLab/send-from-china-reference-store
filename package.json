@@ -33,7 +33,8 @@
     "verify:browser": "npm run qa:drawer && npm run qa:workspace",
     "verify": "npm run test:first-run && npm run test && npm run test:release-tools && npm run test:triad-contract && npm run qa:drawer && npm run qa:workspace && npm run qa:liquid && npm run verify:account-preview && npm run check:links && npm run verify:release-metadata && npm run scan",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
-    "verify:paired": "npm run verify && npm run smoke:paired && npm run test:paired-e2e && npm run eval:paired && npm run smoke:shopify-paired",
+    "verify:paired": "npm run verify && npm run smoke:paired && npm run test:paired-e2e && npm run eval:paired && npm run verify:paired-release-artifact && npm run smoke:shopify-paired",
+    "verify:paired-release-artifact": "node evals/paired-v0/verify-release-artifact.mjs --artifact build/paired-e2e-v1/artifact.json",
     "qa:liquid": "node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --all",
     "smoke:shopify-paired": "node scripts/paired-shopify-smoke.mjs"
   },

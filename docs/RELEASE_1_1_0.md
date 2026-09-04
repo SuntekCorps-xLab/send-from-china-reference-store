@@ -55,8 +55,14 @@ back from Shopify read-only to synthetic.
 - Reference Store commit and tree.
 - Accepted Agent Core commit, tree, and status-schema SHA-256.
 - 20/20 paired artifact with zero external requests and both worktrees clean.
+- Core-compatible `agent-core-reference-store-paired-e2e/v1` artifact generated
+  from observed exact commit/tree identities, with
+  `app_proxy_live_verified=false` until the separate live gate passes.
 - Successful CI, CodeQL, dependency audit, public safety scan, SBOM, and
-  three-browser QA links from the release commit.
+  three-browser QA links from the release commit. The browser and safety jobs
+  each upload a closed `send-from-china-reference-store-ci-evidence/v1`
+  artifact bound to the checked-out commit and tree; raw logs, queries,
+  responses, hosts, paths, and credentials are not release evidence.
 - Hosted demo bundle digest if a public synthetic URL is published.
 - Explicit statement that real App Proxy connectivity is unavailable unless a
   separate 10/10 evidence record is linked.
