@@ -1,13 +1,31 @@
 # Development and verification
 
 Use Node.js 22 or later. Start from a clean checkout. `npm run demo` itself
-needs no browser, but the complete `npm run verify` release gate does. Provide:
+needs no browser, but the complete `npm run verify` release gate does. From the
+repository root, install the locked dependencies and Playwright browser engines:
+
+```bash
+npm ci --ignore-scripts
+npm run browsers:install
+```
+
+The installer uses the browser revisions selected by the locked
+`playwright-core@1.59.1` package. By default it uses Playwright's platform cache.
+If you select another cache, use the same `PLAYWRIGHT_BROWSERS_PATH` for both
+`npm run browsers:install` and the later verification command. The installer
+only provisions local test executables; it does not contact Shopify, Agent Core,
+a BFF, or a production host.
+
+The complete gate also requires:
 
 - an installed Chrome-family browser (Chrome, Chromium, Edge, or Brave), using
   `CHROME_PATH` when it is outside a standard system location; and
-- the Playwright 1.59.1 Firefox/WebKit engines in the cache selected by
+- the Playwright 1.59.1 Chromium, Firefox and WebKit engines in the cache selected by
   `PLAYWRIGHT_BROWSERS_PATH`, or their exact executable paths through
   `FIREFOX_PATH` and `WEBKIT_PATH`.
+
+The Playwright installer does not replace the installed Chrome-family browser
+used by the legacy drawer and account-workspace gates.
 
 The verification commands never download a browser, silently substitute an
 engine, or turn a missing runtime into a passing result.
@@ -74,12 +92,36 @@ of the offline `npm run verify` command.
 ## Actual Liquid/App Proxy preview QA
 
 Run `npm ci --ignore-scripts` at the repository root to install the locked
-LiquidJS, Playwright client and axe dependencies. The local release gate is
-`npm run qa:liquid`, also included in `npm run verify`. It requires an
-already installed Chrome-family browser plus Playwright 1.59.1 Firefox/WebKit. Set
-`PLAYWRIGHT_BROWSERS_PATH` to an existing matching browser cache and, if
-needed, `CHROME_PATH`, `FIREFOX_PATH` or `WEBKIT_PATH`; no test command
-downloads a browser. Missing engines fail the gate.
+LiquidJS, Playwright client and axe dependencies, then run
+`npm run browsers:install`. That command installs the Chromium, Firefox and
+WebKit revisions selected by the locked `playwright-core@1.59.1` manifest. If
+you set a custom cache, use the same `PLAYWRIGHT_BROWSERS_PATH` for installation
+and QA. The installer only provisions local test executables; it does not
+contact Shopify, Agent Core, a BFF, or a production host, and it does not replace
+the installed Chrome-family browser needed by the legacy drawer and
+account-workspace gates.
+
+To keep the browser cache outside the checkout, set one user-cache path and
+retain it in the same terminal for installation and QA. On POSIX shells:
+
+```bash
+export PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/wp-reference-store-playwright"
+npm run browsers:install
+npm run qa:liquid
+```
+
+On PowerShell:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:LOCALAPPDATA "wp-reference-store-playwright"
+npm run browsers:install
+npm run qa:liquid
+```
+
+The local Liquid release gate is `npm run qa:liquid`, also included in
+`npm run verify`. If needed, select exact installed executables with
+`CHROME_PATH`, `FIREFOX_PATH` or `WEBKIT_PATH`; no test command downloads a
+browser. Missing or mismatched engines fail the gate.
 
 The Liquid gate checks the resolved Playwright package against the repository
 pin and checks Firefox/WebKit versions against that package's browser manifest.
