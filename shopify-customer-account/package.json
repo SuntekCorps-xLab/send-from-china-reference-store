@@ -12,6 +12,6 @@
     "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
-    "@shopify/cli": "^4.6.0"
+    "@shopify/cli": "^4.7.0"
   }
 }
