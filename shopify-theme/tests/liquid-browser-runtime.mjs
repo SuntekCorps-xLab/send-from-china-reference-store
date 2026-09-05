@@ -107,6 +107,10 @@ export async function probeBrowser(browser, onStage) {
 }
 
 export function bootstrapFailureHint(name, stage, error) {
-  if (name !== "firefox" || stage !== "new_page" || !String(error.message).includes("_page")) return null;
+  const message = String(error?.message || error);
+  if (["chromium", "firefox", "webkit"].includes(name) && stage === "launch" && message.includes("Executable doesn't exist")) {
+    return "The pinned Playwright browser engine is missing. From the repository root, run `npm run browsers:install` with the same `PLAYWRIGHT_BROWSERS_PATH` used for verification, then rerun the gate. If FIREFOX_PATH or WEBKIT_PATH is set, clear it or point it to the matching pinned executable.";
+  }
+  if (name !== "firefox" || stage !== "new_page" || !message.includes("_page")) return null;
   return "Firefox failed before an application page loaded. Inspect DEBUG=pw:browser for tab subprocess launch failures and verify the pinned executable. On Windows, an outer restricted executor can prevent the content process from starting; use an authorized compatible executor. Keep Firefox sandbox protections enabled. This is a failed gate, with no automatic retry or browser substitution.";
 }
