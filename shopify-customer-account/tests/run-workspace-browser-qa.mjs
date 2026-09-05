@@ -1009,7 +1009,7 @@ async function freePort() {
 
 async function waitForPageEndpoint(port) {
   let lastError;
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     try {
       const page = await fetch(`http://127.0.0.1:${port}/json/new?about%3Ablank`, { method: "PUT" }).then(response => response.json());
       if (page?.webSocketDebuggerUrl) return page;

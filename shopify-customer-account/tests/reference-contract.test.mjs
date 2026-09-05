@@ -75,6 +75,20 @@ test("the workspace preserves the authenticated sourcing lifecycle contract", ()
   assert.doesNotMatch(workspace, /DEMO_AGENT_TOKEN|Authorization:\s*["'`]Bearer/i);
 });
 
+test("workspace browser QA allows Chrome DevTools at least 20 seconds to start", () => {
+  const runner = read("shopify-customer-account/tests/run-workspace-browser-qa.mjs");
+  const readinessLoop = runner.match(
+    /async function waitForPageEndpoint\(port\) \{[\s\S]*?attempt < (\d+)[\s\S]*?await delay\((\d+)\);[\s\S]*?\n\}/,
+  );
+
+  assert.ok(readinessLoop, "workspace QA must retain an explicit bounded DevTools readiness loop");
+  const [, attempts, intervalMs] = readinessLoop;
+  assert.ok(
+    Number(attempts) * Number(intervalMs) >= 20_000,
+    "workspace QA must tolerate a cold Chrome start for at least 20 seconds",
+  );
+});
+
 test("search and collection avoid fixed catalog-total claims", () => {
   const search = read("shopify-theme/sections/lm-search-chat.liquid");
   const collection = read("shopify-theme/sections/lm-collection.liquid");
