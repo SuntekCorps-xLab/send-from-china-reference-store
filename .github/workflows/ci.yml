@@ -144,6 +144,18 @@ jobs:
         working-directory: shopify-customer-account
         run: |
           mkdir -p ../artifacts
+          set -o > ../artifacts/customer-account-pipeline-shell.txt
+          set +e
+          (printf '%s\n' 'synthetic-producer-exit-7'; exit 7) | tee ../artifacts/customer-account-pipeline-failure.log
+          failure_status=$?
+          (printf '%s\n' 'synthetic-producer-exit-0'; exit 0) | tee ../artifacts/customer-account-pipeline-success.log
+          success_status=$?
+          set -e
+          printf 'failure=%s\nsuccess=%s\n' "$failure_status" "$success_status" > ../artifacts/customer-account-pipeline-status.txt
+          grep -Fx 'synthetic-producer-exit-7' ../artifacts/customer-account-pipeline-failure.log
+          grep -Fx 'synthetic-producer-exit-0' ../artifacts/customer-account-pipeline-success.log
+          test "$success_status" -eq 0
+          test "$failure_status" -eq 7
           npm test 2>&1 | tee ../artifacts/customer-account-tests.log
           npm run check -- --no-color 2>&1 | tee ../artifacts/customer-account-build.log
           CHROME_PATH=/usr/bin/google-chrome node tests/run-workspace-browser-qa.mjs 2>&1 | tee ../artifacts/customer-account-browser-qa.log
