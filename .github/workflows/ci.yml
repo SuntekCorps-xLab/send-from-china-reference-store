@@ -144,6 +144,7 @@ jobs:
         working-directory: shopify-customer-account
         run: |
           mkdir -p ../artifacts
+          set -o pipefail
           set -o > ../artifacts/customer-account-pipeline-shell.txt
           set +e
           (printf '%s\n' 'synthetic-producer-exit-7'; exit 7) | tee ../artifacts/customer-account-pipeline-failure.log
