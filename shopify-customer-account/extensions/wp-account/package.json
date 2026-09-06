@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@preact/signals": "^2.7.0",
+    "@preact/signals": "^2.11.1",
     "@shopify/ui-extensions": "2026.4.x",
     "parse5": "8.0.0",
     "preact": "^10.27.0"
