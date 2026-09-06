@@ -24,6 +24,10 @@ async function loadAxeSource() {
 const { chromium, firefox, webkit } = await loadPlaywright();
 const axeSource = await loadAxeSource();
 const engines = { chromium, firefox, webkit };
+const drawerFocusableSelector = [
+  "a[href]", "button:not([disabled])", "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])", "textarea:not([disabled])", "[tabindex]:not([tabindex='-1']):not([disabled])",
+].join(",");
 const allRequested = process.argv.includes("--all");
 const explicit = process.argv.find((argument) => argument.startsWith("--browser="));
 const requested = allRequested ? Object.keys(engines) : [explicit?.slice("--browser=".length) || "chromium"];
@@ -92,6 +96,174 @@ async function launch(name) {
   }
 }
 
+async function drawerFocusState(page) {
+  return page.evaluate((selector) => {
+    const drawer = document.querySelector(".drawer");
+    const focusables = [...drawer.querySelectorAll(selector)].filter((element) => {
+      const style = getComputedStyle(element);
+      return element.tabIndex >= 0 && element.getClientRects().length > 0
+        && style.visibility !== "hidden" && style.display !== "none";
+    });
+    const active = document.activeElement;
+    const background = [...document.querySelectorAll("body > header, body > main")];
+    return {
+      activeInside: active === drawer || drawer.contains(active),
+      activeAtFirst: active === focusables[0],
+      activeAtLast: active === focusables.at(-1),
+      backgroundCount: background.length,
+      backgroundInert: background.every((element) => element.inert),
+      drawerTabIndex: drawer.tabIndex,
+      focusableCount: focusables.length,
+      submitDisabled: drawer.querySelector("[data-run-button]").disabled,
+    };
+  }, drawerFocusableSelector);
+}
+
+async function assertDrawerFocusCycle(page, label, submitDisabled) {
+  let state = await drawerFocusState(page);
+  assert.equal(state.activeInside, true, `${label}: initial focus escaped the dialog`);
+  assert.equal(state.backgroundCount, 2, `${label}: expected header and main background regions`);
+  assert.equal(state.backgroundInert, true, `${label}: background remained keyboard reachable`);
+  assert.equal(state.submitDisabled, submitDisabled, `${label}: unexpected submit disabled state`);
+  assert.ok(state.focusableCount > 1, `${label}: expected multiple dialog controls`);
+
+  await page.evaluate((selector) => {
+    const focusables = [...document.querySelector(".drawer").querySelectorAll(selector)].filter((element) => (
+      element.tabIndex >= 0 && element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== "hidden"
+    ));
+    focusables.at(-1).focus();
+  }, drawerFocusableSelector);
+  await page.keyboard.press("Tab");
+  state = await drawerFocusState(page);
+  assert.equal(state.activeInside, true, `${label}: Tab escaped the dialog`);
+  assert.equal(state.activeAtFirst, true, `${label}: Tab did not wrap to the first control`);
+
+  await page.evaluate((selector) => {
+    const focusables = [...document.querySelector(".drawer").querySelectorAll(selector)].filter((element) => (
+      element.tabIndex >= 0 && element.getClientRects().length > 0
+      && getComputedStyle(element).visibility !== "hidden"
+    ));
+    focusables[0].focus();
+  }, drawerFocusableSelector);
+  await page.keyboard.press("Shift+Tab");
+  state = await drawerFocusState(page);
+  assert.equal(state.activeInside, true, `${label}: Shift+Tab escaped the dialog`);
+  assert.equal(state.activeAtLast, true, `${label}: Shift+Tab did not wrap to the last control`);
+  return state.focusableCount;
+}
+
+async function assertDrawerFallbackFocus(page, label) {
+  const drawer = page.locator(".drawer");
+  await drawer.locator("button, input, select, textarea").evaluateAll((elements) => {
+    for (const element of elements) {
+      element.dataset.qaPreviousDisabled = String(element.disabled);
+      element.disabled = true;
+    }
+  });
+  try {
+    await drawer.focus();
+    await page.keyboard.press("Tab");
+    const state = await drawerFocusState(page);
+    assert.equal(state.drawerTabIndex, -1, `${label}: dialog lacks programmatic fallback focus`);
+    assert.equal(state.focusableCount, 0, `${label}: expected no enabled child controls`);
+    assert.equal(state.activeInside, true, `${label}: empty dialog lost focus containment`);
+  } finally {
+    await drawer.locator("[data-qa-previous-disabled]").evaluateAll((elements) => {
+      for (const element of elements) {
+        element.disabled = element.dataset.qaPreviousDisabled === "true";
+        delete element.dataset.qaPreviousDisabled;
+      }
+    });
+  }
+}
+
+async function assertDrawerLiveFocusables(page, label) {
+  const before = await drawerFocusState(page);
+  await page.locator(".drawer").evaluate((drawer) => {
+    const negativeTabStop = document.createElement("button");
+    negativeTabStop.type = "button";
+    negativeTabStop.tabIndex = -2;
+    negativeTabStop.dataset.qaNegativeTabStop = "true";
+    negativeTabStop.textContent = "Negative tab stop";
+    drawer.append(negativeTabStop);
+  });
+  try {
+    await page.evaluate((selector) => {
+      const focusables = [...document.querySelector(".drawer").querySelectorAll(selector)].filter((element) => (
+        element.tabIndex >= 0 && element.getClientRects().length > 0
+        && getComputedStyle(element).visibility !== "hidden"
+      ));
+      focusables[0].focus();
+    }, drawerFocusableSelector);
+    await page.keyboard.press("Shift+Tab");
+    let state = await drawerFocusState(page);
+    assert.equal(state.activeAtLast, true, `${label}: negative tabindex entered the reverse cycle`);
+
+    const mutation = await page.evaluate((selector) => {
+      const focusables = [...document.querySelector(".drawer").querySelectorAll(selector)].filter((element) => (
+        element.tabIndex >= 0 && element.getClientRects().length > 0
+        && getComputedStyle(element).visibility !== "hidden"
+      ));
+      const formerLast = focusables.at(-1);
+      formerLast.dataset.qaPreviousDisabled = String(formerLast.disabled);
+      formerLast.disabled = true;
+      const updated = focusables.filter((element) => element !== formerLast);
+      updated.at(-1).focus();
+      return { before: focusables.length, after: updated.length };
+    }, drawerFocusableSelector);
+    await page.keyboard.press("Tab");
+    state = await drawerFocusState(page);
+    assert.equal(mutation.before, before.focusableCount, `${label}: negative tabindex changed the tab order`);
+    assert.equal(mutation.after, before.focusableCount - 1, `${label}: endpoint was not disabled`);
+    assert.equal(state.focusableCount, mutation.after, `${label}: focusable list was not recomputed`);
+    assert.equal(state.activeAtFirst, true, `${label}: Tab did not wrap after endpoint mutation`);
+  } finally {
+    await page.locator(".drawer [data-qa-previous-disabled]").evaluateAll((elements) => {
+      for (const element of elements) {
+        element.disabled = element.dataset.qaPreviousDisabled === "true";
+        delete element.dataset.qaPreviousDisabled;
+      }
+    });
+    await page.locator(".drawer [data-qa-negative-tab-stop]").evaluateAll((elements) => {
+      for (const element of elements) element.remove();
+    });
+  }
+}
+
+async function assertEscapeRestoresOpener(page, opener, label, expectedBackgroundInert = [false, false]) {
+  await page.keyboard.press("Escape");
+  await page.locator(".drawer").waitFor({ state: "hidden" });
+  assert.equal(await opener.evaluate((element) => document.activeElement === element), true,
+    `${label}: Escape did not restore the exact opener`);
+  const backgroundInert = await page.evaluate(() => (
+    [...document.querySelectorAll("body > header, body > main")].map((element) => element.inert)
+  ));
+  assert.deepEqual(backgroundInert, expectedBackgroundInert,
+    `${label}: background inert state was not restored`);
+}
+
+async function assertCatalogSearchRestoresOpener(page, label) {
+  const form = page.locator("[data-catalog-search]");
+  const opener = form.locator("button");
+  const previousStyle = await form.getAttribute("style");
+  // The responsive header hides this form on mobile; expose it only while QA exercises its submitter path.
+  await form.evaluate((element) => { element.style.display = "flex"; });
+  try {
+    await form.locator("input").fill("catalog keyboard query");
+    await opener.click();
+    await page.locator(".drawer").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".drawer [data-run-query]").inputValue(), "catalog keyboard query",
+      `${label}: catalog query was not transferred to the dialog`);
+    await assertEscapeRestoresOpener(page, opener, label);
+  } finally {
+    await form.evaluate((element, style) => {
+      if (style === null) element.removeAttribute("style");
+      else element.setAttribute("style", style);
+    }, previousStyle);
+  }
+}
+
 async function runCase(browser, browserName, viewport) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
@@ -105,6 +277,8 @@ async function runCase(browser, browserName, viewport) {
   const requests = [];
   let runResponse;
   let runRequest;
+  let releaseRuntime;
+  const runtimeGate = new Promise((resolve) => { releaseRuntime = resolve; });
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
@@ -120,14 +294,48 @@ async function runCase(browser, browserName, viewport) {
   });
 
   try {
-    await page.goto(`${demo.baseUrl}/`, { waitUntil: "networkidle" });
+    const runtimeRequest = page.waitForRequest((request) => (
+      new URL(request.url()).pathname.endsWith("/api/runtime/status")
+    ));
+    await page.route("**/api/runtime/status", async (route) => {
+      await runtimeGate;
+      await route.continue();
+    }, { times: 1 });
+    await page.goto(`${demo.baseUrl}/`, { waitUntil: "domcontentloaded" });
+    await runtimeRequest;
+
+    const main = page.locator("body > main");
+    await main.evaluate((element) => { element.inert = true; });
+    let preRuntimeFocusableCount;
+    try {
+      const preRuntimeOpener = page.locator("[data-open-agent]").first();
+      await preRuntimeOpener.click();
+      await page.locator(".drawer").waitFor({ state: "visible" });
+      preRuntimeFocusableCount = await assertDrawerFocusCycle(
+        page, `${browserName}/${viewport.name}/pre-runtime`, true,
+      );
+      await assertDrawerFallbackFocus(page, `${browserName}/${viewport.name}/pre-runtime`);
+      await assertEscapeRestoresOpener(
+        page, preRuntimeOpener, `${browserName}/${viewport.name}/pre-runtime`, [false, true],
+      );
+    } finally {
+      await main.evaluate((element) => { element.inert = false; });
+    }
+
+    releaseRuntime();
     await page.locator('[data-runtime-ready="true"][data-connected="true"]').waitFor();
+    await assertCatalogSearchRestoresOpener(page, `${browserName}/${viewport.name}/catalog-search`);
     await page.locator("#workbench-query").fill("desk organizer");
     await page.locator(".workbench-form [data-run-button]").click();
     await page.locator("[data-workbench-results] .result.is-shopify").waitFor();
     await page.waitForFunction(() => Boolean(window.__referenceStoreDemo?.lastRenderIdentity?.all));
-    await page.locator("[data-open-agent]").first().click();
+    const connectedOpener = page.locator("[data-open-agent]").first();
+    await connectedOpener.click();
     await page.locator(".drawer").waitFor({ state: "visible" });
+    const connectedFocusableCount = await assertDrawerFocusCycle(
+      page, `${browserName}/${viewport.name}/connected`, false,
+    );
+    await assertDrawerLiveFocusables(page, `${browserName}/${viewport.name}/connected`);
 
     const state = await page.evaluate(async () => {
       const active = window.__referenceStoreDemo.getActiveRun();
@@ -188,6 +396,7 @@ async function runCase(browser, browserName, viewport) {
     assert.ok(requests.every((url) => new URL(url).origin === allowedOrigin),
       `${browserName}/${viewport.name}: external request detected`);
     assert.deepEqual(await context.cookies(), []);
+    await assertEscapeRestoresOpener(page, connectedOpener, `${browserName}/${viewport.name}/connected`);
     return {
       browser: browserName,
       viewport: `${viewport.width}x${viewport.height}`,
@@ -197,8 +406,20 @@ async function runCase(browser, browserName, viewport) {
       axe_serious_critical: 0,
       reduced_motion: true,
       receipt_exact: true,
+      focus_contained_pre_runtime: true,
+      focus_contained_connected: true,
+      focus_restored_on_escape: true,
+      catalog_search_focus_restored: true,
+      background_inert_while_open: true,
+      prior_background_inert_restored: true,
+      dynamic_focusables_recomputed: true,
+      negative_tabindex_excluded: true,
+      pre_runtime_submit_disabled: true,
+      pre_runtime_focusable_count: preRuntimeFocusableCount,
+      connected_focusable_count: connectedFocusableCount,
     };
   } finally {
+    releaseRuntime();
     await context.close();
   }
 }
