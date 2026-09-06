@@ -31,9 +31,14 @@ forwarded to Core or reflected in the runtime response.
 
 ## Server configuration
 
-Use [the Wrangler template](../storefront-bff/wrangler.staging.example.toml) and
-[the Shopify app fragment](../storefront-bff/shopify.app.staging.example.toml) as
-review inputs. They contain only example.invalid hosts and no secret values.
+Use [the generic Wrangler template](../storefront-bff/wrangler.staging.example.toml)
+and [the Shopify app fragment](../storefront-bff/shopify.app.staging.example.toml)
+as review inputs. For the approved dedicated development store, the
+[temporary workers.dev candidate](../storefront-bff/wrangler.dev-store-staging.toml)
+pins the public Core origin and permanent shop identity. It deliberately keeps
+the deployment descriptor, signature and signing-key ID empty, so it is not
+deployable until the external release signer injects the exact candidate
+envelope. None of these files contains a secret.
 The app fragment adds the scope required to configure the proxy; it does not
 grant the BFF any product, cart, checkout, order or payment write capability.
 
@@ -49,8 +54,10 @@ Before an authorized staging deployment, the operator must configure:
   invite-protected Hosted Core. The BFF sends it only as `X-Sandbox-Invite`.
   `AGENT_CORE_SANDBOX_TOKEN` is reserved for literal `127.0.0.1` local
   sandboxes; configuring both credentials fails closed.
-- A staging Worker hostname matching the App Proxy destination. The template
-  disables workers.dev and preview URLs and contains no production route.
+- A staging Worker hostname matching the App Proxy destination. The generic
+  template disables workers.dev; the dedicated temporary candidate enables
+  workers.dev only for internal development-store QA. Both disable preview URLs
+  and contain no production route.
 
 The Core process owns any Shopify read credential. Never copy it into theme
 settings, Liquid, the BFF example files, screenshots, browser storage, or QA

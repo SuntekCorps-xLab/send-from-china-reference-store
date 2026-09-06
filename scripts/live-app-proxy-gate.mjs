@@ -26,6 +26,10 @@ const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const ED25519_SIGNATURE = /^[A-Za-z0-9_-]{86}$/u;
 const CASE_ID = /^case_[0-9a-f]{16,32}$/u;
 const HANDLE = /^[a-z0-9][a-z0-9-]{0,99}$/u;
+const STOREFRONT_PASSWORD_ENV = "REFERENCE_STORE_STOREFRONT_PASSWORD";
+const STOREFRONT_PASSWORD_FILE_ENV = "REFERENCE_STORE_STOREFRONT_PASSWORD_FILE";
+const STOREFRONT_PASSWORD = /^[\x21-\x7e]{1,128}$/u;
+const storefrontPasswords = new WeakMap();
 const FORBIDDEN_PROCESS_SECRETS = Object.freeze([
   "SHOPIFY_APP_PROXY_SECRET",
   "SHOPIFY_STOREFRONT_ACCESS_TOKEN",
@@ -206,6 +210,60 @@ function outsideRepository(repositoryRoot, target, code) {
   if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) fail(code);
 }
 
+function validateStorefrontPassword(value) {
+  if (typeof value !== "string" || !STOREFRONT_PASSWORD.test(value)) {
+    fail("invalid_storefront_password");
+  }
+  return value;
+}
+
+function trimOneTerminalNewline(value) {
+  if (value.endsWith("\r\n")) return value.slice(0, -2);
+  if (value.endsWith("\n")) return value.slice(0, -1);
+  return value;
+}
+
+async function captureStorefrontPassword(environment, canonicalRepositoryRoot) {
+  const direct = String(environment[STOREFRONT_PASSWORD_ENV] || "");
+  const handle = String(environment[STOREFRONT_PASSWORD_FILE_ENV] || "").trim();
+  if (direct && handle) fail("ambiguous_storefront_password_source");
+  if (!direct && !handle) fail("missing_storefront_password");
+
+  let password;
+  if (direct) {
+    password = validateStorefrontPassword(direct);
+  } else {
+    if (!path.isAbsolute(handle)) fail("invalid_storefront_password_handle");
+    let handleStat;
+    let canonicalHandle;
+    try {
+      handleStat = await lstat(handle);
+      canonicalHandle = await realpath(handle);
+    } catch { fail("storefront_password_handle_unavailable"); }
+    if (!handleStat.isFile() || handleStat.isSymbolicLink() || handleStat.size < 1 || handleStat.size > 512) {
+      fail("invalid_storefront_password_handle");
+    }
+    outsideRepository(canonicalRepositoryRoot, canonicalHandle, "storefront_password_handle_must_be_external");
+    let bytes;
+    try { bytes = await readFile(canonicalHandle); } catch { fail("storefront_password_handle_unavailable"); }
+    if (bytes.length !== handleStat.size || bytes.includes(0)) fail("invalid_storefront_password_handle");
+    password = validateStorefrontPassword(trimOneTerminalNewline(bytes.toString("utf8")));
+  }
+
+  if (environment === process.env) {
+    delete process.env[STOREFRONT_PASSWORD_ENV];
+    delete process.env[STOREFRONT_PASSWORD_FILE_ENV];
+  }
+  return password;
+}
+
+function takeStorefrontPassword(config) {
+  const password = storefrontPasswords.get(config);
+  storefrontPasswords.delete(config);
+  if (!password) fail("missing_storefront_password");
+  return password;
+}
+
 export function validatePreviewIdentity({ previewUrl, shopDomain, themeId }) {
   if (!/^[a-z0-9][a-z0-9-]{0,62}\.myshopify\.com$/u.test(shopDomain)) {
     fail("invalid_permanent_shop_domain");
@@ -341,6 +399,7 @@ export async function loadLiveGateConfig({
   if (bffCommit !== actual.commit) fail("bff_commit_mismatch");
   const agentCoreCommit = required(environment, "REFERENCE_STORE_EXPECTED_CORE_COMMIT");
   if (!HASH.test(agentCoreCommit)) fail("invalid_agent_core_commit");
+  const storefrontPassword = await captureStorefrontPassword(environment, canonicalRepositoryRoot);
   const config = {
     preview,
     browser,
@@ -368,7 +427,9 @@ export async function loadLiveGateConfig({
       }),
     }),
   };
-  return Object.freeze(config);
+  Object.freeze(config);
+  storefrontPasswords.set(config, storefrontPassword);
+  return config;
 }
 
 export function validateRuntimeContract(value) {
@@ -781,6 +842,77 @@ export function observeBrowserRequest(config, counters, observation) {
   }
 }
 
+export async function unlockDevelopmentStore({ page, context, preview, password }) {
+  validateStorefrontPassword(password);
+  const passwordUrl = `${preview.origin}/password`;
+  let navigation;
+  try {
+    navigation = await page.goto(passwordUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  } catch {
+    fail("storefront_password_page_unavailable");
+  }
+  let current;
+  try { current = new URL(page.url()); } catch { fail("storefront_password_page_identity_mismatch"); }
+  if (!navigation?.ok() || current.origin !== preview.origin || current.pathname !== "/password"
+    || current.search || current.hash) fail("storefront_password_page_identity_mismatch");
+
+  const passwordInput = page.locator('input[name="password"][type="password"]');
+  let inputCount;
+  let formAction;
+  try {
+    inputCount = await passwordInput.count();
+    formAction = inputCount === 1
+      ? await passwordInput.evaluate((input) => input.form?.action || "")
+      : "";
+  } catch { fail("storefront_password_form_unavailable"); }
+  let action;
+  try { action = new URL(formAction); } catch { fail("storefront_password_form_unavailable"); }
+  if (inputCount !== 1 || action.origin !== preview.origin || action.pathname !== "/password"
+    || action.search || action.hash || action.username || action.password || action.port) {
+    fail("storefront_password_form_unavailable");
+  }
+
+  try {
+    await passwordInput.fill(password);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30_000 }),
+      passwordInput.press("Enter"),
+    ]);
+  } catch {
+    try { await passwordInput.fill(""); } catch { /* Best-effort secret removal. */ }
+    fail("storefront_password_unlock_failed");
+  }
+
+  let remainingPasswordInputs;
+  let pagePersistenceHit;
+  try {
+    remainingPasswordInputs = await page.locator('input[name="password"][type="password"]').count();
+    pagePersistenceHit = await page.evaluate((secret) => {
+      for (const input of document.querySelectorAll('input[type="password"]')) input.value = "";
+      const values = [document.cookie, JSON.stringify(history.state ?? null)];
+      for (const storage of [localStorage, sessionStorage]) {
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index) || "";
+          values.push(key, storage.getItem(key) || "");
+        }
+      }
+      return values.some((value) => String(value).includes(secret));
+    }, password);
+  } catch { fail("storefront_password_persistence_check_failed"); }
+
+  let cookies;
+  try { cookies = await context.cookies(); } catch { fail("storefront_password_persistence_check_failed"); }
+  const cookiePersistenceHit = cookies.some((cookie) => (
+    String(cookie.name).includes(password) || String(cookie.value).includes(password)
+  ));
+  let unlockedUrl;
+  try { unlockedUrl = new URL(page.url()); } catch { fail("storefront_password_unlock_failed"); }
+  if (unlockedUrl.origin !== preview.origin || unlockedUrl.pathname === "/password"
+    || remainingPasswordInputs !== 0) fail("storefront_password_unlock_failed");
+  if (pagePersistenceHit || cookiePersistenceHit) fail("storefront_password_persistence_detected");
+  return Object.freeze({ unlocked: true });
+}
+
 export async function createPlaywrightTransport(config, { repositoryRoot = REPOSITORY_ROOT } = {}) {
   const runtime = await loadPinnedPlaywright(repositoryRoot);
   const engine = runtime.playwright[config.browser];
@@ -797,6 +929,18 @@ export async function createPlaywrightTransport(config, { repositoryRoot = REPOS
   } catch {
     await browser?.close().catch(() => {});
     fail("live_browser_unavailable");
+  }
+  let storefrontPassword;
+  try {
+    storefrontPassword = takeStorefrontPassword(config);
+    await unlockDevelopmentStore({ page, context, preview: config.preview, password: storefrontPassword });
+  } catch (error) {
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    if (error instanceof LiveGateError) throw error;
+    fail("storefront_password_unlock_failed");
+  } finally {
+    storefrontPassword = undefined;
   }
   const counters = initialSafety();
   const issuedQueries = [];

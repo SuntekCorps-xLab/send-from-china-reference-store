@@ -12,6 +12,7 @@ import {
   LiveGateError,
   loadLiveGateConfig,
   observeBrowserRequest,
+  unlockDevelopmentStore,
   validateCases,
   validateDoctorContract,
   validateManifestShape,
@@ -220,7 +221,7 @@ async function configFixture(root, environmentOverrides = {}, options = {}) {
   const casesPath = path.join(privateRoot, "cases.json");
   const publicKeyPath = path.join(privateRoot, "deployment-public-key.pem");
   const outputRoot = path.join(privateRoot, "evidence");
-  await mkdir(repositoryRoot);
+  await mkdir(repositoryRoot, { recursive: true });
   await mkdir(privateRoot);
   await writeFile(path.join(repositoryRoot, "package.json"), '{"version":"1.1.0"}\n');
   const manifest = options.manifest || caseManifest();
@@ -246,6 +247,7 @@ async function configFixture(root, environmentOverrides = {}, options = {}) {
     REFERENCE_STORE_EXPECTED_BFF_VERSION: "1.1.0",
     REFERENCE_STORE_EXPECTED_CORE_COMMIT: CORE_COMMIT,
     REFERENCE_STORE_EXPECTED_CORE_VERSION: "1.2.0",
+    REFERENCE_STORE_STOREFRONT_PASSWORD: "visitor-test-only",
     ...environmentOverrides,
   };
   return {
@@ -351,6 +353,7 @@ test("config seals external inputs, repository identity, versions and process se
     const config = await loadLiveGateConfig({ ...fixture, nodeVersion: "22.23.2" });
     assert.equal(config.cases.length, 10);
     assert.equal(config.components.storefront_bff.commit, REFERENCE_COMMIT);
+    assert.equal(JSON.stringify(config).includes("visitor-test-only"), false);
     await assert.rejects(() => loadLiveGateConfig({
       ...fixture,
       environment: { ...fixture.environment, SHOPIFY_APP_PROXY_SECRET: "must-not-enter-browser-harness" },
@@ -382,6 +385,94 @@ test("config seals external inputs, repository identity, versions and process se
       nodeVersion: "22.23.2",
     }), (error) => error.code === "deployment_public_key_identity_mismatch");
   });
+});
+
+test("storefront password bootstrap accepts exactly one process or external handle source", async () => {
+  await withSandbox(async (root) => {
+    const missing = await configFixture(root, { REFERENCE_STORE_STOREFRONT_PASSWORD: "" });
+    await assert.rejects(() => loadLiveGateConfig({ ...missing, nodeVersion: "22.23.2" }),
+      (error) => error.code === "missing_storefront_password");
+
+    const anotherRoot = await mkdtemp(path.join(os.tmpdir(), "reference-live-password-"));
+    try {
+      const handle = path.join(anotherRoot, "visitor-password.secret");
+      await writeFile(handle, "visitor-from-handle\n");
+      const fileFixture = await configFixture(path.join(root, "file-source"), {
+        REFERENCE_STORE_STOREFRONT_PASSWORD: "",
+        REFERENCE_STORE_STOREFRONT_PASSWORD_FILE: handle,
+      });
+      const config = await loadLiveGateConfig({ ...fileFixture, nodeVersion: "22.23.2" });
+      assert.equal(JSON.stringify(config).includes("visitor-from-handle"), false);
+
+      const ambiguous = await configFixture(path.join(root, "ambiguous-source"), {
+        REFERENCE_STORE_STOREFRONT_PASSWORD: "visitor-direct",
+        REFERENCE_STORE_STOREFRONT_PASSWORD_FILE: handle,
+      });
+      await assert.rejects(() => loadLiveGateConfig({ ...ambiguous, nodeVersion: "22.23.2" }),
+        (error) => error.code === "ambiguous_storefront_password_source");
+    } finally {
+      await rm(anotherRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+function storefrontUnlockBrowser({ success = true, persisted = false, actionOrigin = `https://${SHOP}` } = {}) {
+  let currentUrl = `https://${SHOP}/password`;
+  let submitted = false;
+  const observations = [];
+  const locator = {
+    count: async () => (submitted && success ? 0 : 1),
+    evaluate: async () => `${actionOrigin}/password`,
+    fill: async (value) => { observations.push(value ? "filled" : "cleared"); },
+    press: async (key) => {
+      observations.push(`pressed:${key}`);
+      submitted = true;
+      currentUrl = success ? `https://${SHOP}/` : `https://${SHOP}/password`;
+    },
+  };
+  return {
+    page: {
+      goto: async (url) => {
+        observations.push(`goto:${url}`);
+        currentUrl = url;
+        return { ok: () => true };
+      },
+      url: () => currentUrl,
+      locator: () => locator,
+      waitForNavigation: async () => ({ ok: () => success }),
+      evaluate: async () => persisted,
+    },
+    context: {
+      cookies: async () => (persisted ? [{ name: "leak", value: "visitor-test-only" }] : []),
+    },
+    observations,
+  };
+}
+
+test("browser bootstrap unlocks before preview use and never returns or persists the password", async () => {
+  const browser = storefrontUnlockBrowser();
+  const result = await unlockDevelopmentStore({
+    ...browser,
+    preview: { origin: `https://${SHOP}` },
+    password: "visitor-test-only",
+  });
+  assert.deepEqual(result, { unlocked: true });
+  assert.equal(browser.observations[0], `goto:https://${SHOP}/password`);
+  assert.equal(JSON.stringify(result).includes("visitor-test-only"), false);
+});
+
+test("browser bootstrap fails closed on wrong password, foreign form action or persistent secret", async () => {
+  for (const [browser, code] of [
+    [storefrontUnlockBrowser({ success: false }), "storefront_password_unlock_failed"],
+    [storefrontUnlockBrowser({ actionOrigin: "https://other.myshopify.com" }), "storefront_password_form_unavailable"],
+    [storefrontUnlockBrowser({ persisted: true }), "storefront_password_persistence_detected"],
+  ]) {
+    await assert.rejects(() => unlockDevelopmentStore({
+      ...browser,
+      preview: { origin: `https://${SHOP}` },
+      password: "visitor-test-only",
+    }), (error) => error.code === code);
+  }
 });
 
 test("injected 10/10 proves receipt logic without claiming a browser or network run", async () => {
@@ -744,4 +835,22 @@ test("published schemas key cases and journeys by opaque ID and exactly mirror U
     assert.equal(queryPattern.test(`a${character}b`), !forbidden.test(character),
       `published query pattern diverges at U+${codePoint.toString(16).toUpperCase()}`);
   }
+});
+
+test("dedicated development-store workers.dev config is identity-pinned, secretless and unsigned", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const config = await readFile(path.join(
+    root, "storefront-bff", "wrangler.dev-store-staging.toml",
+  ), "utf8");
+  assert.match(config, /^workers_dev = true$/mu);
+  assert.match(config, /^preview_urls = false$/mu);
+  assert.match(config, /^AGENT_CORE_SANDBOX_URL = "https:\/\/send-from-china-hosted-shopify-sandbox-staging\.htfu\.workers\.dev"$/mu);
+  assert.match(config, /^STOREFRONT_ORIGIN = "https:\/\/send-from-china-agent-core-sandbox\.myshopify\.com"$/mu);
+  assert.match(config, /^SHOPIFY_APP_PROXY_SHOP = "send-from-china-agent-core-sandbox\.myshopify\.com"$/mu);
+  for (const name of [
+    "BFF_DEPLOYMENT_DESCRIPTOR", "BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE",
+    "BFF_DEPLOYMENT_SIGNING_KEY_ID",
+  ]) assert.match(config, new RegExp(`^${name} = ""$`, "mu"));
+  assert.doesNotMatch(config, /^routes?\s*=/mu);
+  assert.doesNotMatch(config, /\b(?:shpat_|shpss_|shptka_|Bearer\s+)[A-Za-z0-9._-]{8,}/iu);
 });

@@ -1,0 +1,36 @@
+# Temporary internal QA staging for the dedicated Shopify development store.
+# No credential, route, production hostname, deployment signature, or private
+# signing material is committed. Deploy only after the release control plane
+# injects the three empty attestation values and the two named Worker secrets.
+name = "reference-store-bff-dev-store-staging"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+preview_urls = false
+
+[vars]
+AGENT_CORE_SANDBOX_URL = "https://send-from-china-hosted-shopify-sandbox-staging.htfu.workers.dev"
+AGENT_CORE_PAGE_SIZE = "20"
+BFF_RUNTIME_MODE = "shopify_read_only"
+BFF_DEPLOYMENT_MODE = "shopify_app_proxy"
+STOREFRONT_ORIGIN = "https://send-from-china-agent-core-sandbox.myshopify.com"
+ALLOWED_ORIGINS = "https://send-from-china-agent-core-sandbox.myshopify.com"
+SHOPIFY_APP_PROXY_SHOP = "send-from-china-agent-core-sandbox.myshopify.com"
+SHOPIFY_APP_PROXY_TIMESTAMP_WINDOW_SECONDS = "300"
+BFF_UPSTREAM_TIMEOUT_MS = "5000"
+BFF_QUOTA_LIMIT = "40"
+BFF_QUOTA_WINDOW_SECONDS = "60"
+BFF_CONCURRENCY_LIMIT = "4"
+
+# These public values are deliberately empty. The Worker fails closed before
+# upstream access until an external release signer supplies one canonical
+# descriptor, its Ed25519 signature, and the public signing-key identifier.
+BFF_DEPLOYMENT_DESCRIPTOR = ""
+BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE = ""
+BFF_DEPLOYMENT_SIGNING_KEY_ID = ""
+
+# Required server-only Worker secret bindings (names only):
+# SHOPIFY_APP_PROXY_SECRET
+# AGENT_CORE_SANDBOX_INVITE
+# Never set AGENT_CORE_SANDBOX_TOKEN for this public-DNS Hosted Core.
+# No Storefront/Admin token belongs in this BFF, the theme, or the QA harness.

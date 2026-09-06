@@ -64,6 +64,12 @@ Before the run, an administrator must provide and independently record:
    containing control, format, bidi, or surrogate code points are rejected.
    The `cases` object is keyed by case ID so duplicate IDs cannot survive JSON
    parsing or schema validation.
+8. A development-store visitor password supplied only by the approved runtime
+   secret injector. Use exactly one of `REFERENCE_STORE_STOREFRONT_PASSWORD`
+   (direct process injection) or `REFERENCE_STORE_STOREFRONT_PASSWORD_FILE`
+   (an absolute external, regular-file handle). The gate consumes the value,
+   removes direct process bindings, and never records the value or handle in a
+   command line, config object, screenshot, browser storage, or evidence file.
 
 Do not use the operating store, publish a theme, add a write scope, or relax a
 failed identity check to make the gate pass.
@@ -95,6 +101,13 @@ $env:REFERENCE_STORE_EXPECTED_CORE_VERSION = '1.2.0'
 npm run gate:app-proxy-live
 ```
 
+The storefront password is intentionally absent from the example command.
+Arrange process-environment injection or an external file handle through the
+approved control plane before invoking npm; never add it as a CLI argument or
+paste the value into shell history. Both sources set, neither source set, an
+invalid handle, a failed unlock, or any detected password persistence blocks the
+gate before the unpublished preview or App Proxy is accessed.
+
 Do not set `SHOPIFY_APP_PROXY_SECRET`, a Storefront/Admin token, a Core invite,
 or a tenant key in the harness process. The harness rejects known secret
 bindings because they belong only in the server deployment.
@@ -106,7 +119,9 @@ The gate exits zero only when all of these are true:
 - Node is version 22, the repository is clean, and commit/tree/package version
   match the expected identities.
 - A pinned Playwright browser is available and the preview remains on the exact
-  HTTPS permanent shop origin.
+  HTTPS permanent shop origin. Every browser run begins in a fresh context,
+  unlocks the development-store password page on that exact origin, checks that
+  the password did not persist, and only then visits the unpublished preview.
 - Status is connected `shopify_read_only` using
   `shopify_storefront_graphql`; doctor is fully healthy. Status, doctor, and
   every run report component identities and an identical Ed25519 deployment
