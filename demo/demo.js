@@ -19,6 +19,12 @@ import {
   const runtimeBanner = document.querySelector(".runtime-banner");
   const runtimeStatusEndpoint = bffEndpointUrl(window.location, "runtime/status");
   const runEndpoint = bffEndpointUrl(window.location, "runs");
+  const drawerFocusableSelector = [
+    "a[href]", "button:not([disabled])", "input:not([disabled]):not([type='hidden'])",
+    "select:not([disabled])", "textarea:not([disabled])", "[tabindex]:not([tabindex='-1']):not([disabled])",
+  ].join(",");
+  const modalBackground = [...document.querySelectorAll("body > header, body > main")];
+  const previousBackgroundInert = new Map();
   let runtimeStatus = null;
   let lastFocus = null;
 
@@ -285,8 +291,33 @@ import {
     }
   }
 
-  function openDrawer(brief = "") {
-    lastFocus = document.activeElement;
+  function setModalBackgroundInert(inert) {
+    if (inert) {
+      for (const element of modalBackground) {
+        previousBackgroundInert.set(element, element.inert);
+        element.inert = true;
+      }
+      return;
+    }
+    for (const [element, previous] of previousBackgroundInert) {
+      if (element.isConnected) element.inert = previous;
+    }
+    previousBackgroundInert.clear();
+  }
+
+  function drawerFocusables() {
+    return [...drawer.querySelectorAll(drawerFocusableSelector)].filter((element) => {
+      const style = getComputedStyle(element);
+      return element.tabIndex >= 0 && element.getClientRects().length > 0
+        && style.visibility !== "hidden" && style.display !== "none";
+    });
+  }
+
+  function openDrawer(brief = "", opener = document.activeElement) {
+    if (drawer.hidden) {
+      lastFocus = opener instanceof HTMLElement ? opener : document.activeElement;
+      setModalBackgroundInert(true);
+    }
     drawer.hidden = false;
     drawer.setAttribute("aria-hidden", "false");
     backdrop.hidden = false;
@@ -297,9 +328,11 @@ import {
     const input = drawer.querySelector("[data-run-query]");
     if (brief) input.value = brief;
     input.focus();
+    if (document.activeElement !== input) drawer.focus();
   }
 
   function closeDrawer() {
+    if (drawer.hidden) return;
     drawer.hidden = true;
     drawer.setAttribute("aria-hidden", "true");
     backdrop.hidden = true;
@@ -307,12 +340,14 @@ import {
     document.querySelectorAll("[data-open-agent]").forEach((button) => {
       button.setAttribute("aria-expanded", "false");
     });
-    if (lastFocus instanceof HTMLElement) lastFocus.focus();
+    setModalBackgroundInert(false);
+    if (lastFocus instanceof HTMLElement && lastFocus.isConnected) lastFocus.focus();
+    lastFocus = null;
   }
 
   document.querySelectorAll("[data-open-agent]").forEach((button) => {
     button.setAttribute("aria-expanded", "false");
-    button.addEventListener("click", () => openDrawer(button.dataset.query || ""));
+    button.addEventListener("click", () => openDrawer(button.dataset.query || "", button));
   });
   document.querySelectorAll("[data-close-agent]").forEach((button) => {
     button.addEventListener("click", closeDrawer);
@@ -335,10 +370,29 @@ import {
   document.querySelector("[data-catalog-search]").addEventListener("submit", (event) => {
     event.preventDefault();
     const query = event.currentTarget.querySelector("input").value.trim();
-    openDrawer(query || "A practical desk gift under $40");
+    openDrawer(query || "A practical desk gift under $40", event.submitter);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !drawer.hidden) closeDrawer();
+    if (drawer.hidden) return;
+    if (event.key === "Escape") {
+      closeDrawer();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusables = drawerFocusables();
+    if (!focusables.length) {
+      event.preventDefault();
+      drawer.focus();
+      return;
+    }
+    const activeIndex = focusables.indexOf(document.activeElement);
+    if (activeIndex === -1 || (event.shiftKey && activeIndex === 0)) {
+      event.preventDefault();
+      focusables[event.shiftKey ? focusables.length - 1 : 0].focus();
+    } else if (!event.shiftKey && activeIndex === focusables.length - 1) {
+      event.preventDefault();
+      focusables[0].focus();
+    }
   });
 
   drawer.setAttribute("aria-hidden", "true");
