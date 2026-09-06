@@ -243,6 +243,27 @@ async function assertEscapeRestoresOpener(page, opener, label, expectedBackgroun
     `${label}: background inert state was not restored`);
 }
 
+async function assertCatalogSearchRestoresOpener(page, label) {
+  const form = page.locator("[data-catalog-search]");
+  const opener = form.locator("button");
+  const previousStyle = await form.getAttribute("style");
+  // The responsive header hides this form on mobile; expose it only while QA exercises its submitter path.
+  await form.evaluate((element) => { element.style.display = "flex"; });
+  try {
+    await form.locator("input").fill("catalog keyboard query");
+    await opener.click();
+    await page.locator(".drawer").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".drawer [data-run-query]").inputValue(), "catalog keyboard query",
+      `${label}: catalog query was not transferred to the dialog`);
+    await assertEscapeRestoresOpener(page, opener, label);
+  } finally {
+    await form.evaluate((element, style) => {
+      if (style === null) element.removeAttribute("style");
+      else element.setAttribute("style", style);
+    }, previousStyle);
+  }
+}
+
 async function runCase(browser, browserName, viewport) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
@@ -303,6 +324,7 @@ async function runCase(browser, browserName, viewport) {
 
     releaseRuntime();
     await page.locator('[data-runtime-ready="true"][data-connected="true"]').waitFor();
+    await assertCatalogSearchRestoresOpener(page, `${browserName}/${viewport.name}/catalog-search`);
     await page.locator("#workbench-query").fill("desk organizer");
     await page.locator(".workbench-form [data-run-button]").click();
     await page.locator("[data-workbench-results] .result.is-shopify").waitFor();
@@ -387,6 +409,7 @@ async function runCase(browser, browserName, viewport) {
       focus_contained_pre_runtime: true,
       focus_contained_connected: true,
       focus_restored_on_escape: true,
+      catalog_search_focus_restored: true,
       background_inert_while_open: true,
       prior_background_inert_restored: true,
       dynamic_focusables_recomputed: true,
