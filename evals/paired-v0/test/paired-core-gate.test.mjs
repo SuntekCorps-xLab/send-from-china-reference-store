@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { assertAcceptedAgentCore } from "../../../scripts/paired-integration-smoke.mjs";
+import { assertAcceptedAgentCore, readPairedGitResult } from "../../../scripts/paired-integration-smoke.mjs";
 import { resolvePairedArtifactPath } from "../run.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -60,6 +60,17 @@ test("the paired gate accepts one exact clean Core revision without refreshing i
   assert.match(result.tree, /^[0-9a-f]{40}$/u);
   assert.equal((await stat(index)).mtimeMs, before.mtimeMs,
     "read-only provenance must leave the paired checkout index unchanged");
+});
+
+test("paired Git provenance fails closed when Git reports a warning on stderr", () => {
+  assert.throws(() => readPairedGitResult({
+    status: 0,
+    signal: null,
+    stdout: "",
+    stderr: "warning: could not scan a reserved-name path\n",
+  }),
+    /paired_repository_provenance_unavailable/);
+  assert.equal(readPairedGitResult({ status: 0, signal: null, stdout: "abc\n", stderr: "" }), "abc");
 });
 
 test("a different exact Core commit is rejected before any sandbox import", async (context) => {

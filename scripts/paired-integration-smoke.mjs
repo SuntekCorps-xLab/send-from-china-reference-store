@@ -24,16 +24,22 @@ const GIT_OPERATIONS = Object.freeze([
   "packed-refs.lock", "config.lock", "shallow.lock",
 ]);
 
+export function readPairedGitResult(result) {
+  if (result?.error || result?.signal || result?.status !== 0
+    || String(result?.stderr || "").trim()) {
+    throw new Error("paired_repository_provenance_unavailable");
+  }
+  return String(result.stdout || "").trim();
+}
+
 export function readPairedGit(directory, args) {
-  const result = spawnSync("git", [
+  return readPairedGitResult(spawnSync("git", [
     "--no-optional-locks", "-c", `safe.directory=${directory}`, "-C", directory, ...args,
   ], {
     encoding: "utf8",
     env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
     windowsHide: true,
-  });
-  if (result.status !== 0) throw new Error("paired_repository_provenance_unavailable");
-  return String(result.stdout || "").trim();
+  }));
 }
 
 async function pathExists(file) {
