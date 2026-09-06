@@ -18,7 +18,7 @@ silent protocol downgrade is not supported.
 ## Shopify read-only release lock
 
 The Shopify Liquid/App Proxy candidate is paired with Agent Core commit
-`d546966066973ed26c99442ebb3b4f19b9abf620`. Its
+`23fa534c740872f2148d320abd0c99b200f3c111`. Its
 `contracts/shopify-live-sandbox-status.v1.schema.json` SHA-256 is
 `30b38d767874351e7c56976a9b707cb1aa6c6764940cd7d338338cb1d01c7211`
 (`shopify-live-sandbox-status/v1`, Storefront API `2026-07`).
@@ -33,8 +33,8 @@ App Proxy prefix plus `GET /api/runtime/status`,
 Synthetic paired checks retain their existing legacy/HTTP/MCP contracts as a
 separate regression suite; they are not evidence of Shopify connectivity.
 
-The commit above is the accepted Agent Core `main` merge of the live-catalog
-Skill onboarding candidate. Run the exact 20-journey paired harness against a
+The commit above is the accepted Agent Core `main` commit for this paired
+release. Run the exact 20-journey paired harness against a
 clean checkout of that commit and attach the sanitized artifact to both
 releases; a branch name or equivalent tree is not a substitute for the pinned
 commit identity.
