@@ -79,10 +79,13 @@ function exactPublicOrigin(value) {
 function exactManagedEndpoint(value) {
   if (typeof value !== "string") return "";
   try {
-    const url = new URL(value.trim());
-    if (url.protocol !== "https:" || url.username || url.password || url.port || explicitPort(value)
+    const candidate = value.trim();
+    if (candidate !== value || /[\\\u0000-\u0020\u007f]/u.test(candidate)) return "";
+    const url = new URL(candidate);
+    const canonical = `${url.origin}/mcp`;
+    if (url.protocol !== "https:" || url.username || url.password || url.port || explicitPort(candidate)
       || url.pathname !== "/mcp" || url.search || url.hash || !publicHostname(url.hostname)) return "";
-    return url.href;
+    return candidate === canonical && url.href === canonical ? canonical : "";
   } catch {
     return "";
   }

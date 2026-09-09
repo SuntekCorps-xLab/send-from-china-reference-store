@@ -142,6 +142,13 @@ async function call(path, env, body) {
   return { response, body: await response.json() };
 }
 
+function containsExactString(value, expected) {
+  if (typeof value === "string") return value === expected;
+  if (Array.isArray(value)) return value.some((item) => containsExactString(item, expected));
+  if (!value || typeof value !== "object") return false;
+  return Object.values(value).some((item) => containsExactString(item, expected));
+}
+
 test("curated cohort is refreshed through the injected adapter with bounded concurrency", async () => {
   let active = 0;
   let maximum = 0;
@@ -168,7 +175,7 @@ test("curated cohort is refreshed through the injected adapter with bounded conc
   assert.ok(result.body.products.every((item) => item.curated && item.quality_label === "curated_cohort_member"));
   assert.ok(maximum <= 4);
   assert.deepEqual([...seenEndpoints], [ENDPOINT]);
-  assert.equal(JSON.stringify(result.body).includes(ENDPOINT), false);
+  assert.equal(containsExactString(result.body, ENDPOINT), false);
 });
 
 test("missing or rejected cohort fails closed without querying the adapter", async () => {
@@ -200,18 +207,35 @@ test("an incomplete curated refresh is reported only as curated not ready", asyn
   assert.equal(Object.hasOwn(result.body, "products"), false);
 });
 
-test("managed endpoint and exact origin are required server configuration", async () => {
-  let calls = 0;
-  const result = await call("/api/managed-catalog/curated", environment({
-    MANAGED_CATALOG_ENDPOINT: "https://managed-catalog.example.invalid/mcp?token=never",
-    MANAGED_CATALOG_ADAPTER: {
-      search: async () => { calls += 1; },
-      getProduct: async () => { calls += 1; },
-    },
-  }));
-  assert.equal(result.response.status, 503);
-  assert.equal(result.body.error, "managed_catalog_not_configured");
-  assert.equal(calls, 0);
+test("managed endpoint requires one canonical HTTPS origin and exact MCP path", async () => {
+  const invalidEndpoints = [
+    "http://managed-catalog.example.invalid/mcp",
+    "https://managed-catalog.example.invalid/mcp?token=never",
+    "https://prefix.managed-catalog.example.invalid/mcp",
+    "https://managed-catalog.example.invalid.evil.invalid/mcp",
+    "https://evil.invalid/managed-catalog.example.invalid/mcp",
+    "https://managed-catalog.example.invalid/prefix/mcp",
+    "https://managed-catalog.example.invalid/mcp-extra",
+    "https://user@managed-catalog.example.invalid/mcp",
+    "https:\\managed-catalog.example.invalid\\mcp",
+    "https://managed-catalog.example.invalid/%6dcp",
+    "https://managed-catalog.example.invalid/safe/../mcp",
+    "HTTPS://managed-catalog.example.invalid/mcp",
+    " HTTPS://managed-catalog.example.invalid/mcp",
+  ];
+  for (const endpoint of invalidEndpoints) {
+    let calls = 0;
+    const result = await call("/api/managed-catalog/curated", environment({
+      MANAGED_CATALOG_ENDPOINT: endpoint,
+      MANAGED_CATALOG_ADAPTER: {
+        search: async () => { calls += 1; },
+        getProduct: async () => { calls += 1; },
+      },
+    }));
+    assert.equal(result.response.status, 503, endpoint);
+    assert.equal(result.body.error, "managed_catalog_not_configured", endpoint);
+    assert.equal(calls, 0, endpoint);
+  }
 });
 
 test("broader public search requires explicit opt-in and is never labelled curated", async () => {
