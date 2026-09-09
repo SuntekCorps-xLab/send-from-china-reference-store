@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reference-store.example.invalid/contracts/reference-store-managed-catalog-status.v1.schema.json",
+  "title": "Reference Store managed public catalog response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "profile", "operation", "status", "products", "writes_disabled", "checkout_created"],
+  "properties": {
+    "contract": { "const": "reference-store-managed-public-catalog/v1" },
+    "profile": { "const": "managed_public_catalog" },
+    "operation": { "enum": ["curated", "search", "product"] },
+    "status": { "enum": ["ready", "results", "needs_clarification", "no_match", "degraded"] },
+    "products": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/product" }
+    },
+    "writes_disabled": { "const": true },
+    "checkout_created": { "const": false },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "scope": { "enum": ["curated", "broader_public_catalog"] },
+    "broader_catalog_quality_verified": { "const": false },
+    "search_operation": { "enum": ["search", "confirm_search", "more"] },
+    "upstream_status": { "enum": ["results", "needs_clarification", "no_match", "degraded"] },
+    "upstream_degraded": { "type": "boolean" },
+    "next_cursor": { "type": ["string", "null"], "minLength": 1, "maxLength": 500 }
+  },
+  "$defs": {
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle", "title", "summary", "image", "catalog_price", "catalog_available",
+        "catalog_purchasable", "purchase_status", "cart_verification_required",
+        "commerce_verification_required", "product_url", "catalog_scope", "curated",
+        "quality_label", "writes_disabled"
+      ],
+      "properties": {
+        "handle": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "image": { "type": "string" },
+        "catalog_price": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["amount", "currency"],
+              "properties": {
+                "amount": { "type": "number", "minimum": 0 },
+                "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+              }
+            }
+          ]
+        },
+        "catalog_available": { "type": "boolean" },
+        "catalog_purchasable": { "type": "boolean" },
+        "purchase_status": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "cart_verification_required": { "type": "boolean" },
+        "commerce_verification_required": { "const": true },
+        "product_url": { "type": "string", "format": "uri" },
+        "catalog_scope": { "enum": ["curated", "broader_public_catalog"] },
+        "curated": { "type": "boolean" },
+        "quality_label": { "enum": ["curated_cohort_member", "broader_public_catalog_unreviewed"] },
+        "writes_disabled": { "const": true }
+      }
+    }
+  }
+}

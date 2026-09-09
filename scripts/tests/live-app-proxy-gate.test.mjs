@@ -14,6 +14,7 @@ import {
   observeBrowserRequest,
   validateCases,
   validateDoctorContract,
+  validateLiveViewport,
   validateManifestShape,
   validatePreviewIdentity,
   validateReceiptShape,
@@ -293,6 +294,14 @@ test("accepts only an exact HTTPS permanent shop and unpublished theme identity"
   }
 });
 
+test("v2 viewport input is closed to exact desktop and mobile identities", () => {
+  assert.deepEqual(validateLiveViewport("desktop"), { name: "desktop", width: 1440, height: 1000 });
+  assert.deepEqual(validateLiveViewport("mobile"), { name: "mobile", width: 390, height: 844 });
+  for (const value of ["", " desktop", "desktop ", "Desktop", "tablet", "1440x1000", null]) {
+    assert.throws(() => validateLiveViewport(value), (error) => error.code === "invalid_live_viewport");
+  }
+});
+
 test("case contract requires exactly ten unique, closed, sanitized known cases", () => {
   assert.equal(validateCases(caseManifest()).length, 10);
   const short = caseManifest();
@@ -351,6 +360,32 @@ test("config seals external inputs, repository identity, versions and process se
     const config = await loadLiveGateConfig({ ...fixture, nodeVersion: "22.23.2" });
     assert.equal(config.cases.length, 10);
     assert.equal(config.components.storefront_bff.commit, REFERENCE_COMMIT);
+    assert.equal(config.gateVersion, 1);
+    assert.deepEqual(config.viewport, { name: "desktop", width: 1440, height: 1000 });
+    const desktopV2 = await loadLiveGateConfig({
+      ...fixture,
+      environment: { ...fixture.environment, REFERENCE_STORE_LIVE_VIEWPORT: "desktop" },
+      nodeVersion: "22.23.2",
+    });
+    assert.equal(desktopV2.gateVersion, 2);
+    assert.deepEqual(desktopV2.viewport, { name: "desktop", width: 1440, height: 1000 });
+    const mobileV2 = await loadLiveGateConfig({
+      ...fixture,
+      environment: { ...fixture.environment, REFERENCE_STORE_LIVE_VIEWPORT: "mobile" },
+      nodeVersion: "22.23.2",
+    });
+    assert.equal(mobileV2.gateVersion, 2);
+    assert.deepEqual(mobileV2.viewport, { name: "mobile", width: 390, height: 844 });
+    await assert.rejects(() => loadLiveGateConfig({
+      ...fixture,
+      environment: { ...fixture.environment, REFERENCE_STORE_LIVE_VIEWPORT: "tablet" },
+      nodeVersion: "22.23.2",
+    }), (error) => error.code === "invalid_live_viewport");
+    await assert.rejects(() => loadLiveGateConfig({
+      ...fixture,
+      environment: { ...fixture.environment, REFERENCE_STORE_LIVE_VIEWPORT: "" },
+      nodeVersion: "22.23.2",
+    }), (error) => error.code === "invalid_live_viewport");
     await assert.rejects(() => loadLiveGateConfig({
       ...fixture,
       environment: { ...fixture.environment, SHOPIFY_APP_PROXY_SECRET: "must-not-enter-browser-harness" },
@@ -407,6 +442,35 @@ test("injected 10/10 proves receipt logic without claiming a browser or network 
   assert.doesNotMatch(serialized, /reference-gate\.myshopify\.com/iu);
   assert.equal(receipt.shopify.permanent_shop_domain_sha256, sha256(SHOP));
   assert.equal(receipt.shopify.storefront_origin_sha256, sha256(`https://${SHOP}`));
+});
+
+test("v2 receipts bind desktop and mobile dimensions plus overflow and accessibility safety", async () => {
+  for (const name of ["desktop", "mobile"]) {
+    const viewport = validateLiveViewport(name);
+    const config = directConfig({ gateVersion: 2, viewport });
+    const receipt = await executeLiveGate({ config, transport: transportFor(config.cases) });
+    assert.equal(receipt.schema_version, "reference-store-live-app-proxy-receipt/v2");
+    assert.deepEqual(receipt.execution.viewport, viewport);
+    assert.equal(receipt.safety.horizontal_overflow_pixels, 0);
+    assert.equal(receipt.safety.serious_critical_a11y_violations, 0);
+    assert.equal(validateReceiptShape(receipt, config), receipt);
+  }
+
+  const config = directConfig({ gateVersion: 2, viewport: validateLiveViewport("mobile") });
+  for (const unsafe of [
+    { blocked_browser_requests: 1 },
+    { horizontal_overflow_pixels: 1 },
+    { serious_critical_a11y_violations: 1 },
+    { browser_storage_credential_hits: 1 },
+    { console_errors: 1 },
+  ]) {
+    const receipt = await executeLiveGate({
+      config,
+      transport: transportFor(config.cases, { safety: async () => safeCounts(unsafe) }),
+    });
+    assert.equal(receipt.gate_status, "failed");
+    assert.equal(receipt.execution.failure_code, "browser_safety_boundary_failed");
+  }
 });
 
 test("wrong-but-well-formed deployed component identity fails closed and remains distinct from expected", async () => {
@@ -493,14 +557,14 @@ test("runtime refreshes may change checked_at and quota without changing deploym
 test("all browser request types enforce same-origin fixed runtime routes and write boundaries", () => {
   const config = directConfig();
   const allowed = safeCounts();
-  observeBrowserRequest(config, allowed, {
+  assert.equal(observeBrowserRequest(config, allowed, {
     url: `https://${SHOP}/apps/reference-store/api/runtime/status`, method: "GET",
     resourceType: "fetch", headerNames: ["accept"],
-  });
-  observeBrowserRequest(config, allowed, {
+  }).allowed, true);
+  assert.equal(observeBrowserRequest(config, allowed, {
     url: `https://${SHOP}/apps/reference-store/api/runs`, method: "POST",
     resourceType: "xhr", headerNames: ["content-type"],
-  });
+  }).allowed, true);
   assert.deepEqual(allowed, safeCounts());
 
   for (const resourceType of [
@@ -514,11 +578,12 @@ test("all browser request types enforce same-origin fixed runtime routes and wri
     assert.equal(crossOrigin.cross_origin_api_requests, 1, resourceType);
   }
 
-  for (const resourceType of ["image", "stylesheet", "font", "media"]) {
+  for (const resourceType of ["image", "stylesheet", "font", "media", "script"]) {
     const allowedShopifyStatic = safeCounts();
-    observeBrowserRequest(config, allowedShopifyStatic, {
+    const allowedDecision = observeBrowserRequest(config, allowedShopifyStatic, {
       url: `https://cdn.shopify.com/resource-${resourceType}`, method: "GET", resourceType, headerNames: [],
     });
+    assert.equal(allowedDecision.allowed, true, resourceType);
     assert.deepEqual(allowedShopifyStatic, safeCounts(), resourceType);
     const unknownStatic = safeCounts();
     observeBrowserRequest(config, unknownStatic, {
@@ -551,6 +616,66 @@ test("all browser request types enforce same-origin fixed runtime routes and wri
   assert.equal(unknown.unexpected_api_requests, 1);
   assert.equal(unknown.browser_write_requests, 1);
   assert.equal(unknown.forbidden_browser_header_requests, 1);
+
+  const formPost = safeCounts();
+  const formDecision = observeBrowserRequest(config, formPost, {
+    url: `https://${SHOP}/apps/reference-store/api/runs`, method: "POST",
+    resourceType: "document", headerNames: ["content-type"],
+  });
+  assert.equal(formDecision.allowed, false);
+  assert.equal(formPost.browser_write_requests, 1);
+
+  const v2Blocked = safeCounts({
+    blocked_browser_requests: 0,
+    horizontal_overflow_pixels: 0,
+    serious_critical_a11y_violations: 0,
+  });
+  const blockedDecision = observeBrowserRequest(
+    directConfig({ gateVersion: 2, viewport: validateLiveViewport("desktop") }),
+    v2Blocked,
+    {
+      url: `https://${SHOP}/apps/reference-store/api/runs`, method: "DELETE",
+      resourceType: "fetch", headerNames: [],
+    },
+  );
+  assert.equal(blockedDecision.allowed, false);
+  assert.equal(v2Blocked.browser_write_requests, 1);
+  assert.equal(v2Blocked.unexpected_api_requests, 1);
+  assert.equal(v2Blocked.blocked_browser_requests, 1);
+
+  const late = safeCounts({
+    blocked_browser_requests: 0,
+    horizontal_overflow_pixels: 0,
+    serious_critical_a11y_violations: 0,
+  });
+  const lateDecision = observeBrowserRequest(
+    directConfig({ gateVersion: 2, viewport: validateLiveViewport("mobile") }),
+    late,
+    {
+      url: `https://${SHOP}/apps/reference-store/api/runtime/status`, method: "GET",
+      resourceType: "fetch", headerNames: [], finalizing: true,
+    },
+  );
+  assert.equal(lateDecision.allowed, false);
+  assert.equal(late.unexpected_api_requests, 1);
+  assert.equal(late.blocked_browser_requests, 1);
+
+  const unreadableHeaders = safeCounts({
+    blocked_browser_requests: 0,
+    horizontal_overflow_pixels: 0,
+    serious_critical_a11y_violations: 0,
+  });
+  const unreadableHeaderDecision = observeBrowserRequest(
+    directConfig({ gateVersion: 2, viewport: validateLiveViewport("desktop") }),
+    unreadableHeaders,
+    {
+      url: `https://${SHOP}/apps/reference-store/api/runtime/status`, method: "GET",
+      resourceType: "fetch", headerNames: [], headerInspectionFailed: true,
+    },
+  );
+  assert.equal(unreadableHeaderDecision.allowed, false);
+  assert.equal(unreadableHeaders.forbidden_browser_header_requests, 1);
+  assert.equal(unreadableHeaders.blocked_browser_requests, 1);
 });
 
 test("synthetic response, missing expected product and browser boundary activity fail closed", async () => {
@@ -629,6 +754,28 @@ test("evidence is sanitized, content-addressed and no-clobber", async () => {
   });
 });
 
+test("v2 evidence binds the viewport-aware receipt schema without changing v1", async () => {
+  await withSandbox(async (root) => {
+    const config = directConfig({
+      gateVersion: 2,
+      viewport: validateLiveViewport("mobile"),
+      outputRoot: path.join(root, "v2-evidence"),
+    });
+    const receipt = await executeLiveGate({ config, transport: transportFor(config.cases) });
+    const hashes = await writeEvidence(config, receipt);
+    const manifest = JSON.parse(await readFile(path.join(config.outputRoot, "manifest.json"), "utf8"));
+    assert.equal(manifest.schema_version, "reference-store-live-app-proxy-manifest/v2");
+    assert.equal(manifest.receipt_schema_version, "reference-store-live-app-proxy-receipt/v2");
+    assert.equal(manifest.receipt_sha256, hashes.receipt_sha256);
+  });
+  const v1 = await executeLiveGate({
+    config: directConfig(), transport: transportFor(directConfig().cases),
+  });
+  assert.equal(v1.schema_version, "reference-store-live-app-proxy-receipt/v1");
+  assert.equal(Object.hasOwn(v1.execution, "viewport"), false);
+  assert.equal(Object.hasOwn(v1.safety, "horizontal_overflow_pixels"), false);
+});
+
 test("receipt and manifest validators enforce nested closure and passed 10/10 cross-field invariants", async () => {
   const config = directConfig();
   const receipt = await executeLiveGate({ config, transport: transportFor(config.cases) });
@@ -689,7 +836,9 @@ test("published case and receipt schemas recursively close every declared object
     "reference-store-live-app-proxy-cases.v1.schema.json",
     "reference-store-deployment-descriptor.v1.schema.json",
     "reference-store-live-app-proxy-manifest.v1.schema.json",
+    "reference-store-live-app-proxy-manifest.v2.schema.json",
     "reference-store-live-app-proxy-receipt.v1.schema.json",
+    "reference-store-live-app-proxy-receipt.v2.schema.json",
     "reference-store-read-run.v1.schema.json",
     "reference-store-runtime-doctor.v1.schema.json",
     "reference-store-runtime-status.v1.schema.json",
@@ -703,6 +852,41 @@ test("published case and receipt schemas recursively close every declared object
     };
     visit(schema);
   }
+});
+
+test("v2 published schema closes exact viewport and visual safety evidence", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const schema = JSON.parse(await readFile(path.join(
+    root, "contracts", "reference-store-live-app-proxy-receipt.v2.schema.json",
+  ), "utf8"));
+  const variants = schema.$defs.viewport.oneOf;
+  assert.deepEqual(variants.map((entry) => ({
+    name: entry.properties.name.const,
+    width: entry.properties.width.const,
+    height: entry.properties.height.const,
+  })), [
+    { name: "desktop", width: 1440, height: 1000 },
+    { name: "mobile", width: 390, height: 844 },
+  ]);
+  const passedSafety = schema.allOf[0].then.properties.safety.properties;
+  assert.equal(passedSafety.horizontal_overflow_pixels.const, 0);
+  assert.equal(passedSafety.serious_critical_a11y_violations.const, 0);
+  assert.equal(passedSafety.blocked_browser_requests.const, 0);
+});
+
+test("live gate docs use the signed descriptor and document the v2 viewport matrix", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const docs = await readFile(path.join(root, "docs", "SHOPIFY_APP_PROXY_LIVE_GATE.md"), "utf8");
+  assert.match(docs, /BFF_DEPLOYMENT_DESCRIPTOR/gu);
+  assert.match(docs, /BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE/gu);
+  assert.match(docs, /REFERENCE_STORE_LIVE_VIEWPORT/gu);
+  assert.match(docs, /desktop.*1440x1000/gu);
+  assert.match(docs, /mobile.*390x844/gu);
+  assert.match(docs, /intercepts every\s+request/gu);
+  assert.match(docs, /aborted before\s+they can reach a server/gu);
+  assert.match(docs, /finalization window/gu);
+  assert.match(docs, /blocked_browser_requests/gu);
+  assert.doesNotMatch(docs, /seven public `\*_COMPONENT_\*` staging variables/gu);
 });
 
 test("published passed-receipt schema encodes all runtime safety and live-boundary invariants", async () => {

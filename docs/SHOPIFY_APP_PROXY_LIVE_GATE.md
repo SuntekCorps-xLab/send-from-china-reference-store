@@ -53,9 +53,13 @@ Before the run, an administrator must provide and independently record:
    `wp_app_proxy_path=/apps/reference-store` in the unpublished preview.
 6. Exact Reference Store commit/tree/version, exact deployed BFF
    commit/version, and exact Agent Core commit/version. The BFF commit must be
-   the same Reference Store commit being accepted. Bind the same values to the
-   seven public `*_COMPONENT_*` staging variables; status, doctor, and every run
-   must return that closed observed identity object.
+   the same Reference Store commit being accepted. Bind the canonical
+   `reference-store-deployment-descriptor/v1` JSON to
+   `BFF_DEPLOYMENT_DESCRIPTOR`, its Ed25519 signature to
+   `BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE`, and its frozen public key identifier
+   to `BFF_DEPLOYMENT_SIGNING_KEY_ID`. Status, doctor, and every run must return
+   that same closed, signed identity. The former seven public
+   `*_COMPONENT_*` variables are obsolete and must not be used.
 7. A private external cases file conforming to
    [`reference-store-live-app-proxy-cases.v1.schema.json`](../contracts/reference-store-live-app-proxy-cases.v1.schema.json).
    It must contain exactly ten opaque `case_<16-32 lowercase hex>` IDs, ten
@@ -77,6 +81,7 @@ are private inputs even though the output receipt is redacted.
 ```powershell
 $env:REFERENCE_STORE_LIVE_GATE_CONFIRM = 'READ_ONLY_APP_PROXY_10'
 $env:REFERENCE_STORE_LIVE_BROWSER = 'chromium' # repeat for firefox and webkit as separate receipts
+$env:REFERENCE_STORE_LIVE_VIEWPORT = 'desktop' # v2: desktop=1440x1000, mobile=390x844
 $env:REFERENCE_STORE_LIVE_PREVIEW_URL = '<HTTPS unpublished theme preview URL>'
 $env:REFERENCE_STORE_EXPECTED_SHOP_DOMAIN = '<permanent-shop-domain.myshopify.com>'
 $env:REFERENCE_STORE_EXPECTED_THEME_ID = '<unpublished theme ID>'
@@ -95,6 +100,13 @@ $env:REFERENCE_STORE_EXPECTED_CORE_VERSION = '1.2.0'
 npm run gate:app-proxy-live
 ```
 
+Omitting `REFERENCE_STORE_LIVE_VIEWPORT` preserves the original v1 gate and its
+1440x1000 receipt contract. New acceptance runs must use v2 and execute each
+browser twice: once with `desktop`, then with `mobile`, using a new evidence root
+for every browser/viewport pair. A passing v2 receipt records the selected name
+and exact dimensions and additionally requires zero horizontal overflow and zero
+serious/critical accessibility violations.
+
 Do not set `SHOPIFY_APP_PROXY_SECRET`, a Storefront/Admin token, a Core invite,
 or a tenant key in the harness process. The harness rejects known secret
 bindings because they belong only in the server deployment.
@@ -105,8 +117,9 @@ The gate exits zero only when all of these are true:
 
 - Node is version 22, the repository is clean, and commit/tree/package version
   match the expected identities.
-- A pinned Playwright browser is available and the preview remains on the exact
-  HTTPS permanent shop origin.
+- A pinned Playwright browser is available, the preview remains on the exact
+  HTTPS permanent shop origin, and v2 observes the exact closed viewport selected
+  by `REFERENCE_STORE_LIVE_VIEWPORT` (`desktop` 1440x1000 or `mobile` 390x844).
 - Status is connected `shopify_read_only` using
   `shopify_storefront_graphql`; doctor is fully healthy. Status, doctor, and
   every run report component identities and an identical Ed25519 deployment
@@ -117,12 +130,26 @@ The gate exits zero only when all of these are true:
 - All ten POST runs return Search Contract v2 `results` containing the expected
   handle and explicit non-transactional, non-purchasable, write-disabled
   boundaries.
+- Before the first preview navigation, a browser-context route intercepts every
+  request. It permits same-origin GET/HEAD traffic, the single same-origin
+  `POST /apps/reference-store/api/runs` BFF operation, and passive Shopify CDN
+  subresources only. Unknown API routes, all other write methods, active
+  cross-origin traffic, and forbidden credential headers are aborted before
+  they can reach a server. A v2 receipt records every aborted attempt in
+  `blocked_browser_requests`; a passing receipt requires zero.
 - No legacy route, unexpected runtime route, active cross-origin resource,
   unknown-origin passive resource, browser credential header, query/credential
   storage hit, IndexedDB/Cache Storage/service-worker state, console error, page
   error, synthetic fallback, or commerce write is observed. Passive images,
-  styles, fonts, and media are accepted only from the explicit Shopify CDN
-  allowlist.
+  styles, fonts, media, and scripts are accepted only from the explicit Shopify
+  CDN allowlist.
+- For v2, the document has zero horizontal overflow and axe-core reports zero
+  serious or critical accessibility violations at the selected viewport.
+- Before closing the browser, the gate waits for a bounded quiet window, enters
+  a finalization window that blocks any late request, captures storage,
+  accessibility, overflow, and request counters, and only then closes the
+  context. This preflight enforcement and final snapshot apply independently to
+  every browser and viewport receipt.
 
 Missing environment, a missing browser, HTTP, a mismatched shop/theme/component
 identity, fewer than ten cases, or any boundary violation exits nonzero.
@@ -141,10 +168,14 @@ expected and observed component identities, the verified descriptor/public-key
 hashes and key ID, hashed shop/origin identity, theme ID, aggregate counts, and
 safety counts. It does not contain the deployment signature, query text, response bodies, product
 handles, cookies, HMAC/signature values, tokens, raw headers, or the preview
-URL. The closed output contract is
+URL. The legacy output remains closed by
 [`reference-store-live-app-proxy-receipt.v1.schema.json`](../contracts/reference-store-live-app-proxy-receipt.v1.schema.json).
-The content-addressing envelope is closed by
-[`reference-store-live-app-proxy-manifest.v1.schema.json`](../contracts/reference-store-live-app-proxy-manifest.v1.schema.json).
+Viewport-aware runs use
+[`reference-store-live-app-proxy-receipt.v2.schema.json`](../contracts/reference-store-live-app-proxy-receipt.v2.schema.json).
+Their content-addressing envelopes are respectively closed by
+[`reference-store-live-app-proxy-manifest.v1.schema.json`](../contracts/reference-store-live-app-proxy-manifest.v1.schema.json)
+and
+[`reference-store-live-app-proxy-manifest.v2.schema.json`](../contracts/reference-store-live-app-proxy-manifest.v2.schema.json).
 
 A passing receipt is evidence for only its exact theme, Store, BFF, Core, cases
 hash, and browser. It does not authorize production deployment, theme

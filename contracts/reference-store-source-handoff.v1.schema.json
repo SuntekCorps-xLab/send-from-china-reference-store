@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reference-store.example.invalid/contracts/reference-store-source-handoff.v1.schema.json",
+  "title": "Reference Store source handoff response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract", "status", "source", "product_url", "purchase_allowed",
+    "attribution_recorded", "checkout_created"
+  ],
+  "properties": {
+    "contract": { "const": "reference-store-source-handoff/v1" },
+    "status": {
+      "enum": [
+        "accepted", "already_attributed", "invalid_token", "expired_token",
+        "privacy_no_tracking", "receiver_disabled", "receiver_unavailable"
+      ]
+    },
+    "source": { "enum": ["curated_catalog", "broader_public_catalog"] },
+    "product_url": { "type": "string", "format": "uri" },
+    "purchase_allowed": { "const": true },
+    "attribution_recorded": { "type": "boolean" },
+    "checkout_created": { "const": false }
+  }
+}

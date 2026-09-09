@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,8 +17,10 @@ const REPOSITORY_ROOT = path.resolve(SCRIPT_DIR, "..");
 const CONFIRMATION = "READ_ONLY_APP_PROXY_10";
 const RUNTIME_PREFIX = "/apps/reference-store";
 const CASE_SCHEMA = "reference-store-live-app-proxy-cases/v1";
-const RECEIPT_SCHEMA = "reference-store-live-app-proxy-receipt/v1";
-const MANIFEST_SCHEMA = "reference-store-live-app-proxy-manifest/v1";
+const RECEIPT_SCHEMA_V1 = "reference-store-live-app-proxy-receipt/v1";
+const RECEIPT_SCHEMA_V2 = "reference-store-live-app-proxy-receipt/v2";
+const MANIFEST_SCHEMA_V1 = "reference-store-live-app-proxy-manifest/v1";
+const MANIFEST_SCHEMA_V2 = "reference-store-live-app-proxy-manifest/v2";
 const DEPLOYMENT_DESCRIPTOR_SCHEMA = "reference-store-deployment-descriptor/v1";
 const DEPLOYMENT_ATTESTATION_SCHEMA = "reference-store-deployment-attestation/v1";
 const HASH = /^[0-9a-f]{40}$/u;
@@ -42,8 +45,15 @@ const FORBIDDEN_BROWSER_HEADERS = new Set([
   "x-shopify-storefront-access-token",
 ]);
 const LEGACY_PATHS = new Set(["/api/chat", "/api/search", "/api/catalog"]);
-const PASSIVE_CROSS_ORIGIN_RESOURCE_TYPES = new Set(["image", "stylesheet", "font", "media"]);
+const PASSIVE_CROSS_ORIGIN_RESOURCE_TYPES = new Set(["image", "stylesheet", "font", "media", "script"]);
+const ACTIVE_BROWSER_RESOURCE_TYPES = new Set([
+  "fetch", "xhr", "websocket", "eventsource", "ping", "beacon",
+]);
+const FORBIDDEN_STATEFUL_RESOURCE_TYPES = new Set(["websocket", "eventsource", "ping", "beacon"]);
 const SHOPIFY_STATIC_HOSTS = new Set(["cdn.shopify.com", "fonts.shopifycdn.com"]);
+const REQUEST_QUIET_WINDOW_MS = 300;
+const REQUEST_QUIET_DEADLINE_MS = 3_000;
+const FINAL_LATE_REQUEST_WINDOW_MS = 150;
 const RUNTIME_ROUTES = new Map([
   [`${RUNTIME_PREFIX}/api/runtime/status`, "GET"],
   [`${RUNTIME_PREFIX}/api/runtime/doctor`, "GET"],
@@ -88,6 +98,11 @@ const SAFETY_KEYS = [
   "browser_write_requests", "forbidden_browser_header_requests", "browser_storage_credential_hits",
   "browser_storage_query_hits", "browser_persistent_storage_hits", "console_errors", "page_errors",
 ];
+const LIVE_BROWSER_EVENT_SAFETY_KEYS = [
+  "cross_origin_api_requests", "legacy_route_requests", "unexpected_api_requests",
+  "browser_write_requests", "forbidden_browser_header_requests", "console_errors", "page_errors",
+  "blocked_browser_requests",
+];
 const RECEIPT_BOUNDARY_KEYS = [
   "actual_shopify_app_proxy_verified", "live_shopify_connection_verified",
   "synthetic_fallback_count", "successful_commerce_write_count", "raw_query_record_count",
@@ -96,6 +111,15 @@ const RECEIPT_BOUNDARY_KEYS = [
 const RECEIPT_ATTESTATION_KEYS = [
   "verified", "signing_key_id", "public_key_sha256", "descriptor_sha256",
 ];
+const LIVE_VIEWPORTS = Object.freeze({
+  desktop: Object.freeze({ name: "desktop", width: 1440, height: 1000 }),
+  mobile: Object.freeze({ name: "mobile", width: 390, height: 844 }),
+});
+const V2_SAFETY_KEYS = [
+  ...SAFETY_KEYS, "blocked_browser_requests", "horizontal_overflow_pixels",
+  "serious_critical_a11y_violations",
+];
+const require = createRequire(import.meta.url);
 
 export class LiveGateError extends Error {
   constructor(code) {
@@ -206,6 +230,29 @@ function outsideRepository(repositoryRoot, target, code) {
   if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) fail(code);
 }
 
+export function validateLiveViewport(value) {
+  if (typeof value !== "string" || value !== value.trim() || !Object.hasOwn(LIVE_VIEWPORTS, value)) {
+    fail("invalid_live_viewport");
+  }
+  return LIVE_VIEWPORTS[value];
+}
+
+function gateVersion(config) {
+  return config?.gateVersion === 2 ? 2 : 1;
+}
+
+function receiptSchema(config) {
+  return gateVersion(config) === 2 ? RECEIPT_SCHEMA_V2 : RECEIPT_SCHEMA_V1;
+}
+
+function manifestSchema(config) {
+  return gateVersion(config) === 2 ? MANIFEST_SCHEMA_V2 : MANIFEST_SCHEMA_V1;
+}
+
+function configuredViewport(config) {
+  return config?.viewport || LIVE_VIEWPORTS.desktop;
+}
+
 export function validatePreviewIdentity({ previewUrl, shopDomain, themeId }) {
   if (!/^[a-z0-9][a-z0-9-]{0,62}\.myshopify\.com$/u.test(shopDomain)) {
     fail("invalid_permanent_shop_domain");
@@ -269,6 +316,9 @@ export async function loadLiveGateConfig({
   }
   const browser = required(environment, "REFERENCE_STORE_LIVE_BROWSER");
   if (!["chromium", "firefox", "webkit"].includes(browser)) fail("invalid_live_browser");
+  const rawViewport = environment.REFERENCE_STORE_LIVE_VIEWPORT;
+  const gateVersionValue = rawViewport === undefined ? 1 : 2;
+  const viewport = gateVersionValue === 1 ? LIVE_VIEWPORTS.desktop : validateLiveViewport(rawViewport);
   const preview = validatePreviewIdentity({
     previewUrl: required(environment, "REFERENCE_STORE_LIVE_PREVIEW_URL"),
     shopDomain: required(environment, "REFERENCE_STORE_EXPECTED_SHOP_DOMAIN").toLowerCase(),
@@ -342,8 +392,10 @@ export async function loadLiveGateConfig({
   const agentCoreCommit = required(environment, "REFERENCE_STORE_EXPECTED_CORE_COMMIT");
   if (!HASH.test(agentCoreCommit)) fail("invalid_agent_core_commit");
   const config = {
+    gateVersion: gateVersionValue,
     preview,
     browser,
+    viewport,
     outputRoot,
     cases,
     casesSha256: sha256(rawCases),
@@ -603,8 +655,8 @@ function observedBoundaryViolations(payload) {
   };
 }
 
-function initialSafety() {
-  return {
+function initialSafety(version = 1) {
+  const safety = {
     cross_origin_api_requests: 0,
     legacy_route_requests: 0,
     unexpected_api_requests: 0,
@@ -616,6 +668,12 @@ function initialSafety() {
     console_errors: 0,
     page_errors: 0,
   };
+  if (version === 2) {
+    safety.blocked_browser_requests = 0;
+    safety.horizontal_overflow_pixels = 0;
+    safety.serious_critical_a11y_violations = 0;
+  }
+  return safety;
 }
 
 function safeFailure(error) {
@@ -629,7 +687,8 @@ function networkIsClean(safety) {
 
 export async function executeLiveGate({ config, transport, now = () => Date.now() }) {
   const journeys = {};
-  const safety = initialSafety();
+  const version = gateVersion(config);
+  const safety = initialSafety(version);
   const observed = { synthetic_fallback_count: 0, successful_commerce_write_count: 0 };
   let failureCode = null;
   let firstFailureCaseId = null;
@@ -679,12 +738,27 @@ export async function executeLiveGate({ config, transport, now = () => Date.now(
     try { Object.assign(safety, await transport.safety(config.cases.map((item) => item.query))); }
     catch { /* Preserve the first closed failure. */ }
   } finally {
-    await transport.close().catch(() => {});
+    try {
+      const closingSafety = await transport.close(config.cases.map((item) => item.query));
+      if (closingSafety && typeof closingSafety === "object") Object.assign(safety, closingSafety);
+    } catch {
+      if (!failureCode) failureCode = "live_gate_close_failed";
+    }
   }
+  if (!failureCode && !networkIsClean(safety)) failureCode = "browser_safety_boundary_failed";
   const passed = !failureCode && Object.keys(journeys).length === 10 && networkIsClean(safety);
   if (!passed && !failureCode) failureCode = "incomplete_live_gate";
+  const execution = {
+    browser: config.browser,
+    ...(version === 2 ? { viewport: configuredViewport(config) } : {}),
+    attempted_count: Object.keys(journeys).length + (firstFailureCaseId ? 1 : 0),
+    passed_count: Object.keys(journeys).length,
+    failed_count: firstFailureCaseId ? 1 : 0,
+    first_failure_case_id: firstFailureCaseId,
+    failure_code: failureCode,
+  };
   return Object.freeze({
-    schema_version: RECEIPT_SCHEMA,
+    schema_version: receiptSchema(config),
     generated_at: new Date().toISOString(),
     gate_status: passed ? "passed" : "failed",
     claim_scope: "real_unpublished_shopify_app_proxy_read_only",
@@ -702,14 +776,7 @@ export async function executeLiveGate({ config, transport, now = () => Date.now(
       unpublished_theme_id: config.preview.themeId,
     }),
     inputs: Object.freeze({ cases_sha256: config.casesSha256, case_count: 10 }),
-    execution: Object.freeze({
-      browser: config.browser,
-      attempted_count: Object.keys(journeys).length + (firstFailureCaseId ? 1 : 0),
-      passed_count: Object.keys(journeys).length,
-      failed_count: firstFailureCaseId ? 1 : 0,
-      first_failure_case_id: firstFailureCaseId,
-      failure_code: failureCode,
-    }),
+    execution: Object.freeze(execution),
     safety: Object.freeze(safety),
     boundaries: Object.freeze({
       actual_shopify_app_proxy_verified: passed,
@@ -746,39 +813,77 @@ async function jsonFetch(page, route, body) {
 
 export function observeBrowserRequest(config, counters, observation) {
   let url;
-  try { url = new URL(observation.url); } catch { counters.unexpected_api_requests += 1; return; }
+  try { url = new URL(observation.url); } catch {
+    counters.unexpected_api_requests += 1;
+    if (Object.hasOwn(counters, "blocked_browser_requests")) counters.blocked_browser_requests += 1;
+    return Object.freeze({ allowed: false, reason: "invalid_request_url" });
+  }
   const pathname = url.pathname;
   const resourceType = String(observation.resourceType || "");
   const method = String(observation.method || "GET").toUpperCase();
   const apiPath = pathname.startsWith(`${RUNTIME_PREFIX}/`)
     || pathname.startsWith("/api/") || pathname.includes("/api/");
+  let blocked = Boolean(observation.finalizing);
+  let reason = blocked ? "request_after_final_quiescence" : null;
+  if (blocked) counters.unexpected_api_requests += 1;
   if (url.origin !== config.preview.origin) {
     const passiveStatic = PASSIVE_CROSS_ORIGIN_RESOURCE_TYPES.has(resourceType)
       && ["GET", "HEAD"].includes(method) && url.protocol === "https:"
-      && SHOPIFY_STATIC_HOSTS.has(url.hostname.toLowerCase());
-    if (!passiveStatic || apiPath) counters.cross_origin_api_requests += 1;
+      && SHOPIFY_STATIC_HOSTS.has(url.hostname.toLowerCase()) && !apiPath;
     const rawQueries = Array.isArray(observation.rawQueries) ? observation.rawQueries : [];
-    if (rawQueries.some((query) => url.href.includes(query) || url.href.includes(encodeURIComponent(query)))) {
+    const queryLeak = rawQueries.some((query) => (
+      url.href.includes(query) || url.href.includes(encodeURIComponent(query))
+    ));
+    if (!passiveStatic || queryLeak) {
       counters.cross_origin_api_requests += 1;
+      blocked = true;
+      reason ||= queryLeak ? "cross_origin_query_leak" : "cross_origin_request";
     }
   }
   if (LEGACY_PATHS.has(pathname) || [...LEGACY_PATHS].some((legacy) => pathname.endsWith(legacy))) {
     counters.legacy_route_requests += 1;
+    blocked = true;
+    reason ||= "legacy_runtime_route";
   }
   const expectedMethod = RUNTIME_ROUTES.get(pathname);
   if (apiPath && (url.origin !== config.preview.origin
     || !expectedMethod || expectedMethod !== method || url.search)) {
     counters.unexpected_api_requests += 1;
+    blocked = true;
+    reason ||= "unexpected_runtime_route";
   }
-  if (!["GET", "HEAD", "OPTIONS"].includes(method)
-    && !(url.origin === config.preview.origin
-      && pathname === `${RUNTIME_PREFIX}/api/runs` && method === "POST" && !url.search)) {
+  const allowedRun = url.origin === config.preview.origin
+    && pathname === `${RUNTIME_PREFIX}/api/runs` && method === "POST" && !url.search
+    && ["fetch", "xhr"].includes(resourceType);
+  if (!["GET", "HEAD"].includes(method) && !allowedRun) {
     counters.browser_write_requests += 1;
+    blocked = true;
+    reason ||= "browser_write_request";
   }
   const headerNames = (observation.headerNames || []).map((name) => String(name).toLowerCase());
   if (headerNames.some((name) => FORBIDDEN_BROWSER_HEADERS.has(name))) {
     counters.forbidden_browser_header_requests += 1;
+    blocked = true;
+    reason ||= "forbidden_browser_header";
   }
+  if (observation.headerInspectionFailed) {
+    counters.forbidden_browser_header_requests += 1;
+    blocked = true;
+    reason ||= "browser_header_inspection_failed";
+  }
+  if (url.origin !== config.preview.origin && ACTIVE_BROWSER_RESOURCE_TYPES.has(resourceType)) {
+    blocked = true;
+    reason ||= "cross_origin_active_request";
+  }
+  if (FORBIDDEN_STATEFUL_RESOURCE_TYPES.has(resourceType)) {
+    counters.unexpected_api_requests += 1;
+    blocked = true;
+    reason ||= "stateful_browser_request";
+  }
+  if (blocked && Object.hasOwn(counters, "blocked_browser_requests")) {
+    counters.blocked_browser_requests += 1;
+  }
+  return Object.freeze({ allowed: !blocked, reason });
 }
 
 export async function createPlaywrightTransport(config, { repositoryRoot = REPOSITORY_ROOT } = {}) {
@@ -786,6 +891,11 @@ export async function createPlaywrightTransport(config, { repositoryRoot = REPOS
   const engine = runtime.playwright[config.browser];
   const executablePath = process.env[`${config.browser.toUpperCase()}_PATH`]
     || runtime.descriptors[config.browser].executablePath;
+  let axeSource = null;
+  if (gateVersion(config) === 2) {
+    try { axeSource = await readFile(require.resolve("axe-core/axe.min.js"), "utf8"); }
+    catch { fail("live_accessibility_runtime_unavailable"); }
+  }
   let browser;
   let context;
   let page;
@@ -793,21 +903,63 @@ export async function createPlaywrightTransport(config, { repositoryRoot = REPOS
     browser = await engine.launch({ headless: true, executablePath });
     await browserIdentity(browser, config.browser, executablePath, runtime);
     await probeBrowser(browser, () => {});
-    ({ context, page } = await createBrowserPage(browser, { width: 1440, height: 1000 }));
+    ({ context, page } = await createBrowserPage(browser, configuredViewport(config), {
+      ...(axeSource ? { initScript: axeSource } : {}),
+    }));
   } catch {
     await browser?.close().catch(() => {});
     fail("live_browser_unavailable");
   }
-  const counters = initialSafety();
+  const counters = initialSafety(gateVersion(config));
   const issuedQueries = [];
+  let lastRequestAt = Date.now();
+  const inFlightRequests = new Set();
+  let finalizing = false;
+  let closed = false;
+  let finalSafety = null;
   page.on("console", (message) => { if (message.type() === "error") counters.console_errors += 1; });
   page.on("pageerror", () => { counters.page_errors += 1; });
-  page.on("request", (request) => {
-    observeBrowserRequest(config, counters, {
-      url: request.url(), method: request.method(), resourceType: request.resourceType(),
-      headerNames: Object.keys(request.headers()), rawQueries: issuedQueries,
+  const finishRequest = (request) => {
+    inFlightRequests.delete(request);
+    lastRequestAt = Date.now();
+  };
+  page.on("requestfinished", finishRequest);
+  page.on("requestfailed", finishRequest);
+  try {
+    await context.route("**/*", async (route) => {
+      const request = route.request();
+      lastRequestAt = Date.now();
+      let headerNames = [];
+      let headerInspectionFailed = false;
+      try { headerNames = Object.keys(await request.allHeaders()); }
+      catch { headerInspectionFailed = true; }
+      const decision = observeBrowserRequest(config, counters, {
+        url: request.url(), method: request.method(), resourceType: request.resourceType(),
+        headerNames, headerInspectionFailed, rawQueries: issuedQueries, finalizing,
+      });
+      try {
+        if (decision.allowed) {
+          inFlightRequests.add(request);
+          await route.continue();
+        } else await route.abort("blockedbyclient");
+      } catch {
+        // Closing a context can settle an already-routed request. Every request
+        // has still crossed the synchronous authorization decision above.
+      }
     });
-  });
+    await context.routeWebSocket("**/*", async (webSocket) => {
+      lastRequestAt = Date.now();
+      observeBrowserRequest(config, counters, {
+        url: webSocket.url(), method: "GET", resourceType: "websocket",
+        headerNames: [], rawQueries: issuedQueries, finalizing,
+      });
+      await webSocket.close({ code: 1008, reason: "blocked_by_live_gate" });
+    });
+  } catch {
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    fail("live_request_interception_unavailable");
+  }
   let navigation;
   try {
     navigation = await page.goto(config.preview.url, { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -821,15 +973,25 @@ export async function createPlaywrightTransport(config, { repositoryRoot = REPOS
     await browser.close().catch(() => {});
     fail("unpublished_theme_preview_identity_mismatch");
   }
-  return Object.freeze({
-    status: () => jsonFetch(page, `${RUNTIME_PREFIX}/api/runtime/status`),
-    doctor: () => jsonFetch(page, `${RUNTIME_PREFIX}/api/runtime/doctor`),
-    run: (query) => {
-      issuedQueries.push(query);
-      return jsonFetch(page, `${RUNTIME_PREFIX}/api/runs`, { query, limit: 20 });
-    },
-    safety: async (queries) => {
-      const storage = await page.evaluate(async (rawQueries) => {
+  const expectedViewport = configuredViewport(config);
+  const observedViewport = page.viewportSize();
+  if (!observedViewport || observedViewport.width !== expectedViewport.width
+    || observedViewport.height !== expectedViewport.height) {
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    fail("live_viewport_identity_mismatch");
+  }
+  async function waitForRequestQuiescence() {
+    const deadline = Date.now() + REQUEST_QUIET_DEADLINE_MS;
+    while (inFlightRequests.size > 0 || Date.now() - lastRequestAt < REQUEST_QUIET_WINDOW_MS) {
+      if (Date.now() >= deadline) fail("live_request_quiescence_failed");
+      const remaining = REQUEST_QUIET_WINDOW_MS - (Date.now() - lastRequestAt);
+      await new Promise((resolve) => setTimeout(resolve, Math.max(1, Math.min(50, remaining))));
+    }
+  }
+
+  async function captureSafety(queries) {
+    const storage = await page.evaluate(async (rawQueries) => {
         const forbidden = /(?:access[_-]?token|authorization|client[_-]?secret|credential|hmac|password|signature|x-sandbox-invite)/iu;
         let credentialHits = 0;
         let queryHits = 0;
@@ -857,41 +1019,89 @@ export async function createPlaywrightTransport(config, { repositoryRoot = REPOS
             persistentHits += 1;
           } else persistentHits += (await navigator.serviceWorker.getRegistrations()).length;
         } catch { persistentHits += 1; }
-        return { credentialHits, queryHits, persistentHits };
-      }, queries);
-      let cookieCredentialHits = 0;
-      let cookieQueryHits = 0;
-      const forbidden = /(?:access[_-]?token|authorization|client[_-]?secret|credential|hmac|password|signature|x-sandbox-invite)/iu;
-      for (const cookie of await context.cookies()) {
-        if (forbidden.test(cookie.name) || forbidden.test(cookie.value)) cookieCredentialHits += 1;
-        if (queries.some((query) => cookie.name.includes(query) || cookie.value.includes(query))) {
-          cookieQueryHits += 1;
+      return { credentialHits, queryHits, persistentHits };
+    }, queries);
+    let cookieCredentialHits = 0;
+    let cookieQueryHits = 0;
+    const forbidden = /(?:access[_-]?token|authorization|client[_-]?secret|credential|hmac|password|signature|x-sandbox-invite)/iu;
+    for (const cookie of await context.cookies()) {
+      if (forbidden.test(cookie.name) || forbidden.test(cookie.value)) cookieCredentialHits += 1;
+      if (queries.some((query) => cookie.name.includes(query) || cookie.value.includes(query))) {
+        cookieQueryHits += 1;
+      }
+    }
+    const visualSafety = gateVersion(config) === 2 ? await page.evaluate(async () => {
+      let seriousCritical = 1;
+      try {
+        if (!window.axe) throw new Error("axe_unavailable");
+        const result = await window.axe.run(document, { resultTypes: ["violations"] });
+        seriousCritical = result.violations.filter((item) => (
+          item.impact === "serious" || item.impact === "critical"
+        )).length;
+      } catch { seriousCritical = 1; }
+      return {
+        horizontalOverflowPixels: Math.max(0, document.documentElement.scrollWidth - innerWidth),
+        seriousCritical,
+      };
+    }) : null;
+    return {
+      ...counters,
+      browser_storage_credential_hits: storage.credentialHits + cookieCredentialHits,
+      browser_storage_query_hits: storage.queryHits + cookieQueryHits,
+      browser_persistent_storage_hits: storage.persistentHits,
+      ...(visualSafety ? {
+        horizontal_overflow_pixels: visualSafety.horizontalOverflowPixels,
+        serious_critical_a11y_violations: visualSafety.seriousCritical,
+      } : {}),
+    };
+  }
+
+  return Object.freeze({
+    status: () => jsonFetch(page, `${RUNTIME_PREFIX}/api/runtime/status`),
+    doctor: () => jsonFetch(page, `${RUNTIME_PREFIX}/api/runtime/doctor`),
+    run: (query) => {
+      issuedQueries.push(query);
+      return jsonFetch(page, `${RUNTIME_PREFIX}/api/runs`, { query, limit: 20 });
+    },
+    safety: async (queries) => {
+      await waitForRequestQuiescence();
+      return captureSafety(queries);
+    },
+    close: async (queries = issuedQueries) => {
+      if (closed) return finalSafety;
+      try {
+        await waitForRequestQuiescence();
+        finalizing = true;
+        await new Promise((resolve) => setTimeout(resolve, FINAL_LATE_REQUEST_WINDOW_MS));
+        finalSafety = await captureSafety(queries);
+      } catch {
+        counters.page_errors += 1;
+        finalSafety = { ...counters };
+      } finally {
+        await context.close().catch(() => { counters.page_errors += 1; });
+        await browser.close().catch(() => { counters.page_errors += 1; });
+        closed = true;
+        for (const key of LIVE_BROWSER_EVENT_SAFETY_KEYS) {
+          if (Object.hasOwn(counters, key)) finalSafety[key] = counters[key];
         }
       }
-      return {
-        ...counters,
-        browser_storage_credential_hits: storage.credentialHits + cookieCredentialHits,
-        browser_storage_query_hits: storage.queryHits + cookieQueryHits,
-        browser_persistent_storage_hits: storage.persistentHits,
-      };
-    },
-    close: async () => {
-      await context.close();
-      await browser.close();
+      return finalSafety;
     },
   });
 }
 
 export function validateReceiptShape(receipt, config = null) {
+  const version = receipt?.schema_version === RECEIPT_SCHEMA_V2 ? 2 : 1;
   const topKeys = [
     "schema_version", "generated_at", "gate_status", "claim_scope", "expected_components",
     "observed_components", "deployment_attestation", "shopify", "inputs", "execution", "safety",
     "boundaries", "journeys",
   ];
-  const executionKeys = [
-    "browser", "attempted_count", "passed_count", "failed_count", "first_failure_case_id", "failure_code",
-  ];
-  if (!exactKeys(receipt, topKeys) || receipt.schema_version !== RECEIPT_SCHEMA
+  const executionKeys = ["browser", ...(version === 2 ? ["viewport"] : []),
+    "attempted_count", "passed_count", "failed_count", "first_failure_case_id", "failure_code"];
+  const safetyKeys = version === 2 ? V2_SAFETY_KEYS : SAFETY_KEYS;
+  if (!exactKeys(receipt, topKeys)
+    || ![RECEIPT_SCHEMA_V1, RECEIPT_SCHEMA_V2].includes(receipt.schema_version)
     || !exactIsoTimestamp(receipt.generated_at) || !["passed", "failed"].includes(receipt.gate_status)
     || receipt.claim_scope !== "real_unpublished_shopify_app_proxy_read_only"
     || !validComponentIdentities(receipt.expected_components)
@@ -914,6 +1124,9 @@ export function validateReceiptShape(receipt, config = null) {
     || !DIGEST.test(receipt.inputs.cases_sha256) || receipt.inputs.case_count !== 10
     || !exactKeys(receipt.execution, executionKeys)
     || !["chromium", "firefox", "webkit"].includes(receipt.execution.browser)
+    || (version === 2 && (!exactKeys(receipt.execution.viewport, ["name", "width", "height"])
+      || !Object.hasOwn(LIVE_VIEWPORTS, receipt.execution.viewport.name)
+      || !exactCanonicalValue(receipt.execution.viewport, LIVE_VIEWPORTS[receipt.execution.viewport.name])))
     || !["attempted_count", "passed_count", "failed_count"]
       .every((key) => nonnegativeInteger(receipt.execution[key]))
     || receipt.execution.attempted_count > 10 || receipt.execution.passed_count > 10
@@ -922,8 +1135,8 @@ export function validateReceiptShape(receipt, config = null) {
       || CASE_ID.test(receipt.execution.first_failure_case_id))
     || !(receipt.execution.failure_code === null
       || /^[a-z0-9_]{3,80}$/u.test(receipt.execution.failure_code))
-    || !exactKeys(receipt.safety, SAFETY_KEYS)
-    || !SAFETY_KEYS.every((key) => nonnegativeInteger(receipt.safety[key]))
+    || !exactKeys(receipt.safety, safetyKeys)
+    || !safetyKeys.every((key) => nonnegativeInteger(receipt.safety[key]))
     || !exactKeys(receipt.boundaries, RECEIPT_BOUNDARY_KEYS)
     || !["actual_shopify_app_proxy_verified", "live_shopify_connection_verified"]
       .every((key) => typeof receipt.boundaries[key] === "boolean")
@@ -958,7 +1171,7 @@ export function validateReceiptShape(receipt, config = null) {
       || receipt.deployment_attestation.verified !== true
       || receipt.deployment_attestation.descriptor_sha256
         !== sha256(canonicalJson(deploymentDescriptor(receipt.expected_components)))
-      || !SAFETY_KEYS.every((key) => receipt.safety[key] === 0)
+      || !safetyKeys.every((key) => receipt.safety[key] === 0)
       || receipt.boundaries.actual_shopify_app_proxy_verified !== true
       || receipt.boundaries.live_shopify_connection_verified !== true
       || !RECEIPT_BOUNDARY_KEYS.slice(2).every((key) => receipt.boundaries[key] === 0)) {
@@ -979,6 +1192,8 @@ export function validateReceiptShape(receipt, config = null) {
       || receipt.shopify.unpublished_theme_id !== config.preview.themeId
       || receipt.inputs.cases_sha256 !== config.casesSha256
       || receipt.execution.browser !== config.browser
+      || (version === 2 && !exactCanonicalValue(receipt.execution.viewport, configuredViewport(config)))
+      || version !== gateVersion(config)
       || journeyCaseIds.some((caseId) => !expectedCaseIds.has(caseId))) {
       fail("receipt_input_identity_mismatch");
     }
@@ -987,9 +1202,13 @@ export function validateReceiptShape(receipt, config = null) {
 }
 
 export function validateManifestShape(manifest, { receiptBytes, receiptDigest, casesSha256 }) {
-  if (!exactKeys(manifest, [
-    "schema_version", "generated_at", "receipt_file", "receipt_bytes", "receipt_sha256", "cases_sha256",
-  ]) || manifest.schema_version !== MANIFEST_SCHEMA || !exactIsoTimestamp(manifest.generated_at)
+  const version = manifest?.schema_version === MANIFEST_SCHEMA_V2 ? 2 : 1;
+  const keys = ["schema_version", "generated_at", "receipt_file", "receipt_bytes", "receipt_sha256",
+    "cases_sha256", ...(version === 2 ? ["receipt_schema_version"] : [])];
+  if (!exactKeys(manifest, keys)
+    || ![MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2].includes(manifest.schema_version)
+    || (version === 2 && manifest.receipt_schema_version !== RECEIPT_SCHEMA_V2)
+    || !exactIsoTimestamp(manifest.generated_at)
     || manifest.receipt_file !== "receipt.json" || !Number.isInteger(manifest.receipt_bytes)
     || manifest.receipt_bytes <= 0 || manifest.receipt_bytes !== receiptBytes
     || !DIGEST.test(manifest.receipt_sha256) || manifest.receipt_sha256 !== receiptDigest
@@ -1005,12 +1224,13 @@ export async function writeEvidence(config, receipt) {
   const receiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`, "utf8");
   const receiptDigest = sha256(receiptBytes);
   const manifest = {
-    schema_version: MANIFEST_SCHEMA,
+    schema_version: manifestSchema(config),
     generated_at: new Date().toISOString(),
     receipt_file: "receipt.json",
     receipt_bytes: receiptBytes.length,
     receipt_sha256: receiptDigest,
     cases_sha256: config.casesSha256,
+    ...(gateVersion(config) === 2 ? { receipt_schema_version: RECEIPT_SCHEMA_V2 } : {}),
   };
   validateManifestShape(manifest, {
     receiptBytes: receiptBytes.length,
