@@ -43,6 +43,20 @@ runtime routes use a separate, explicit sandbox boundary:
 | `BFF_DEPLOYMENT_DESCRIPTOR_SIGNATURE` | No | Base64url Ed25519 signature created by the release control plane over the canonical descriptor |
 | `BFF_DEPLOYMENT_SIGNING_KEY_ID` | No | Public identifier for the release signing key; the external gate pins its public key independently |
 
+An independent `managed_public_catalog` profile uses only Git-external server
+configuration: `MANAGED_CATALOG_ENABLED=true`, an exact
+`MANAGED_CATALOG_ENDPOINT` ending in `/mcp`, its matching exact
+`MANAGED_CATALOG_ALLOWED_ORIGIN`, and a cohort provider. It has
+no built-in production endpoint or credential path. Its built-in anonymous MCP
+transport (or injected anonymous service binding/test transport)
+validates protocol `2025-06-18` and `world-products` `1.0.0`, tolerates
+additional advertised tools, and invokes only the frozen catalog-read allowlist.
+Browser input cannot select
+this profile or supply its endpoint, origin, adapter credential, or cohort.
+Adapter calls inherit the bounded `BFF_UPSTREAM_TIMEOUT_MS` and 256 KiB response
+ceiling. An injected source receiver has a 1-second default timeout, configurable
+from 100–5000 ms with `SOURCE_HANDOFF_TIMEOUT_MS`.
+
 `local` accepts runtime requests only when the request URL host is exactly
 `127.0.0.1`. It is intended for the local demo server, which is responsible for
 binding its listener to the same address. `shopify_app_proxy` additionally
@@ -84,6 +98,20 @@ acceptance result.
 - `GET /api/runtime/status`
 - `GET /api/runtime/doctor`
 - `POST /api/runs`
+- `GET /api/managed-catalog/curated` (`managed_public_catalog` only)
+- `POST /api/managed-catalog/search` (`managed_public_catalog` only)
+- `POST /api/managed-catalog/product` (`managed_public_catalog` only)
+- `POST /api/source-handoff` (`managed_public_catalog` only)
+
+The managed profile is fail-closed and separate from the S1 runtime routes. An
+accepted cohort is required for curated reads; it never falls back to synthetic
+or broader public results. Broader search requires an explicit request flag and
+is always labelled unreviewed. Catalog price/availability stays catalog evidence
+and is never presented as Shopify `availableForSale` or a verified timestamp.
+Product handoff uses a BFF-constructed exact canonical same-store HTTPS PDP URL
+and ignores upstream cart links. Source receiving is injected and disabled by default;
+privacy denial or receiver failure does not block purchase and cannot claim
+attribution. See the [managed public catalog guide](../docs/MANAGED_PUBLIC_CATALOG.md).
 
 `GET /api/runtime/status` strictly validates the Agent Core
 `shopify-live-sandbox-status/v1` response and returns the smaller closed
@@ -124,6 +152,9 @@ The runtime error enum is:
 `authentication_failed`, `credential_missing`, `deployment_not_configured`,
 `invalid_request`, `invalid_shopify_product_url`,
 `invalid_upstream_content_type`, `invalid_upstream_contract`,
+`broader_search_opt_in_required`, `curated_not_ready`,
+`managed_catalog_not_configured`, `managed_catalog_unavailable`,
+`product_not_curated`, `product_not_found`,
 `local_binding_required`, `not_found`, `origin_not_allowed`, `permission_required`, `quota_exceeded`,
 `request_too_large`, `runtime_mode_mismatch`, `runtime_not_configured`,
 `service_unavailable`, `upstream_contract_unavailable`,
