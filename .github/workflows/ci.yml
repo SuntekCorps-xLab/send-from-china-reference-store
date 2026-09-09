@@ -83,6 +83,8 @@ jobs:
           node demo/tests/run-shopify-browser-qa.mjs --all > build/ci-evidence-input/shopify-browser.json
       - name: Verify actual Liquid and App Proxy in bundled browser engines
         run: node shopify-theme/tests/run-shopify-liquid-browser-qa.mjs --all
+      - name: Prove App Proxy gate blocks unsafe requests before network dispatch
+        run: npm run test:live-gate-routing
       - name: Generate exact-SHA browser evidence
         run: >-
           node scripts/generate-ci-evidence.mjs

@@ -130,14 +130,26 @@ The gate exits zero only when all of these are true:
 - All ten POST runs return Search Contract v2 `results` containing the expected
   handle and explicit non-transactional, non-purchasable, write-disabled
   boundaries.
+- Before the first preview navigation, a browser-context route intercepts every
+  request. It permits same-origin GET/HEAD traffic, the single same-origin
+  `POST /apps/reference-store/api/runs` BFF operation, and passive Shopify CDN
+  subresources only. Unknown API routes, all other write methods, active
+  cross-origin traffic, and forbidden credential headers are aborted before
+  they can reach a server. A v2 receipt records every aborted attempt in
+  `blocked_browser_requests`; a passing receipt requires zero.
 - No legacy route, unexpected runtime route, active cross-origin resource,
   unknown-origin passive resource, browser credential header, query/credential
   storage hit, IndexedDB/Cache Storage/service-worker state, console error, page
   error, synthetic fallback, or commerce write is observed. Passive images,
-  styles, fonts, and media are accepted only from the explicit Shopify CDN
-  allowlist.
+  styles, fonts, media, and scripts are accepted only from the explicit Shopify
+  CDN allowlist.
 - For v2, the document has zero horizontal overflow and axe-core reports zero
   serious or critical accessibility violations at the selected viewport.
+- Before closing the browser, the gate waits for a bounded quiet window, enters
+  a finalization window that blocks any late request, captures storage,
+  accessibility, overflow, and request counters, and only then closes the
+  context. This preflight enforcement and final snapshot apply independently to
+  every browser and viewport receipt.
 
 Missing environment, a missing browser, HTTP, a mismatched shop/theme/component
 identity, fewer than ten cases, or any boundary violation exits nonzero.

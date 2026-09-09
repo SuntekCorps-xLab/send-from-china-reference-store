@@ -74,7 +74,7 @@
         "cross_origin_api_requests", "legacy_route_requests", "unexpected_api_requests",
         "browser_write_requests", "forbidden_browser_header_requests", "browser_storage_credential_hits",
         "browser_storage_query_hits", "browser_persistent_storage_hits", "console_errors", "page_errors",
-        "horizontal_overflow_pixels", "serious_critical_a11y_violations"
+        "blocked_browser_requests", "horizontal_overflow_pixels", "serious_critical_a11y_violations"
       ],
       "properties": {
         "cross_origin_api_requests": { "type": "integer", "minimum": 0 },
@@ -87,6 +87,7 @@
         "browser_persistent_storage_hits": { "type": "integer", "minimum": 0 },
         "console_errors": { "type": "integer", "minimum": 0 },
         "page_errors": { "type": "integer", "minimum": 0 },
+        "blocked_browser_requests": { "type": "integer", "minimum": 0 },
         "horizontal_overflow_pixels": { "type": "integer", "minimum": 0 },
         "serious_critical_a11y_violations": { "type": "integer", "minimum": 0 }
       }
@@ -163,6 +164,7 @@
               "browser_persistent_storage_hits": { "const": 0 },
               "console_errors": { "const": 0 },
               "page_errors": { "const": 0 },
+              "blocked_browser_requests": { "const": 0 },
               "horizontal_overflow_pixels": { "const": 0 },
               "serious_critical_a11y_violations": { "const": 0 }
             }
