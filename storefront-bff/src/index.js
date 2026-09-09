@@ -1,3 +1,15 @@
+import {
+  MANAGED_CATALOG_MODE,
+  ManagedCatalogPublicError,
+  handleManagedCatalogRequest,
+  isManagedCatalogPath,
+} from "./managed-public-catalog.js";
+import {
+  SOURCE_HANDOFF_PATH,
+  SourceHandoffPublicError,
+  handleSourceHandoff,
+} from "./source-handoff.js";
+
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_PROXY_QUERY_BYTES = 8 * 1024;
 const MAX_PROXY_QUERY_PARAMETERS = 32;
@@ -15,6 +27,8 @@ export const RUNTIME_PUBLIC_ERRORS = Object.freeze([
   "app_proxy_authentication_failed", "app_proxy_timestamp_expired", "authentication_failed",
   "credential_missing", "deployment_not_configured", "invalid_request",
   "invalid_shopify_product_url", "invalid_upstream_content_type", "invalid_upstream_contract",
+  "broader_search_opt_in_required", "curated_not_ready", "managed_catalog_not_configured",
+  "managed_catalog_unavailable", "product_not_curated", "product_not_found",
   "local_binding_required", "not_found", "origin_not_allowed", "permission_required", "quota_exceeded",
   "request_too_large", "runtime_mode_mismatch", "runtime_not_configured", "service_unavailable",
   "upstream_contract_unavailable", "upstream_redirect_rejected", "upstream_response_too_large",
@@ -1479,7 +1493,7 @@ async function handleSearch(request, env) {
 
 function runtimeErrorResponse(error, env, headers) {
   const configured = String(env?.BFF_RUNTIME_MODE || "").trim();
-  const expected = RUNTIME_MODES.has(configured) ? configured : null;
+  const expected = RUNTIME_MODES.has(configured) || configured === MANAGED_CATALOG_MODE ? configured : null;
   if (error instanceof Response) {
     const code = error.status === 413 ? "request_too_large" : "invalid_request";
     return json({ error: code, expected_mode: expected }, error.status, headers);
@@ -1496,6 +1510,34 @@ function runtimeErrorResponse(error, env, headers) {
     });
   }
   return json({ error: "service_unavailable", expected_mode: expected }, 503, headers);
+}
+
+function managedPublicErrorResponse(error, headers) {
+  if (error instanceof Response) {
+    const code = error.status === 413 ? "request_too_large" : "invalid_request";
+    return json({ error: code, expected_mode: MANAGED_CATALOG_MODE }, error.status, headers);
+  }
+  if (error instanceof ManagedCatalogPublicError || error instanceof SourceHandoffPublicError) {
+    return json({ error: error.code, expected_mode: MANAGED_CATALOG_MODE }, error.status, headers);
+  }
+  if (error instanceof RuntimePublicError) {
+    return json({ error: error.code, expected_mode: MANAGED_CATALOG_MODE }, error.status, {
+      ...headers,
+      ...(error.retryAfter ? { "retry-after": error.retryAfter } : {}),
+    });
+  }
+  return json({ error: "service_unavailable", expected_mode: MANAGED_CATALOG_MODE }, 503, headers);
+}
+
+async function handleManagedPublicRoute(request, env, pathname) {
+  const release = acquireRuntimeQuota(env);
+  try {
+    if (isManagedCatalogPath(pathname)) return await handleManagedCatalogRequest(request, env, pathname);
+    if (pathname === SOURCE_HANDOFF_PATH) return await handleSourceHandoff(request, env);
+    throw new SourceHandoffPublicError("not_found", 404);
+  } finally {
+    release();
+  }
 }
 
 async function handleRuntimeRoute(request, env, pathname) {
@@ -1521,9 +1563,12 @@ export default {
     const url = new URL(request.url);
     const runtimePath = url.pathname === "/api/runtime/status"
       || url.pathname === "/api/runtime/doctor" || url.pathname === "/api/runs";
+    const managedPublicPath = isManagedCatalogPath(url.pathname) || url.pathname === SOURCE_HANDOFF_PATH;
     const origin = allowedOrigin(request, env);
     if (origin === null) {
-      return runtimePath
+      return managedPublicPath
+        ? managedPublicErrorResponse(new ManagedCatalogPublicError("origin_not_allowed", 403), {})
+        : runtimePath
         ? runtimeErrorResponse(new RuntimePublicError("origin_not_allowed", 403), env, {})
         : json({ error: "origin_not_allowed" }, 403);
     }
@@ -1548,14 +1593,28 @@ export default {
     }
     const deploymentMode = String(env?.BFF_DEPLOYMENT_MODE || "").trim();
     const shopifyReadOnly = String(env?.BFF_RUNTIME_MODE || "").trim() === "shopify_read_only";
+    const managedPublic = String(env?.BFF_RUNTIME_MODE || "").trim() === MANAGED_CATALOG_MODE;
     const protectedApi = url.pathname.startsWith("/api/")
-      && (runtimePath || deploymentMode || shopifyReadOnly);
+      && (runtimePath || managedPublicPath || deploymentMode || shopifyReadOnly || managedPublic);
     if (protectedApi) {
       try {
         await authorizeRuntimeRequest(request, env);
       } catch (error) {
-        return runtimeErrorResponse(error, env, headers);
+        return managedPublicPath
+          ? managedPublicErrorResponse(error, headers)
+          : runtimeErrorResponse(error, env, headers);
       }
+    }
+    if (managedPublicPath) {
+      try {
+        const payload = await handleManagedPublicRoute(request, env, url.pathname);
+        return json(payload, 200, headers);
+      } catch (error) {
+        return managedPublicErrorResponse(error, headers);
+      }
+    }
+    if (managedPublic && runtimePath) {
+      return managedPublicErrorResponse(new ManagedCatalogPublicError("not_found", 404), headers);
     }
     if (runtimePath) {
       try {
@@ -1567,6 +1626,9 @@ export default {
     }
     if (shopifyReadOnly && url.pathname.startsWith("/api/")) {
       return runtimeErrorResponse(new RuntimePublicError("not_found", 404), env, headers);
+    }
+    if (managedPublic && url.pathname.startsWith("/api/")) {
+      return managedPublicErrorResponse(new ManagedCatalogPublicError("not_found", 404), headers);
     }
     let releaseLegacyQuota = () => {};
     if (deploymentMode) {
