@@ -92,14 +92,14 @@ jobs:
           --output artifacts/ci-evidence/browser.json
       - name: Upload exact-SHA browser evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reference-store-browser-evidence
           path: artifacts/ci-evidence/browser.json
           if-no-files-found: error
       - name: Upload source-only account preview evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: account-preview-verification
           path: artifacts/account-preview/
@@ -162,7 +162,7 @@ jobs:
           CHROME_PATH=/usr/bin/google-chrome node tests/run-workspace-browser-qa.mjs 2>&1 | tee ../artifacts/customer-account-browser-qa.log
       - name: Upload account evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: customer-account-verification
           path: artifacts/
@@ -210,13 +210,13 @@ jobs:
           --kind safety
           --output artifacts/ci-evidence/safety.json
       - name: Upload exact-SHA safety evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reference-store-safety-evidence
           path: artifacts/ci-evidence/safety.json
           if-no-files-found: error
       - name: Upload SBOM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reference-store-sbom
           path: artifacts/sbom/
